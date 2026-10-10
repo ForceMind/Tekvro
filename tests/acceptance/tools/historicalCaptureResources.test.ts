@@ -113,5 +113,5 @@ it("reports real HAR heap exhaustion through CLI and MCP and preserves server us
   expect(oversized.structuredContent).toMatchObject({
     error: { code: "invalid_request" },
   });
-// Deliberately induce and collect two V8 heap exhaustion failures.
+  // Deliberately induce and collect two V8 heap exhaustion failures.
 }, 120_000);
