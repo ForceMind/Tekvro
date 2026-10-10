@@ -1,85 +1,47 @@
 import { defineConfig } from "vitepress";
 
 export default defineConfig({
-  title: "REA",
-  description:
-    "Reverse engineer binaries, applications, and runtime behavior with one CLI and MCP server.",
-  lang: "en-US",
-  base: "/rea/",
+  title: "Tekvro · 探核",
+  description: "用证据看懂软件 — AI 辅助的本地软件分析工具",
+  lang: "zh-CN",
+  base: "/REA/",
   themeConfig: {
     nav: [
-      { text: "Get started", link: "/installation" },
-      { text: "Reference", link: "/mcp-contracts" },
-      { text: "Roadmap", link: "/roadmap" },
+      { text: "开始使用", link: "/zh-CN/quick-start" },
+      { text: "项目架构", link: "/zh-CN/architecture" },
+      { text: "技术参考", link: "/mcp-contracts" },
+      { text: "维护计划", link: "/roadmap" },
     ],
     sidebar: [
       {
-        text: "Getting started",
+        text: "中文入门",
         items: [
-          { text: "Installation and setup", link: "/installation" },
-          { text: "CLI and Evidence", link: "/cli" },
-          { text: "Agent prompts", link: "/mcp-prompts" },
-          { text: "Roadmap", link: "/roadmap" },
+          { text: "快速上手", link: "/zh-CN/quick-start" },
+          { text: "项目架构", link: "/zh-CN/architecture" },
+          { text: "常见问题", link: "/zh-CN/faq" },
+          { text: "安全与授权", link: "/zh-CN/security" },
+          { text: "品牌说明", link: "/BRAND" },
+          { text: "维护路线", link: "/roadmap" },
         ],
       },
       {
-        text: "Investigation guides",
-        items: [
-          { text: "Native binaries", link: "/native-investigation" },
-          {
-            text: "JavaScript and Electron",
-            link: "/javascript-artifact-reconstruction",
-          },
-          {
-            text: "JavaScript workflows",
-            link: "/javascript-application-workflows",
-          },
-          { text: "Browser observation", link: "/browser-observation" },
-          { text: "Electron observation", link: "/electron-observation" },
-          { text: "Process capture", link: "/process-capture" },
-          { text: ".NET assemblies", link: "/managed-code-analysis" },
-          { text: "Android applications", link: "/android-analysis" },
-          { text: "Apple applications", link: "/apple-application-analysis" },
-          { text: "Firmware", link: "/firmware-analysis" },
-          {
-            text: "Reconstruction readiness",
-            link: "/reconstruction-readiness",
-          },
-        ],
-      },
-      {
-        text: "Provider guides",
+        text: "高级技术资料（英语）",
         collapsed: true,
         items: [
-          { text: "IDA", link: "/ida-provider" },
-          { text: "Ghidra on Windows", link: "/windows-ghidra-p0" },
-          { text: "Ghidra DOS analysis", link: "/ghidra-dos" },
-          { text: "Ghidra NativeAOT", link: "/ghidra-nativeaot" },
-          { text: "Provider evaluation", link: "/provider-evaluation" },
-        ],
-      },
-      {
-        text: "Reference and development",
-        collapsed: true,
-        items: [
-          { text: "MCP contracts", link: "/mcp-contracts" },
-          { text: "Tool design", link: "/tool-design" },
-          { text: "Testing", link: "/testing" },
-          { text: "Releasing", link: "/releasing" },
-          { text: "Architecture decisions", link: "/adr/README" },
+          { text: "安装与配置", link: "/installation" },
+          { text: "CLI 与 Evidence", link: "/cli" },
+          { text: "MCP 契约", link: "/mcp-contracts" },
+          { text: "JavaScript / Electron", link: "/javascript-artifact-reconstruction" },
+          { text: "浏览器观察", link: "/browser-observation" },
+          { text: "原生二进制", link: "/native-investigation" },
+          { text: "Android", link: "/android-analysis" },
+          { text: "测试", link: "/testing" },
         ],
       },
     ],
     search: { provider: "local" },
-    socialLinks: [
-      { icon: "github", link: "https://github.com/morluto/rea" },
-      { icon: "discord", link: "https://discord.gg/GkcryMnJDM" },
-    ],
-    editLink: {
-      pattern: "https://github.com/morluto/rea/edit/main/docs/:path",
-    },
-    footer: {
-      message: "Released under the MIT License.",
-    },
+    socialLinks: [{ icon: "github", link: "https://github.com/ForceMind/REA" }],
+    editLink: { pattern: "https://github.com/ForceMind/REA/edit/main/docs/:path", text: "编辑此页" },
+    footer: { message: "Tekvro 是 REA 的独立衍生研发项目；原作者 MIT 许可证及版权说明予以保留。", copyright: "© 2026 ForceMind · Original REA © 2026 morluto" },
   },
 });

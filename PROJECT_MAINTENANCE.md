@@ -1,6 +1,6 @@
-# ForceMind / REA 维护与开发说明
+# ForceMind / Tekvro（探核）维护与开发说明
 
-> 本仓库是 ForceMind 的独立私有研发工作区，并非 REA 官方项目。源项目为 [morluto/rea](https://github.com/morluto/rea)，采用 MIT 许可证。请保留原作者署名、许可证及原始出处。
+> 本仓库是 ForceMind 维护的 Tekvro（探核）独立研发项目，并非 REA 官方项目。源项目为 [morluto/rea](https://github.com/morluto/rea)，采用 MIT 许可证。请保留原作者署名、许可证及原始出处。
 
 ## 源码基线
 

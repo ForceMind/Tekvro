@@ -1,125 +1,35 @@
-# REA roadmap
+# Tekvro（探核）独立维护路线
 
-## Tool direction
+> 2026-10-10 启动 ForceMind 独立维护。现有源码引擎保留 REA 6.1.0 的架构；**不冒充完全原创，不静默升级上游**。
 
-REA provides inspection, capture, and comparison tools that return evidence
-directly. Agents choose commands, paths, browser actions, scripts, and local
-fixture servers, then compose experiments from those results. CLI and MCP must
-expose equivalent behavior and preserve observations, inferences, and unknowns.
+## P0：独立品牌与安全隔离（当前）
 
-[#555](https://github.com/morluto/rea/pull/555) removed REA permission grants,
-scope ceilings, elicitation, and repeated approval fields.
-[#572](https://github.com/morluto/rea/pull/572) removed the replay engines,
-Node characterization prepare/execute flow, and plan-only managed runtime
-correlation tool. Those systems are retired roadmap items. Existing evidence
-authority labels remain readable as provenance; they do not imply a current
-replay executor.
+- 中文首页、品牌说明、中文快速开始与技术架构。
+- 所有主要对外链接指向 ForceMind；上游推广徽章、社区导流和误导性安装提示不再出现在新首页。
+- npm 包禁止发布；旧 npm、MCP 注册与命令仍作为内部兼容资产，不发布到原项目的外部身份。
+- 复制式继承的发布流程保持锁定；发布、网站、域名和密钥需重新建立。
+- 维护原 MIT 版权与独立第三方许可证。
 
-Local operations use the current user's OS permissions. Input and protocol
-validation, provider prerequisites, target identity, cancellation, and owned
-resource cleanup remain part of each tool's contract. Setup still discloses
-installation changes and requires approval before writing or installing.
+## P1：本地化闭环
 
-## Planned work
+- 建立 `zh-CN`、`en` 的可维护文案目录；向导优先覆盖简体中文，再逐步扩展 CLI 人类可读提示。
+- 完成配置向导的中文可用性和回归测试，保留 `--json` 结构字段，绝不翻译机器可读协议名。
+- 完整整理安装、故障排查、平台支持、MCP 连接、Evidence 解释等中文文档。
+- 使用权利明确的测试样本完成 Mac、Linux、Windows 的真实环境验证。
 
-The [website guides](https://rea.tools/guides/) and
-[generated catalog](product-catalog.json) describe available workflows.
-Current development priorities are:
+## P2：彻底产品身份迁移
 
-- Keep generated metadata and narrative documentation aligned with tools,
-  providers, setup options and releases.
-- Expand native architecture, type and indirect-call verification across
-  Hopper and Ghidra.
-- Connect additional static extractors and runtime observations to
-  cross-layer feature traces.
-- Improve obfuscated .NET comparisons and links between managed findings
-  and verified native analysis.
-- Extend process, protocol, filesystem, reconnect and build-comparison
-  coverage, plus browser and Electron scenario actions.
-- Evaluate native runtime observation through LLDB, Frida, system logs and
-  API tracing, and additional tools and targets such as Binary Ninja, Rizin,
-  LIEF, Windows-native workflows, mobile applications and firmware.
+- 另行评估私有包从 `rea-agents` 至 `tekvro` 的安全迁移、命令别名、MCP key/registry 与客户端旧配置。
+- 用独立品牌和主题重新制作网站；删除过时的上游营销站点及其发布脚本，并同步修改相关测试。
+- 重新设计安装器与升级检查，避免调用或错误推广上游发行渠道。
+- 完成许可证核查、安全扫描、最小权限发布与版本化交付。
 
-Provider additions and platform support require the corresponding real
-verification lanes; see [testing](testing.md) and
-[provider evaluation](provider-evaluation.md).
+## P3：产品差异化
 
-## Remaining evidence and provider work
+- 将游戏/H5/Electron 软件分析沉淀为 Evidence 工作流。
+- 提供可复用的结构化分析报告和多版本差异，验证局限而非宣称可恢复任意源码。
+- 维护受控的 upstream 对照表，评估安全修复后选择性移植，而不是自动覆盖独立工作。
 
-The [platform roadmap](https://github.com/morluto/rea/issues/32),
-[process and Hopper fidelity tracker](https://github.com/morluto/rea/issues/48),
-and [browser tracker](https://github.com/morluto/rea/issues/39) track remaining
-capabilities and proof. Their scope follows direct tools and agent-composed
-experiments; custom replay languages and grant systems are not completion gates.
+### 当前验证声明
 
-[Inline Evidence composition](https://github.com/morluto/rea/pull/585) now returns
-the complete record accepted by comparison tools. Managed inspection uses an
-explicit PE/CLI target independently of the native provider selection. Comparisons
-preserve unknowns when observation is incomplete, and PTY diagnostics retain the
-actual loader or startup failure. Browser cleanup reports incomplete teardown
-alongside the primary failure; transient documents invalidate only the affected
-frame's WebMCP registrations. Real-provider and platform claims still require
-their corresponding verification lanes.
-
-## Shipped behavior
-
-REA setup lets you select agent integration and optional Hopper installation.
-It installs the bundled workflow, configures detected agents, and can save
-verified paths for an existing Ghidra installation. It configures Claude Code,
-Claude Desktop, Codex, Cursor, Gemini CLI, Windsurf, Devin, OpenCode, Antigravity,
-GitHub Copilot CLI, Command Code, VS Code, and Grok Build using each client's configuration format. Grok Bot is detected locally, but its connector is added from the Grok Bot chat because the signed-in account store is not a data-directory file.
-
-Ghidra analysis supports Linux x64/arm64 and macOS x64/arm64 with Ghidra 12.1.x and the
-64-bit full JDK that installation declares. Current 12.1 releases require JDK 21
-or newer and set no maximum; the bridge is verified with Ghidra 12.1.4 and JDK 21.
-Each installation requires the matching native decompiler. The
-adapter exposes thirteen inventory operations and twelve function-analysis
-operations, for 25 read-only operations total. Linux and macOS additionally support
-atomic function-name and entry-comment edits with refreshed analysis; metadata
-is discarded on close and executable bytes stay unchanged. Approved setup saves verified
-installation paths in agent configurations without installing or changing
-Ghidra or Java.
-
-Real-provider verification uses host-native debug and stripped fixtures plus
-a native type-layout object. A separate lane covers AArch64 ELF, PE, and
-Mach-O cross-target fixtures. See [testing](testing.md) for the prerequisites
-and exact commands.
-
-Experimental Windows x64 P0 now supplies bundled Job Object ownership,
-protected runtime DACLs, and handle-based admission for native x86 and x86-64 PE
-applications on local NTFS. Real ordinary-user CLI/MCP verification covers
-all 25 read-only operations and cleanup. The [Windows P0 guide](windows-ghidra-p0.md)
-describes this boundary and unverified broader coverage.
-
-## Ghidra maintenance boundary
-
-Extend formats or semantics only with normalized provider-neutral contracts and
-real source-owned conformance. Hopper and Ghidra pseudocode or assembly text is
-not expected to match; unresolved targetless flow remains unknown. Automatic
-Ghidra acquisition, if ever added, remains a separately planned and approved
-related-tool change; setup must never install Java.
-
-Maintain Windows P0 with independent DACL readback, handle-based admission,
-private authenticated IPC, and Job Object assignment before provider execution.
-Process capture, Hopper, and broad filesystem-sensitive workflows remain
-separate Windows projects; P0 does not imply their parity.
-
-## Capability-selective setup
-
-Setup already lets users select agent integration and Hopper installation.
-Once REA supports installing additional analysis tools, it can expand these
-choices to match the work a user wants to do. It may ask whether the operator wants to investigate
-native binaries, websites, mobile applications, firmware, or runtime protocols,
-then propose only the tools needed for the selected work.
-
-That future installer must preserve the current safety boundary:
-
-- detect and reuse existing tools;
-- disclose every source, destination, license, command, and system effect;
-- prefer user-local installation;
-- install only explicitly selected toolchains;
-- require tool-specific authorization for unattended system changes;
-- verify each installed tool before reporting readiness.
-
-No placeholder tool choices or speculative installer registry are implemented
-until another supported toolchain makes the abstraction concrete.
+本次仅完成基线源码核验、文档与配置重构；跨平台构建和真实逆向工具链验证以 GitHub CI 和实际运行结果为准。

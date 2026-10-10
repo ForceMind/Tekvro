@@ -1,79 +1,27 @@
-<!--
-PR title: type(optional-scope): imperative outcome
-The title becomes the squash-merge commit subject and generated changelog entry.
--->
+<!-- 约定：标题使用 feat:/fix:/docs:/chore: 等 Conventional Commits 格式 -->
 
-## Summary
+## 本次变更
 
-<!-- What user, agent, or maintainer problem does this solve? Link the issue
-with "Fixes #123" when applicable. Keep the prior behavior, expected contract,
-and new behavior understandable without private context. -->
+描述问题、修改内容和使用场景。
 
-## Problem and expected behavior
+## 影响范围
 
-<!-- For fixes, give the smallest trigger and violated invariant. For features,
-describe the use case and observable outcome. -->
+- [ ] CLI / MCP 合约改变（列出受影响的命令、工具和参数）
+- [ ] 配置 / 安装 / 子模块 / 平台兼容性改变
+- [ ] 证据、数据、文件路径、清理或安全边界改变
+- [ ] 仅文档、品牌或翻译
 
-## Change and scope
+## 检查结果
 
-<!-- Explain the chosen approach, why it fits REA's architecture, and what is
-intentionally not included. -->
+明确列出 **实际执行的命令与结果**，未执行的标记为“未执行”；不要凭推测填写通过。
 
-## Contract and boundary impact
+## 兼容性、安全与许可证
 
-<!-- Complete the applicable lines; use "none" or "not applicable" explicitly. -->
+说明是否影响旧 `rea` 注册、npm/MCP 标识、配置迁移、发布身份，以及新引入资源的授权。不要提交密钥、客户资料和受保护的样本。
 
-- Semantic owner and earliest changed stage:
-- CLI and MCP/tool-catalog contract:
-- Provider, bridge, target-format, or platform compatibility:
-- Evidence, artifact, provenance, or reconstruction contract:
-- Process execution, authorization, cleanup, or containment impact:
-- Generated metadata (`docs/public/product-catalog.json`), package, or installation impact (CI generates and validates ignored catalogs and `skills/`; edit authored instructions in `skill-src/` and never commit build outputs):
+## 交付清单
 
-## Evidence and regression coverage
-
-<!-- State whether evidence is executed, source-derived, or proposed. For fixes,
-explain how the regression would fail on the affected base revision when practical. -->
-
-- Tests added or updated:
-- Base reproduction or other evidence:
-- User-visible CLI/MCP output (if applicable):
-- Remaining proof gaps:
-
-For evidence-bearing changes:
-
-- [ ] Observed, derived, and inferred claims remain distinguishable.
-- [ ] Artifact identity, source provenance, and failed attempts remain preserved.
-- [ ] Unsupported, incomplete, unavailable, or uncertain outcomes remain visible.
-
-## Validation performed
-
-<!-- List only commands that actually ran, with observed results. Include the
-relevant real-provider or platform workflow, or explain why it was unavailable. -->
-
-- `command` — result
-
-## Compatibility, safety, and release
-
-<!-- Call out breaking changes, migrations, package effects, platform/provider
-limits, security/privacy/containment implications, and meaningful proof gaps. -->
-
-- Breaking changes or migration steps:
-  <!-- For ! / BREAKING CHANGE: show a previously valid call/configuration,
-  its new behavior and migration, and why compatibility/deprecation cannot
-  preserve it. Every release increments minor, including breaking changes;
-  keep breaking markers and migration notes so callers can assess compatibility.
-  See docs/releasing.md. -->
-- Real Hopper/Ghidra, browser, or OS coverage:
-- Package or release metadata impact:
-- Security, privacy, process, or containment review:
-
-## Review checklist
-
-- [ ] This PR addresses a concrete problem or an agreed enhancement.
-- [ ] The PR has one focused outcome and the title follows `type(scope): outcome`.
-- [ ] Related issue is linked, or the reason for not linking one is stated above.
-- [ ] Tests cover changed observable behavior and meaningful failure paths.
-- [ ] Owning docs, contracts, and generated metadata are updated where needed.
-- [ ] User-visible CLI/MCP changes include representative output.
-- [ ] I checked the final diff for secrets, unrelated cleanup, and unsupported claims.
+- [ ] 未误删项目运行依赖、子模块或原 MIT 许可
+- [ ] 相关文档、示例和测试已更新
+- [ ] 未重新连接上游官网、发布账号或社区入口
+- [ ] 新代码经过必要的格式、静态与回归检查
