@@ -1,5 +1,8 @@
 # Installation and setup
 
+> **Tekvro（探核）维护提示 / Independent distribution notice：** 本页面是 REA 6.1.0 的原始发行与引擎安装技术参考，`rea-agents`、`rea.tools` 和 `io.github.morluto/rea` 属于**原上游**，不是 Tekvro 的独立发行渠道。开发和部署本项目请以[中文快速上手](./zh-CN/quick-start.md)和 [ForceMind 私有源码](https://github.com/ForceMind/REA)为准，勿直接使用原项目的自动安装及更新步骤来升级当前研发版。
+
+
 REA separates installing its CLI from configuring external software and agents.
 
 ## Start setup
