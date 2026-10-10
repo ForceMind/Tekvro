@@ -1,16 +1,6 @@
 import { readFile, readdir, stat } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
-const readmeLinkTargets = (content) =>
-  [...content.matchAll(/\]\(([^)\s]+)\)/gu)]
-    .map((match) => match[1] ?? "")
-    .filter(
-      (target) =>
-        !target.startsWith("#") &&
-        !/^README(?:_[A-Za-z0-9-]+)?\.md$/u.test(target),
-    )
-    .sort();
-
 const requireText = (issues, path, content, expected) => {
   if (!content.includes(expected)) issues.push(`${path}: missing ${expected}`);
 };
@@ -58,37 +48,21 @@ export const documentationFactIssues = async (root, catalog) => {
   const issues = await skillReferenceIssues(
     join(root, "skills/reverse-engineer-anything"),
   );
-  const readmePaths = (await readdir(root))
-    .filter((path) => /^README(?:_[A-Za-z0-9-]+)?\.md$/u.test(path))
-    .sort();
-  const readmes = new Map();
-  for (const path of readmePaths) {
+  // This fork deliberately uses a Chinese-first README and a separately
+  // authored English overview, not upstream's mirrored 17-language marketing.
+  for (const path of ["README.md", "README.en.md"]) {
     const content = await readFile(join(root, path), "utf8");
-    readmes.set(path, content);
-    requireText(issues, path, content, "MCP-tool_catalog");
-    if (path === "README.md") {
-      requireText(
-        issues,
-        path,
-        content,
-        "(docs/installation.md#supported-agents)",
-      );
-      requireText(issues, path, content, "(docs/installation.md#mcp-registry)");
-      requireText(
-        issues,
-        path,
-        content,
-        "(docs/mcp-contracts.md#generated-catalog)",
-      );
-    }
+    requireText(issues, path, content, "Tekvro");
+    requireText(issues, path, content, "https://github.com/ForceMind/Tekvro");
+    requireText(issues, path, content, "LICENSE");
+    requireText(issues, path, content, "THIRD_PARTY_NOTICES.md");
+    if (content.includes("https://rea.tools/"))
+      issues.push(`${path}: links to the original project's product website`);
+    if (content.includes("discord.gg"))
+      issues.push(`${path}: contains an upstream community invitation`);
   }
-  const canonicalLinks = readmeLinkTargets(readmes.get("README.md") ?? "");
-  for (const path of readmePaths.filter((path) => path !== "README.md"))
-    if (
-      JSON.stringify(readmeLinkTargets(readmes.get(path) ?? "")) !==
-      JSON.stringify(canonicalLinks)
-    )
-      issues.push(`${path}: documentation links differ from README.md`);
+  const chinese = await readFile(join(root, "README_zh.md"), "utf8");
+  requireText(issues, "README_zh.md", chinese, "(README.md)");
 
   const installationPath = "docs/installation.md";
   const installation = await readFile(join(root, installationPath), "utf8");

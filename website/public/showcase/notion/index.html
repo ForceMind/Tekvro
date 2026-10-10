@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Following Notion's clipboard through Electron — REA</title>
+    <title>Following Notion's clipboard through Electron — Tekvro</title>
     <meta
       name="description"
       content="Follow Notion's clipboard API through Electron's preload, IPC wrappers and main process, with short code excerpts and a look at its rich clipboard format."
@@ -17,21 +17,22 @@
     <a class="skip-link" href="#main">Skip to content</a>
     <header class="site-header">
       <div class="container header-inner">
-        <a class="brand" href="../../" aria-label="REA home"
-          ><span class="brand-name">REA</span
-          ><span class="brand-caption">Reverse Engineer Anything</span></a
+        <a class="brand" href="../../" aria-label="Tekvro home"
+          ><span class="brand-name">Tekvro</span
+          ><span class="brand-caption">用证据看懂软件</span></a
         >
         <nav class="navigation" aria-label="Main navigation">
           <a href="../">Showcases</a>
           <a class="nav-start" href="../../get-started/">Get started</a>
           <a href="../../guides/">Guides</a>
           <a href="../../faq/">FAQ</a>
+          <a href="https://github.com/ForceMind/Tekvro/blob/main/README.md" lang="zh-CN">简体中文</a>
         </nav>
         <a
           class="nav-github"
-          href="https://github.com/morluto/rea"
-          aria-label="REA on GitHub"
-          title="REA on GitHub"
+          href="https://github.com/ForceMind/Tekvro"
+          aria-label="Tekvro on GitHub"
+          title="Tekvro on GitHub"
         >
           <svg
             width="22"
@@ -60,7 +61,7 @@
           Trace a clipboard call from Notion's page API, through the preload and
           main process, to Electron's clipboard writer.
         </p>
-        <p class="page-meta">Notion Desktop 7.6.1 · JavaScript · REA</p>
+        <p class="page-meta">Notion Desktop 7.6.1 · JavaScript · Tekvro</p>
       </div>
 
       <figure class="workflow-figure">
@@ -141,7 +142,7 @@
               <p class="terminal-prompt">
                 <span class="prompt-symbol" aria-hidden="true">›</span
                 ><span id="notion-prompt"
-                  >Use REA to trace how Notion copies text and HTML to the
+                  >Use Tekvro to trace how Notion copies text and HTML to the
                   system clipboard. Show the code at each step.</span
                 ><span class="terminal-cursor" aria-hidden="true"></span>
               </p>
@@ -151,14 +152,14 @@
               available to your coding agent.
             </p>
 
-            <h3 class="small-heading">REA finds where to start reading</h3>
+            <h3 class="small-heading">Tekvro finds where to start reading</h3>
             <p>
-              Analyzing the tab preload with REA locates the API exposed to the
+              Analyzing the tab preload with Tekvro locates the API exposed to the
               page and the call that sends an IPC request. Both findings come
               with source ranges in the minified bundle:
             </p>
             <figure class="workflow-figure">
-              <p class="figure-title">REA findings → two places to open</p>
+              <p class="figure-title">Tekvro findings → two places to open</p>
               <div class="rea-query-pair">
                 <div class="code-block">
                   <div class="code-header"><span>Exposed page API</span></div>
@@ -176,7 +177,7 @@ source: preload.js:1:6486–6522</code></pre>
               <figcaption>
                 Selected fields from a fresh
                 <code>analyze_javascript_application</code> result on Notion's
-                tab preload, recorded with REA 4.1.0. Positions use the original
+                tab preload, recorded with Tekvro 4.1.0. Positions use the original
                 bundle's line and zero-based column.
               </figcaption>
             </figure>
@@ -429,8 +430,8 @@ mimeTypes:
                 those probes rather than a captured desktop UI session.
               </p>
               <p>
-                The REA result shown here is a focused analysis of the saved tab
-                preload, recorded with the published REA 4.1.0 package. It
+                The Tekvro result shown here is a focused analysis of the saved tab
+                preload, recorded with the published Tekvro 4.1.0 package. It
                 locates the API and invoke operation. The clipboard member and
                 matching receiver are connected by reading their wrapper
                 implementations in the package.
@@ -468,12 +469,12 @@ mimeTypes:
     </main>
     <footer class="site-footer">
       <div class="container footer-inner">
-        <p>REA · Reverse Engineer Anything</p>
+        <p>Tekvro · Reverse Engineer Anything</p>
         <div class="footer-links">
-          <a href="https://github.com/morluto/rea">Source</a
-          ><a href="https://github.com/morluto/rea/blob/main/LICENSE"
+          <a href="https://github.com/ForceMind/Tekvro">Source</a
+          ><a href="https://github.com/ForceMind/Tekvro/blob/main/LICENSE"
             >MIT license</a
-          ><a href="https://discord.gg/GkcryMnJDM">Community</a>
+          ><a href="https://github.com/ForceMind/Tekvro/issues">Community</a>
         </div>
       </div>
     </footer>

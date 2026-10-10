@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Your first investigation — REA</title>
+    <title>Your first investigation — Tekvro</title>
     <meta
       name="description"
-      content="Try REA on a small Notes app. Set up your agent, ask where exported notes go, and check the CSV formatter with a sample title."
+      content="Try Tekvro on a small Notes app. Set up your agent, ask where exported notes go, and check the CSV formatter with a sample title."
     />
     <meta name="theme-color" content="#ffffff" />
     <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml" />
@@ -17,20 +17,21 @@
     <a class="skip-link" href="#main">Skip to content</a>
     <header class="site-header">
       <div class="container header-inner">
-        <a class="brand" href="../" aria-label="REA home"
-          ><span class="brand-name">REA</span
-          ><span class="brand-caption">Reverse Engineer Anything</span></a
+        <a class="brand" href="../" aria-label="Tekvro home"
+          ><span class="brand-name">Tekvro</span
+          ><span class="brand-caption">用证据看懂软件</span></a
         >
         <nav class="navigation" aria-label="Main navigation">
           <a href="../showcase/">Showcases</a
           ><a class="nav-start" href="../get-started/">Get started</a
           ><a href="../guides/">Guides</a><a href="../faq/">FAQ</a>
+          <a href="https://github.com/ForceMind/Tekvro/blob/main/README.md" lang="zh-CN">简体中文</a>
         </nav>
         <a
           class="nav-github"
-          href="https://github.com/morluto/rea"
-          aria-label="REA on GitHub"
-          title="REA on GitHub"
+          href="https://github.com/ForceMind/Tekvro"
+          aria-label="Tekvro on GitHub"
+          title="Tekvro on GitHub"
         >
           <svg
             width="22"
@@ -55,7 +56,7 @@
         </p>
         <h1>Find out where<br />exported notes go.</h1>
         <p class="lede">
-          Use REA to inspect a small app, follow its Export notes button and
+          Use Tekvro to inspect a small app, follow its Export notes button and
           check one detail yourself.
         </p>
         <p class="page-meta">
@@ -73,9 +74,9 @@
             <li><a href="#next">5. Ask another question</a></li>
           </ul>
         </nav>
-        <article class="article" aria-label="Your first REA investigation">
+        <article class="article" aria-label="Your first Tekvro investigation">
           <section class="article-section" id="setup">
-            <h2>1. Connect your agent to REA</h2>
+            <h2>1. Connect your agent to Tekvro</h2>
             <p>
               Use a coding agent such as Claude Code, Codex or Cursor. You’ll
               need Node.js and npm; the
@@ -93,7 +94,7 @@
                   class="copy-button"
                   type="button"
                   data-copy="first-install-prompt"
-                  aria-label="Copy REA installation prompt"
+                  aria-label="Copy Tekvro installation prompt"
                 >
                   Copy
                 </button>
@@ -101,15 +102,15 @@
               <p class="terminal-prompt">
                 <span class="prompt-symbol" aria-hidden="true">›</span
                 ><span id="first-install-prompt"
-                  >Install REA and connect it to this coding agent using npx
-                  rea-agents@latest setup. Show me the setup plan for approval,
+                  >Install Tekvro and connect it to this coding agent using npx
+                  node scripts/rea.mjs setup. Show me the setup plan for approval,
                   then verify the installation.</span
                 ><span class="terminal-cursor" aria-hidden="true"></span>
               </p>
             </div>
             <p class="caption">Or run this command in your terminal:</p>
             <div class="code-block code-inline">
-              <code id="first-setup-command">npx rea-agents@latest setup</code>
+              <code id="first-setup-command">node scripts/rea.mjs setup</code>
               <button
                 class="copy-button"
                 type="button"
@@ -150,8 +151,8 @@
               <p class="terminal-prompt">
                 <span class="prompt-symbol" aria-hidden="true">›</span
                 ><span id="first-analysis-prompt"
-                  >Download https://rea.tools/examples/notes-example.zip into a
-                  new example folder and unpack it. Use REA to find what happens
+                  >Download website/public/examples/notes-example.zip into a
+                  new example folder and unpack it. Use Tekvro to find what happens
                   when I click Export notes. Show where notes.csv is written,
                   which fields it contains, and the relevant files and
                   lines.</span
@@ -160,7 +161,7 @@
             </div>
             <p>
               Your agent downloads the files and gives the unpacked folder to
-              REA for inspection.
+              Tekvro for inspection.
             </p>
             <p>
               <a
@@ -214,7 +215,7 @@
                 </li>
               </ol>
               <figcaption>
-                REA’s static analysis pairs the message with its handler. The
+                Tekvro’s static analysis pairs the message with its handler. The
                 destination is read from code.
               </figcaption>
             </figure>
@@ -236,7 +237,7 @@
             </p>
             <p>
               <a href="../guides/javascript/#follow"
-                >See the full code trace and recorded REA result</a
+                >See the full code trace and recorded Tekvro result</a
               >.
             </p>
           </section>
@@ -265,7 +266,7 @@
               <p class="terminal-prompt">
                 <span class="prompt-symbol" aria-hidden="true">›</span
                 ><span id="first-check-prompt"
-                  >Predict the CSV for a note with id 1 and title Hello, "REA".
+                  >Predict the CSV for a note with id 1 and title Hello, "Tekvro".
                   Then run the example’s toCsv formatter with Node.js to check
                   it. Show the prediction and actual output.</span
                 ><span class="terminal-cursor" aria-hidden="true"></span>
@@ -276,7 +277,7 @@
                 <span>Expected formatter output</span>
               </div>
               <pre><code>id,title
-1,"Hello, ""REA"""</code></pre>
+1,"Hello, ""Tekvro"""</code></pre>
             </div>
             <p>
               The title stays in one quoted field; each quotation mark is
@@ -302,7 +303,7 @@
                 </div>
                 <pre><code id="first-check-command">node &lt;&lt;'JS'
 const { toCsv } = require('./csv.js');
-process.stdout.write(toCsv([{ id: 1, title: 'Hello, "REA"' }]));
+process.stdout.write(toCsv([{ id: 1, title: 'Hello, "Tekvro"' }]));
 JS</code></pre>
               </div>
               <p class="caption">
@@ -344,7 +345,7 @@ JS</code></pre>
                 <a href="../faq/#troubleshooting"
                   >Troubleshoot setup or analysis</a
                 ><span
-                  >Update REA and check the connection if you get stuck.</span
+                  >Update Tekvro and check the connection if you get stuck.</span
                 >
               </li>
             </ul>
@@ -354,12 +355,12 @@ JS</code></pre>
     </main>
     <footer class="site-footer">
       <div class="container footer-inner">
-        <p>REA · Reverse Engineer Anything</p>
+        <p>Tekvro · Reverse Engineer Anything</p>
         <div class="footer-links">
-          <a href="https://github.com/morluto/rea">Source</a
-          ><a href="https://github.com/morluto/rea/blob/main/LICENSE"
+          <a href="https://github.com/ForceMind/Tekvro">Source</a
+          ><a href="https://github.com/ForceMind/Tekvro/blob/main/LICENSE"
             >MIT license</a
-          ><a href="https://discord.gg/GkcryMnJDM">Community</a>
+          ><a href="https://github.com/ForceMind/Tekvro/issues">Community</a>
         </div>
       </div>
     </footer>

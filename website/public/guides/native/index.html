@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Native analysis — REA</title>
+    <title>Native analysis — Tekvro</title>
     <meta
       name="description"
-      content="Recover a native calculation with REA: inspect instructions, follow a caller, read constants and check reconstructed C."
+      content="Recover a native calculation with Tekvro: inspect instructions, follow a caller, read constants and check reconstructed C."
     />
     <meta name="theme-color" content="#ffffff" />
     <link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml" />
@@ -17,20 +17,21 @@
     <a class="skip-link" href="#main">Skip to content</a>
     <header class="site-header">
       <div class="container header-inner">
-        <a class="brand" href="../../" aria-label="REA home"
-          ><span class="brand-name">REA</span
-          ><span class="brand-caption">Reverse Engineer Anything</span></a
+        <a class="brand" href="../../" aria-label="Tekvro home"
+          ><span class="brand-name">Tekvro</span
+          ><span class="brand-caption">用证据看懂软件</span></a
         >
         <nav class="navigation" aria-label="Main navigation">
           <a href="../../showcase/">Showcases</a
           ><a class="nav-start" href="../../get-started/">Get started</a
           ><a href="../">Guides</a><a href="../../faq/">FAQ</a>
+          <a href="https://github.com/ForceMind/Tekvro/blob/main/README.md" lang="zh-CN">简体中文</a>
         </nav>
         <a
           class="nav-github"
-          href="https://github.com/morluto/rea"
-          aria-label="REA on GitHub"
-          title="REA on GitHub"
+          href="https://github.com/ForceMind/Tekvro"
+          aria-label="Tekvro on GitHub"
+          title="Tekvro on GitHub"
         >
           <svg
             width="22"
@@ -65,7 +66,7 @@
           <ul>
             <li><a href="#example">The example</a></li>
             <li><a href="#ask">Ask your agent</a></li>
-            <li><a href="#follow">Read the REA results</a></li>
+            <li><a href="#follow">Read the Tekvro results</a></li>
             <li><a href="#result">Recover and check</a></li>
             <li><a href="#try">Use your own binary</a></li>
           </ul>
@@ -79,7 +80,7 @@
             </p>
             <p>
               The starting function, <code>0x00406400</code>, has a short
-              decompiler result: a call to <code>__ftol()</code>. REA also
+              decompiler result: a call to <code>__ftol()</code>. Tekvro also
               returns its instructions and callers, which give the agent a way
               to investigate the missing arithmetic.
             </p>
@@ -117,7 +118,7 @@
                 <code>pan = (x × 1.5625 − 500.0) × scale</code>
               </p>
               <figcaption>
-                REA supplies the instructions, call relationship and bytes. The
+                Tekvro supplies the instructions, call relationship and bytes. The
                 agent interprets them together.
               </figcaption>
             </figure>
@@ -126,7 +127,7 @@
             <h2>Ask about the behavior</h2>
             <p>
               After
-              <a href="../../get-started/#agent">connecting REA to your agent</a
+              <a href="../../get-started/#agent">connecting Tekvro to your agent</a
               >, provide the local executable and a question:
             </p>
             <div class="agent-terminal">
@@ -147,7 +148,7 @@
               <p class="terminal-prompt">
                 <span class="prompt-symbol" aria-hidden="true">›</span
                 ><span id="native-prompt"
-                  >Use REA to find how DX-Ball calculates sound panning. Explain
+                  >Use Tekvro to find how DX-Ball calculates sound panning. Explain
                   the calculation and show the code.</span
                 ><span class="terminal-cursor" aria-hidden="true"></span>
               </p>
@@ -158,11 +159,11 @@
             </p>
           </section>
           <section class="article-section" id="follow">
-            <h2>Read the REA results</h2>
+            <h2>Read the Tekvro results</h2>
             <h3>Read the input</h3>
             <div class="code-block">
               <div class="code-header">
-                <span>REA instruction excerpt · 0x406409</span>
+                <span>Tekvro instruction excerpt · 0x406409</span>
               </div>
               <pre><code>MOV EAX, dword ptr [EBP + 0x8]
 MOV dword ptr [EBP + -0xc], EAX
@@ -176,14 +177,14 @@ FILD dword ptr [EBP + -0xc]</code></pre>
             <h3 class="small-heading">Follow the caller</h3>
             <div class="code-block">
               <div class="code-header">
-                <span>REA caller excerpt · 0x411f5b</span>
+                <span>Tekvro caller excerpt · 0x411f5b</span>
               </div>
               <pre><code>ADD EAX, 0x14
 PUSH EAX
 CALL 0x00406400</code></pre>
             </div>
             <p>
-              REA identifies the brick-hit caller. Its earlier instructions
+              Tekvro identifies the brick-hit caller. Its earlier instructions
               multiply the tile coordinate by 30; adding <code>0x14</code> (20)
               gives the brick's screen position.
             </p>
@@ -191,7 +192,7 @@ CALL 0x00406400</code></pre>
             <div class="code-block">
               <div class="code-header">
                 <span
-                  >REA byte results · interpreted as little-endian doubles</span
+                  >Tekvro byte results · interpreted as little-endian doubles</span
                 >
               </div>
               <pre><code>0x420068  000000000000f93f  → 1.5625
@@ -220,7 +221,7 @@ return (DxBallInt)pan;</code></pre>
               center of the screen at the center of the stereo field.
             </p>
             <p>
-              The agent used REA's findings to write the C. Separate checks
+              The agent used Tekvro's findings to write the C. Separate checks
               compared 3,205 inputs against the original x86 function and
               reproduced all 63 compiled bytes of the complete function.
             </p>
@@ -255,7 +256,7 @@ return (DxBallInt)pan;</code></pre>
                   Copy
                 </button>
               </div>
-              <pre><code id="native-command">npx -y rea-agents@latest function /absolute/path/to/program main \
+              <pre><code id="native-command">node scripts/rea.mjs function /absolute/path/to/program main \
   --provider ghidra --json</code></pre>
             </div>
             <p>
@@ -275,12 +276,12 @@ return (DxBallInt)pan;</code></pre>
     </main>
     <footer class="site-footer">
       <div class="container footer-inner">
-        <p>REA · Reverse Engineer Anything</p>
+        <p>Tekvro · Reverse Engineer Anything</p>
         <div class="footer-links">
-          <a href="https://github.com/morluto/rea">Source</a
-          ><a href="https://github.com/morluto/rea/blob/main/LICENSE"
+          <a href="https://github.com/ForceMind/Tekvro">Source</a
+          ><a href="https://github.com/ForceMind/Tekvro/blob/main/LICENSE"
             >MIT license</a
-          ><a href="https://discord.gg/GkcryMnJDM">Community</a>
+          ><a href="https://github.com/ForceMind/Tekvro/issues">Community</a>
         </div>
       </div>
     </footer>

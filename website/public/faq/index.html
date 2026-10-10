@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>FAQ — REA</title>
+    <title>Tekvro FAQ — Tekvro</title>
     <meta
       name="description"
-      content="Answers to common REA questions: installation, updates, analysis tools, coding agents, troubleshooting and sharing examples."
+      content="Answers to common Tekvro questions: installation, updates, analysis tools, coding agents, troubleshooting and sharing examples."
     />
     <meta name="theme-color" content="#ffffff" />
     <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml" />
@@ -17,21 +17,22 @@
     <a class="skip-link" href="#main">Skip to content</a>
     <header class="site-header">
       <div class="container header-inner">
-        <a class="brand" href="../" aria-label="REA home"
-          ><span class="brand-name">REA</span
-          ><span class="brand-caption">Reverse Engineer Anything</span></a
+        <a class="brand" href="../" aria-label="Tekvro home"
+          ><span class="brand-name">Tekvro</span
+          ><span class="brand-caption">用证据看懂软件</span></a
         >
         <nav class="navigation" aria-label="Main navigation">
           <a href="../showcase/">Showcases</a>
           <a class="nav-start" href="../get-started/">Get started</a>
           <a href="../guides/">Guides</a>
           <a href="./" aria-current="page">FAQ</a>
+          <a href="https://github.com/ForceMind/Tekvro/blob/main/README.md" lang="zh-CN">简体中文</a>
         </nav>
         <a
           class="nav-github"
-          href="https://github.com/morluto/rea"
-          aria-label="REA on GitHub"
-          title="REA on GitHub"
+          href="https://github.com/ForceMind/Tekvro"
+          aria-label="Tekvro on GitHub"
+          title="Tekvro on GitHub"
         >
           <svg
             width="22"
@@ -52,7 +53,7 @@
     <main id="main" class="container">
       <div class="page-heading">
         <p class="breadcrumb"><a href="../">Home</a> / FAQ</p>
-        <h1>REA FAQ.</h1>
+        <h1>Tekvro FAQ.</h1>
         <p class="lede">Setup, updates, analysis and troubleshooting.</p>
       </div>
       <div class="article-layout">
@@ -68,13 +69,13 @@
         <article
           class="article"
           data-faq
-          aria-label="Frequently asked questions about REA"
+          aria-label="Frequently asked questions about Tekvro"
         >
           <section class="article-section" id="setup">
             <h2>Setup and updates</h2>
             <div class="faq-list">
               <details class="faq-item" id="install">
-                <summary>How do I install REA?</summary>
+                <summary>How do I install Tekvro?</summary>
                 <p>
                   With Node.js and npm available, run setup, choose your coding
                   agent and review the proposed changes.
@@ -86,15 +87,15 @@
                       class="copy-button"
                       type="button"
                       data-copy="faq-setup"
-                      aria-label="Copy REA setup command"
+                      aria-label="Copy Tekvro setup command"
                     >
                       Copy
                     </button>
                   </div>
-                  <pre><code id="faq-setup">npx rea-agents@latest setup</code></pre>
+                  <pre><code id="faq-setup">node scripts/rea.mjs setup</code></pre>
                 </div>
                 <p>
-                  Setup registers REA's MCP connection and installs the matching
+                  Setup registers Tekvro's MCP connection and installs the matching
                   investigation skill. Restart your agent when it finishes, then
                   give it a target path and a question.
                   <a href="../get-started/">Follow the setup guide</a> for
@@ -102,7 +103,7 @@
                 </p>
               </details>
               <details class="faq-item" id="agents">
-                <summary>Which coding agents can use REA?</summary>
+                <summary>Which coding agents can use Tekvro?</summary>
                 <p>
                   Any agent that supports local MCP servers. Setup includes
                   Claude Code, Claude Desktop, Codex, Cursor, Gemini CLI,
@@ -115,9 +116,9 @@
                 </p>
               </details>
               <details class="faq-item" id="update">
-                <summary>How do I update REA?</summary>
+                <summary>How do I update Tekvro?</summary>
                 <p>
-                  REA releases frequently, including bug fixes. If you installed
+                  Tekvro releases frequently, including bug fixes. If you installed
                   the CLI with npm:
                 </p>
                 <div class="code-block">
@@ -127,7 +128,7 @@
                       class="copy-button"
                       type="button"
                       data-copy="faq-update-cli"
-                      aria-label="Copy REA update command"
+                      aria-label="Copy Tekvro update command"
                     >
                       Copy
                     </button>
@@ -150,13 +151,13 @@
                       Copy
                     </button>
                   </div>
-                  <pre><code id="faq-update-agent">npx rea-agents@latest setup</code></pre>
+                  <pre><code id="faq-update-agent">node scripts/rea.mjs setup</code></pre>
                 </div>
                 <p>
-                  Review the changes and restart your agent. Its REA connection
+                  Review the changes and restart your agent. Its Tekvro connection
                   pins a package version, so refreshing setup makes it use the
                   new release. For one-off CLI commands, use
-                  <code>npx -y rea-agents@latest</code> followed by the command.
+                  <code>node scripts/rea.mjs</code> followed by the command.
                 </p>
               </details>
               <details class="faq-item" id="skill">
@@ -165,7 +166,7 @@
                 </summary>
                 <p>
                   The skill gives your agent investigation instructions. Run
-                  <a href="#install">REA setup</a> to connect the MCP server and
+                  <a href="#install">Tekvro setup</a> to connect the MCP server and
                   install the matching skill, then restart your agent so it can
                   call the tools.
                 </p>
@@ -177,7 +178,7 @@
             <h2>Analysis</h2>
             <div class="faq-list">
               <details class="faq-item" id="targets">
-                <summary>What can I analyze with REA?</summary>
+                <summary>What can I analyze with Tekvro?</summary>
                 <p>Start with the kind of software you have:</p>
                 <ul>
                   <li>
@@ -196,7 +197,7 @@
                   </li>
                 </ul>
                 <p>
-                  REA also has workflows for managed assemblies, Android APKs,
+                  Tekvro also has workflows for managed assemblies, Android APKs,
                   firmware and packaged resources.
                   <a href="../showcase/">See the case studies</a> for worked
                   investigations.
@@ -217,7 +218,7 @@
                 </p>
               </details>
               <details class="faq-item" id="cli">
-                <summary>Can I use REA without a coding agent?</summary>
+                <summary>Can I use Tekvro without a coding agent?</summary>
                 <p>
                   Yes. The CLI uses the same analysis workflows. For a local
                   JavaScript or Electron app:
@@ -229,12 +230,12 @@
                       class="copy-button"
                       type="button"
                       data-copy="faq-cli-analysis"
-                      aria-label="Copy REA CLI analysis command"
+                      aria-label="Copy Tekvro CLI analysis command"
                     >
                       Copy
                     </button>
                   </div>
-                  <pre><code id="faq-cli-analysis">npx -y rea-agents@latest analyze-javascript-application \
+                  <pre><code id="faq-cli-analysis">node scripts/rea.mjs analyze-javascript-application \
   /absolute/path/to/app --json</code></pre>
                 </div>
                 <p>
@@ -244,7 +245,7 @@
                 </p>
               </details>
               <details class="faq-item" id="code">
-                <summary>What code does REA return?</summary>
+                <summary>What code does Tekvro return?</summary>
                 <p>
                   Native analysis returns assembly and pseudocode, with calls,
                   references and relevant constants. JavaScript analysis returns
@@ -284,7 +285,7 @@
                   <p class="terminal-prompt">
                     <span class="prompt-symbol" aria-hidden="true">›</span
                     ><span id="faq-analysis-prompt"
-                      >Use REA to analyze /absolute/path/to/app and explain how
+                      >Use Tekvro to analyze /absolute/path/to/app and explain how
                       it exports data. Show the relevant code and source
                       locations.</span
                     ><span class="terminal-cursor" aria-hidden="true"></span>
@@ -303,9 +304,9 @@
             <h2>Troubleshooting</h2>
             <div class="faq-list">
               <details class="faq-item" id="connection">
-                <summary>Why can't my agent see the REA tools?</summary>
+                <summary>Why can't my agent see the Tekvro tools?</summary>
                 <p>
-                  Restart or reconnect your agent after setup. Check its REA
+                  Restart or reconnect your agent after setup. Check its Tekvro
                   registration with <code>doctor</code>; for Codex:
                 </p>
                 <div class="code-block">
@@ -320,7 +321,7 @@
                       Copy
                     </button>
                   </div>
-                  <pre><code id="faq-doctor">npx -y rea-agents@latest doctor --client codex --json</code></pre>
+                  <pre><code id="faq-doctor">node scripts/rea.mjs doctor --client codex --json</code></pre>
                 </div>
                 <p>
                   Replace <code>codex</code> with your client ID, such as
@@ -340,7 +341,7 @@
                       Copy
                     </button>
                   </div>
-                  <pre><code id="faq-repair">npx rea-agents@latest setup --client codex</code></pre>
+                  <pre><code id="faq-repair">node scripts/rea.mjs setup --client codex</code></pre>
                 </div>
                 <p>
                   Review its plan and restart the client. If registration is
@@ -352,7 +353,7 @@
               <details class="faq-item" id="hopper">
                 <summary>Do I need to start Hopper first?</summary>
                 <p>
-                  REA starts Hopper when an operation needs it. On macOS,
+                  Tekvro starts Hopper when an operation needs it. On macOS,
                   complete the first-run choice of demo mode or license
                   activation before unattended analysis.
                   <a href="../get-started/#native">See native provider setup</a
@@ -362,15 +363,15 @@
               <details class="faq-item" id="bugs">
                 <summary>What should I do if I hit a bug?</summary>
                 <p>
-                  <a href="#update">Update REA</a>, restart your agent and retry
+                  <a href="#update">Update Tekvro</a>, restart your agent and retry
                   the same task. A recent release may already fix the problem.
                 </p>
                 <p>
                   If it persists,
-                  <a href="https://github.com/morluto/rea/issues/new/choose"
+                  <a href="https://github.com/ForceMind/Tekvro/issues/new/choose"
                     >open an issue</a
                   >
-                  with your REA version, operating system, target type, steps to
+                  with your Tekvro version, operating system, target type, steps to
                   reproduce and error output. Include the provider name when the
                   problem involves native analysis.
                 </p>
@@ -382,9 +383,9 @@
             <h2>Data and sharing</h2>
             <div class="faq-list">
               <details class="faq-item" id="privacy">
-                <summary>Does REA upload my app?</summary>
+                <summary>Does Tekvro upload my app?</summary>
                 <p>
-                  REA analyzes targets on your machine. Your agent receives the
+                  Tekvro analyzes targets on your machine. Your agent receives the
                   results, and its model provider's data policy applies to those
                   results.
                 </p>
@@ -392,21 +393,21 @@
               <details class="faq-item" id="contribute">
                 <summary>How can I share an example or contribute?</summary>
                 <p>
-                  Have a useful REA example? We'd love to see it. Share the
+                  Have a useful Tekvro example? We'd love to see it. Share the
                   target, your question, the findings and how you checked them
                   in an
-                  <a href="https://github.com/morluto/rea/issues/new/choose"
+                  <a href="https://github.com/ForceMind/Tekvro/issues/new/choose"
                     >issue</a
                   >
                   or
-                  <a href="https://github.com/morluto/rea/pulls">pull request</a
+                  <a href="https://github.com/ForceMind/Tekvro/pulls">pull request</a
                   >. Short code excerpts and figures help others follow the
                   investigation.
                 </p>
                 <p>
                   Bug reports, feature requests, documentation and code
                   improvements are welcome too. You can also discuss an example
-                  in the <a href="https://discord.gg/GkcryMnJDM">community</a>.
+                  in the <a href="https://github.com/ForceMind/Tekvro/issues">community</a>.
                 </p>
               </details>
             </div>
@@ -416,12 +417,12 @@
     </main>
     <footer class="site-footer">
       <div class="container footer-inner">
-        <p>REA · Reverse Engineer Anything</p>
+        <p>Tekvro · Reverse Engineer Anything</p>
         <div class="footer-links">
-          <a href="https://github.com/morluto/rea">Source</a
-          ><a href="https://github.com/morluto/rea/blob/main/LICENSE"
+          <a href="https://github.com/ForceMind/Tekvro">Source</a
+          ><a href="https://github.com/ForceMind/Tekvro/blob/main/LICENSE"
             >MIT license</a
-          ><a href="https://discord.gg/GkcryMnJDM">Community</a>
+          ><a href="https://github.com/ForceMind/Tekvro/issues">Community</a>
         </div>
       </div>
     </footer>

@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>How an authenticator generates a login code — REA</title>
+    <title>How an authenticator generates a login code — Tekvro</title>
     <meta
       name="description"
-      content="Inspect the Aegis Android APK with REA, recover its six-digit login-code calculation and try a reconstruction with an adjustable clock."
+      content="Inspect the Aegis Android APK with Tekvro, recover its six-digit login-code calculation and try a reconstruction with an adjustable clock."
     />
     <meta name="theme-color" content="#ffffff" />
     <link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml" />
@@ -18,21 +18,22 @@
     <a class="skip-link" href="#main">Skip to content</a>
     <header class="site-header">
       <div class="container header-inner">
-        <a class="brand" href="../../" aria-label="REA home"
-          ><span class="brand-name">REA</span
-          ><span class="brand-caption">Reverse Engineer Anything</span></a
+        <a class="brand" href="../../" aria-label="Tekvro home"
+          ><span class="brand-name">Tekvro</span
+          ><span class="brand-caption">用证据看懂软件</span></a
         >
         <nav class="navigation" aria-label="Main navigation">
           <a href="../">Showcases</a>
           <a class="nav-start" href="../../get-started/">Get started</a>
           <a href="../../guides/">Guides</a>
           <a href="../../faq/">FAQ</a>
+          <a href="https://github.com/ForceMind/Tekvro/blob/main/README.md" lang="zh-CN">简体中文</a>
         </nav>
         <a
           class="nav-github"
-          href="https://github.com/morluto/rea"
-          aria-label="REA on GitHub"
-          title="REA on GitHub"
+          href="https://github.com/ForceMind/Tekvro"
+          aria-label="Tekvro on GitHub"
+          title="Tekvro on GitHub"
         >
           <svg
             width="22"
@@ -58,7 +59,7 @@
         <p class="eyebrow">Case study · Aegis Authenticator</p>
         <h1>How does an authenticator<br />generate a login code?</h1>
         <p class="lede">
-          A six-digit code changes every 30 seconds. Use REA to find the
+          A six-digit code changes every 30 seconds. Use Tekvro to find the
           calculation in an Android APK, then rebuild it with a clock you can
           control.
         </p>
@@ -78,7 +79,7 @@
             ><strong class="flow-node"
               >3,077 classes → generating methods</strong
             ><span class="flow-note"
-              >REA searches the package and traces the code used by the display
+              >Tekvro searches the package and traces the code used by the display
               and copy actions.</span
             >
           </li>
@@ -86,7 +87,7 @@
             <span class="flow-label">02 · Read the calculation</span
             ><strong class="flow-node">Time + account key → six digits</strong
             ><span class="flow-note"
-              >REA returns the methods and defaults. The agent explains how they
+              >Tekvro returns the methods and defaults. The agent explains how they
               fit together.</span
             >
           </li>
@@ -107,7 +108,7 @@
           <ul>
             <li><a href="#ask">Ask your agent</a></li>
             <li><a href="#demo">Try the code generator</a></li>
-            <li><a href="#find">Find the code with REA</a></li>
+            <li><a href="#find">Find the code with Tekvro</a></li>
             <li><a href="#calculation">Read the calculation</a></li>
             <li><a href="#verify">Check the reconstruction</a></li>
             <li><a href="#try">Inspect the APK yourself</a></li>
@@ -138,7 +139,7 @@
               <p class="terminal-prompt">
                 <span class="prompt-symbol" aria-hidden="true">›</span
                 ><span id="aegis-prompt"
-                  >Use REA to inspect aegis-v3.4.3.apk. Find how it generates
+                  >Use Tekvro to inspect aegis-v3.4.3.apk. Find how it generates
                   the six-digit login code, explain why it changes every 30
                   seconds, and rebuild a small demo where I can change the
                   time.</span
@@ -146,7 +147,7 @@
               </p>
             </div>
             <p class="caption">
-              An example prompt for the downloaded APK, with REA's Android
+              An example prompt for the downloaded APK, with Tekvro's Android
               analysis configured.
               <a href="#try">Get the APK and analysis setup ↓</a>
             </p>
@@ -249,13 +250,13 @@
           </section>
 
           <section class="article-section" id="find">
-            <h2>Find the code with REA</h2>
+            <h2>Find the code with Tekvro</h2>
             <ol class="rea-queries">
               <li>
                 <h4>Narrow the APK to three classes</h4>
                 <div class="rea-query-pair">
                   <div class="code-block">
-                    <div class="code-header"><span>Agent → REA</span></div>
+                    <div class="code-header"><span>Agent → Tekvro</span></div>
                     <pre><code>inspect_android_package
 {"path": "aegis-v3.4.3.apk"}
 
@@ -265,7 +266,7 @@ search_android_classes
                   </div>
                   <div class="code-block">
                     <div class="code-header">
-                      <span>REA → agent · selected results</span>
+                      <span>Tekvro → agent · selected results</span>
                     </div>
                     <pre><code>Package: com.beemdevelopment.aegis
 Version: 3.4.3
@@ -287,7 +288,7 @@ Three matches:
                 <h4>Connect the generator to the app's display</h4>
                 <div class="rea-query-pair">
                   <div class="code-block">
-                    <div class="code-header"><span>Agent → REA</span></div>
+                    <div class="code-header"><span>Agent → Tekvro</span></div>
                     <pre><code>inspect_android_class
 {"path": "aegis-v3.4.3.apk",
  "class_name":
@@ -301,7 +302,7 @@ trace_android_references
                   </div>
                   <div class="code-block">
                     <div class="code-header">
-                      <span>REA → agent · methods and callers</span>
+                      <span>Tekvro → agent · methods and callers</span>
                     </div>
                     <pre><code>TotpInfo methods:
   getOtp()      · overload 0
@@ -313,7 +314,7 @@ OtpInfo.getOtp callers:
                   </div>
                 </div>
                 <p>
-                  REA identifies the timestamp overload and finds the base
+                  Tekvro identifies the timestamp overload and finds the base
                   method's callers. Inspecting
                   <code>EntryHolder.getOtp</code> then shows the display calling
                   <code>TotpInfo.getOtp(timestamp)</code>.
@@ -329,7 +330,7 @@ OtpInfo.getOtp callers:
           <section class="article-section" id="calculation">
             <h2>Read the calculation</h2>
             <p>
-              REA returns
+              Tekvro returns
               <strong
                 >the clock conversion, default settings and generating
                 methods.</strong
@@ -371,7 +372,7 @@ OtpInfo.getOtp callers:
               <div class="code-comparison">
                 <div class="code-block">
                   <div class="code-header">
-                    <span>REA · selected decompiled Java</span>
+                    <span>Tekvro · selected decompiled Java</span>
                   </div>
                   <pre><code id="aegis-java"><span class="code-step is-active" data-step="1">// TotpInfo defaults and clock
 setPeriod(30);
@@ -450,13 +451,13 @@ code = pad_with_zeroes(code, 6)</span></code></pre>
               <summary>Inside the generator</summary>
               <p>
                 The released APK puts <code>generateOTP</code> in
-                <code>kotlin.ExceptionsKt</code>. REA follows the call from
+                <code>kotlin.ExceptionsKt</code>. Tekvro follows the call from
                 <code>TotpInfo</code> and returns this body; the original source
                 calls the helper <code>HOTP</code>.
               </p>
               <div class="code-block">
                 <div class="code-header">
-                  <span>REA · generateOTP, complete body</span>
+                  <span>Tekvro · generateOTP, complete body</span>
                 </div>
                 <pre><code>public static OTP generateOTP(byte[] bArr, String str,
         int i, long j)
@@ -489,7 +490,7 @@ code = pad_with_zeroes(code, 6)</span></code></pre>
           <section class="article-section" id="verify">
             <h2>Check the reconstruction</h2>
             <p>
-              We assembled the selected REA-returned Java methods in a small
+              We assembled the selected Tekvro-returned Java methods in a small
               test program. Their output matched an independent reconstruction
               on <strong>133 test cases</strong>, including time-block
               boundaries and codes beginning with zero.
@@ -564,7 +565,7 @@ code = pad_with_zeroes(code, 6)</span></code></pre>
           <section class="article-section" id="try">
             <h2>Inspect the APK yourself</h2>
             <p>
-              <a href="../../get-started/">Set up REA</a> on macOS or Linux,
+              <a href="../../get-started/">Set up Tekvro</a> on macOS or Linux,
               then download these two files into the same folder. On Windows,
               use a Linux environment such as WSL.
             </p>
@@ -584,7 +585,7 @@ code = pad_with_zeroes(code, 6)</span></code></pre>
                 >Download Android analysis provider</a
               >
             </div>
-            <p>Point REA at the provider file and inspect the APK:</p>
+            <p>Point Tekvro at the provider file and inspect the APK:</p>
             <div class="code-block">
               <div class="code-header">
                 <span>macOS / Linux</span
@@ -598,12 +599,12 @@ code = pad_with_zeroes(code, 6)</span></code></pre>
                 </button>
               </div>
               <pre><code id="aegis-inspect-command">REA_JADX_MCP_JAR="$PWD/jadx-headless-mcp-0.7.1-all.jar" \
-npx rea-agents@latest inspect-android-package \
+node scripts/rea.mjs inspect-android-package \
   ./aegis-v3.4.3.apk --format json --full-output</code></pre>
             </div>
             <p>
-              Your agent can continue through REA's CLI using the prompt above.
-              For MCP, add <code>REA_JADX_MCP_JAR</code> to the REA server's
+              Your agent can continue through Tekvro's CLI using the prompt above.
+              For MCP, add <code>REA_JADX_MCP_JAR</code> to the Tekvro server's
               environment and reconnect it.
             </p>
             <p>
@@ -642,7 +643,7 @@ npx rea-agents@latest inspect-android-package \
               </li>
             </ul>
             <p class="caption">
-              Inspected with REA 6.1.0 on 9 October 2026. Decompiled excerpts
+              Inspected with Tekvro 6.1.0 on 9 October 2026. Decompiled excerpts
               are credited to Aegis; the diagram, readable summary and browser
               reconstruction are new teaching material.
             </p>
@@ -652,12 +653,12 @@ npx rea-agents@latest inspect-android-package \
     </main>
     <footer class="site-footer">
       <div class="container footer-inner">
-        <p>REA · Reverse Engineer Anything</p>
+        <p>Tekvro · Reverse Engineer Anything</p>
         <div class="footer-links">
-          <a href="https://github.com/morluto/rea">Source</a
-          ><a href="https://github.com/morluto/rea/blob/main/LICENSE"
+          <a href="https://github.com/ForceMind/Tekvro">Source</a
+          ><a href="https://github.com/ForceMind/Tekvro/blob/main/LICENSE"
             >MIT license</a
-          ><a href="https://discord.gg/GkcryMnJDM">Community</a>
+          ><a href="https://github.com/ForceMind/Tekvro/issues">Community</a>
         </div>
       </div>
     </footer>

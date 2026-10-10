@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Solve a CTF flag checker — REA</title>
+    <title>Solve a CTF flag checker — Tekvro</title>
     <meta
       name="description"
-      content="Use REA to solve DownUnderCTF's masked squares flag checker. Find the checking functions, extract the masks and compare a recovered flag with the original program."
+      content="Use Tekvro to solve DownUnderCTF's masked squares flag checker. Find the checking functions, extract the masks and compare a recovered flag with the original program."
     />
     <meta name="theme-color" content="#ffffff" />
     <link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml" />
@@ -17,21 +17,22 @@
     <a class="skip-link" href="#main">Skip to content</a>
     <header class="site-header">
       <div class="container header-inner">
-        <a class="brand" href="../../" aria-label="REA home"
-          ><span class="brand-name">REA</span
-          ><span class="brand-caption">Reverse Engineer Anything</span></a
+        <a class="brand" href="../../" aria-label="Tekvro home"
+          ><span class="brand-name">Tekvro</span
+          ><span class="brand-caption">用证据看懂软件</span></a
         >
         <nav class="navigation" aria-label="Main navigation">
           <a href="../">Showcases</a>
           <a class="nav-start" href="../../get-started/">Get started</a>
           <a href="../../guides/">Guides</a>
           <a href="../../faq/">FAQ</a>
+          <a href="https://github.com/ForceMind/Tekvro/blob/main/README.md" lang="zh-CN">简体中文</a>
         </nav>
         <a
           class="nav-github"
-          href="https://github.com/morluto/rea"
-          aria-label="REA on GitHub"
-          title="REA on GitHub"
+          href="https://github.com/ForceMind/Tekvro"
+          aria-label="Tekvro on GitHub"
+          title="Tekvro on GitHub"
         >
           <svg
             width="22"
@@ -57,7 +58,7 @@
         <p class="eyebrow">Case study · DownUnderCTF 2023</p>
         <h1>Find the flag in<br />a CTF binary.</h1>
         <p class="lede">
-          Use REA to inspect a small flag checker, turn its rules into equations
+          Use Tekvro to inspect a small flag checker, turn its rules into equations
           and find an input that makes the original program print
           <code>Correct!</code>.
         </p>
@@ -78,7 +79,7 @@
             <span class="flow-label">01 · Find the check</span
             ><strong class="flow-node">Strings → checking functions</strong
             ><span class="flow-note"
-              >REA finds the prompt, its references and the code that accepts or
+              >Tekvro finds the prompt, its references and the code that accepts or
               rejects an input.</span
             >
           </li>
@@ -86,7 +87,7 @@
             <span class="flow-label">02 · Extract the rules</span
             ><strong class="flow-node">36 characters · 26 sums</strong
             ><span class="flow-note"
-              >REA returns the instructions and data behind each check. The
+              >Tekvro returns the instructions and data behind each check. The
               agent turns them into equations.</span
             >
           </li>
@@ -94,7 +95,7 @@
             <span class="flow-label">03 · Solve and run</span
             ><strong class="flow-node">Recovered flag → Correct!</strong
             ><span class="flow-note"
-              >A Python script solves the equations. REA captures the original
+              >A Python script solves the equations. Tekvro captures the original
               program accepting the result.</span
             >
           </li>
@@ -144,7 +145,7 @@
               <p class="terminal-prompt">
                 <span class="prompt-symbol" aria-hidden="true">›</span
                 ><span id="ctf-prompt"
-                  >Use REA to analyze ms_flag_checker and find the flag. Explain
+                  >Use Tekvro to analyze ms_flag_checker and find the flag. Explain
                   how the checks work, then verify the answer with the original
                   program.</span
                 ><span class="terminal-cursor" aria-hidden="true"></span>
@@ -159,7 +160,7 @@
                 <h4>Follow the input prompt to its function</h4>
                 <div class="rea-query-pair">
                   <div class="code-block">
-                    <div class="code-header"><span>Agent → REA</span></div>
+                    <div class="code-header"><span>Agent → Tekvro</span></div>
                     <pre><code>open_binary
 {"path": "ms_flag_checker"}
 
@@ -175,7 +176,7 @@ resolve_containing_procedure
                   </div>
                   <div class="code-block">
                     <div class="code-header">
-                      <span>REA → agent · selected results</span>
+                      <span>Tekvro → agent · selected results</span>
                     </div>
                     <pre><code>0x102004  "What is the flag? "
 0x10201c  "Incorrect!"
@@ -195,7 +196,7 @@ Containing function: 0x10124d</code></pre>
                 <h4>Read the checker and its two helpers</h4>
                 <div class="rea-query-pair">
                   <div class="code-block">
-                    <div class="code-header"><span>Agent → REA</span></div>
+                    <div class="code-header"><span>Agent → Tekvro</span></div>
                     <pre><code>analyze_function
 {"procedure": "0x10124d"}
 
@@ -207,7 +208,7 @@ analyze_function
                   </div>
                   <div class="code-block">
                     <div class="code-header">
-                      <span>REA → agent · selected instructions</span>
+                      <span>Tekvro → agent · selected instructions</span>
                     </div>
                     <pre><code>0x1012c1: CMP EDI, 0x24
 0x1012c6: LEA RBX, [0x1040e0]
@@ -229,8 +230,8 @@ analyze_function
               </li>
             </ol>
             <p class="caption">
-              These are selected results from a fresh REA analysis. The local
-              target path is shortened for display; addresses refer to REA's
+              These are selected results from a fresh Tekvro analysis. The local
+              target path is shortened for display; addresses refer to Tekvro's
               imported image.
             </p>
           </section>
@@ -270,14 +271,14 @@ analyze_function
             <div class="rea-query-pair">
               <div class="code-block">
                 <div class="code-header">
-                  <span>Agent → REA · read_bytes</span>
+                  <span>Agent → Tekvro · read_bytes</span>
                 </div>
                 <pre><code>{"address": "0x1040e0", "length": 624}
 {"address": "0x104060", "length": 144}</code></pre>
               </div>
               <div class="code-block">
                 <div class="code-header">
-                  <span>REA → agent · seventh entries</span>
+                  <span>Tekvro → agent · seventh entries</span>
                 </div>
                 <pre><code>Mask at 0x104170:
 eb 01 f2 00  →  -21, +1, -14, stop
@@ -350,7 +351,7 @@ Target at 0x104078:
               <div class="code-comparison">
                 <div class="code-block">
                   <div class="code-header">
-                    <span>REA · selected original instructions</span
+                    <span>Tekvro · selected original instructions</span
                     ><button
                       class="copy-button"
                       type="button"
@@ -486,7 +487,7 @@ print("".join(chr(model.eval(code).as_long()) for code in codes))</code></pre>
           <section class="article-section" id="verify">
             <h2>Check the answer with the original program</h2>
             <p>
-              REA's process capture records the original executable accepting
+              Tekvro's process capture records the original executable accepting
               the solved flag. Changing one selected character from
               <code>z</code> to <code>y</code> makes the first sum 1440 instead
               of 1441, and the program rejects it.
@@ -518,7 +519,7 @@ print("".join(chr(model.eval(code).as_long()) for code in codes))</code></pre>
               <summary>Show the recovered flag and captured output</summary>
               <div class="code-block">
                 <div class="code-header">
-                  <span>REA · original program output</span
+                  <span>Tekvro · original program output</span
                   ><button
                     class="copy-button"
                     type="button"
@@ -540,7 +541,7 @@ Correct!</code></pre>
               <summary>Source, target identity and analysis details</summary>
               <p>
                 Fresh analysis and two process captures on 8 October 2026, using
-                REA 4.1.0 with Ghidra 12.1.4 on Linux x64. The binary is a
+                Tekvro 4.1.0 with Ghidra 12.1.4 on Linux x64. The binary is a
                 stripped x86-64 ELF, 15,248 bytes.
               </p>
               <div class="code-block">
@@ -552,7 +553,7 @@ Correct!</code></pre>
               <p>
                 The string references, functions and constants were inspected
                 before reading the organizers' source or solution. The Python
-                solver and the diagram were built from those REA results.
+                solver and the diagram were built from those Tekvro results.
               </p>
               <p>
                 <a
@@ -566,8 +567,8 @@ Correct!</code></pre>
                 >
                 ·
                 <a
-                  href="https://github.com/morluto/rea/blob/main/website/evidence/ctf-masked-squares.md"
-                  >REA evidence notes</a
+                  href="https://github.com/ForceMind/Tekvro/blob/main/website/evidence/ctf-masked-squares.md"
+                  >Tekvro evidence notes</a
                 >
               </p>
             </details>
@@ -614,7 +615,7 @@ chmod +x ms_flag_checker
               the original executable needs Linux x86-64.
             </p>
             <a class="text-link" href="../../get-started/"
-              >Set up REA with your coding agent</a
+              >Set up Tekvro with your coding agent</a
             >
           </section>
         </article>
@@ -622,12 +623,12 @@ chmod +x ms_flag_checker
     </main>
     <footer class="site-footer">
       <div class="container footer-inner">
-        <p>REA · Reverse Engineer Anything</p>
+        <p>Tekvro · Reverse Engineer Anything</p>
         <div class="footer-links">
-          <a href="https://github.com/morluto/rea">Source</a
-          ><a href="https://github.com/morluto/rea/blob/main/LICENSE"
+          <a href="https://github.com/ForceMind/Tekvro">Source</a
+          ><a href="https://github.com/ForceMind/Tekvro/blob/main/LICENSE"
             >MIT license</a
-          ><a href="https://discord.gg/GkcryMnJDM">Community</a>
+          ><a href="https://github.com/ForceMind/Tekvro/issues">Community</a>
         </div>
       </div>
     </footer>

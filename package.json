@@ -2,15 +2,15 @@
   "name": "rea-agents",
   "mcpName": "io.github.morluto/rea",
   "version": "6.1.0",
-  "description": "Reverse engineer anything from your terminal or agent with one CLI and MCP server.",
+  "description": "Tekvro 探核 — locally operated, evidence-first AI-assisted software inspection through CLI and MCP (development build based on REA).",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/morluto/rea.git"
+    "url": "git+https://github.com/ForceMind/Tekvro.git"
   },
-  "homepage": "https://github.com/morluto/rea#readme",
+  "homepage": "https://github.com/ForceMind/Tekvro#readme",
   "bugs": {
-    "url": "https://github.com/morluto/rea/issues"
+    "url": "https://github.com/ForceMind/Tekvro/issues"
   },
   "keywords": [
     "reverse-engineering",
@@ -26,11 +26,9 @@
     "mcp",
     "hopper"
   ],
-  "publishConfig": {
-    "access": "public"
-  },
   "type": "module",
   "bin": {
+    "tekvro": "scripts/rea.mjs",
     "rea": "scripts/rea.mjs",
     "rea-agents": "scripts/rea.mjs"
   },
@@ -284,5 +282,6 @@
     "vitepress": "1.6.4",
     "vitest": "5.0.3",
     "yaml": "2.9.0"
-  }
+  },
+  "private": true
 }

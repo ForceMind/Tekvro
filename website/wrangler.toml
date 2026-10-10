@@ -1,5 +1,5 @@
 # Serve only the public website. The default deployment is a workers.dev preview.
-name = "rea-website-preview"
+name = "tekvro-website-preview"
 compatibility_date = "2026-10-08"
 workers_dev = true
 preview_urls = false
@@ -16,7 +16,7 @@ watch_dir = "./public/examples/notes-electron"
 
 # Public HTTPS depends on zone activation and certificate readiness.
 [env.production]
-name = "rea-website"
+name = "tekvro-website"
 workers_dev = true
 preview_urls = false
-routes = [{ pattern = "rea.tools", custom_domain = true }]
+# No production domain or Cloudflare account is configured for Tekvro yet.

@@ -1,4 +1,4 @@
-name: Publish REA website
+name: Tekvro website publishing (inactive until configured)
 
 on:
   workflow_dispatch:

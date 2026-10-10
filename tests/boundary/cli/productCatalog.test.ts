@@ -298,15 +298,13 @@ describe("canonical product catalog drift", () => {
     expect(issues).not.toContain("README.md: missing Future Client");
   });
 
-  it("keeps translated readmes linked to canonical setup and tool details", async () => {
-    const directory = await createTestTempDirectory("rea-readme-facts-");
+  it("rejects old upstream marketing links in the bilingual Tekvro entrypoints", async () => {
+    const directory = await createTestTempDirectory("tekvro-readme-facts-");
     temporaryRoots.push(directory);
     const paths = [
       "README.md",
+      "README.en.md",
       "README_zh.md",
-      "README_ja.md",
-      "README_ko.md",
-      "README_ar.md",
       "docs/installation.md",
       "AGENTS.md",
       ".github/pull_request_template.md",
@@ -319,13 +317,13 @@ describe("canonical product catalog drift", () => {
     await mkdir(join(directory, "skills/reverse-engineer-anything"), {
       recursive: true,
     });
-    const translatedPath = join(directory, "README_zh.md");
-    const translated = await readFile(translatedPath, "utf8");
+    const englishPath = join(directory, "README.en.md");
+    const english = await readFile(englishPath, "utf8");
     await writeFile(
-      translatedPath,
-      translated.replace(
-        "(docs/installation.md#supported-agents)",
-        "(docs/installation.md#missing-agents)",
+      englishPath,
+      english.replaceAll(
+        "https://github.com/ForceMind/REA",
+        "https://github.com/morluto/rea",
       ),
       "utf8",
     );
@@ -335,7 +333,7 @@ describe("canonical product catalog drift", () => {
       await createProductCatalog(root),
     );
     expect(issues).toContain(
-      "README_zh.md: documentation links differ from README.md",
+      "README.en.md: missing https://github.com/ForceMind/REA",
     );
   });
 
