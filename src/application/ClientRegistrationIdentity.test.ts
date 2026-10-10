@@ -1,4 +1,5 @@
 import { resolve } from "node:path";
+
 import { expect, it } from "vitest";
 import { PRODUCT_IDENTITY } from "../identity.js";
 import {

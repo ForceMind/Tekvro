@@ -26,8 +26,8 @@ if (!(await compiledRuntimeExists(runtimeFiles))) {
   const isZhLocale = /^zh(?:[_-]|$)/iu.test(currentLocale);
   process.stderr.write(
     isZhLocale
-      ? `Tekvro 探核缺少运行文件。在 ${packageRoot} 执行 npm ci && npm run build:cached，然后重启。旧版 rea-agents 安装异常时请重新安装对应版本。\\n`
-      : `REA's compiled runtime is missing. Run \`npm ci && npm run build:cached\` in ${packageRoot} to install dependencies and build REA, then restart it. If this is an installed package, reinstall rea-agents.\\n`,
+      ? `Tekvro 探核缺少本地运行文件。请在 ${packageRoot} 执行 npm ci && npm run build:cached，然后重启。请勿用公开 rea-agents 包代替私有 Tekvro。\n`
+      : `Tekvro's local build is missing. Run npm ci && npm run build:cached from ${packageRoot}, then restart. Do not replace this private checkout with the public rea-agents package.\n`,
   );
   process.exitCode = 1;
 } else if (isMcpMode) {
