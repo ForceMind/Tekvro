@@ -7,6 +7,10 @@ import {
 } from "./ClientRegistrationIdentity.js";
 import { setupRegistrationCommand } from "./SetupHost.js";
 
+it("keeps Tekvro's private source distribution distinct from upstream npm", () => {
+  expect(PRODUCT_IDENTITY.privateSourceBuild).toBe(true);
+});
+
 it.each(["win32", "linux", "darwin"] as const)(
   "defaults to the local Node CLI on %s rather than fetching a public package",
   (platform) => {
