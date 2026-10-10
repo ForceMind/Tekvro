@@ -103,16 +103,22 @@ export const renderInteractiveSetupResult = (result: SetupResult): void => {
     renderReadyCapabilities(result, readyClients);
     outro(
       changedClients.length === 0
-        ? "REA is ready for local app analysis."
-        : `Restart ${changedClients.join(", ")} to load REA.`,
+        ? t("Tekvro is ready for local app analysis.", "Tekvro 已准备好分析本地软件。")
+        : t(
+            `Restart ${changedClients.join(", ")} to load Tekvro.`,
+            `请重启 ${changedClients.join("、")} 以加载 Tekvro。`,
+          ),
       promptStreams,
     );
     return;
   }
   if (result.status === "planned" || result.status === "cancelled") return;
-  writeLine(`!  ${result.remediation ?? "Setup needs attention."}`);
+  writeLine(`!  ${result.remediation ?? t("Setup needs attention.", "配置还需要进一步处理。")}`);
   outro(
-    `Run \`${cliInvocation()} doctor\` for the remaining checks.`,
+    t(
+      `Run \`${cliInvocation()} doctor\` for the remaining checks.`,
+      `运行 \`${cliInvocation()} doctor\` 查看剩余检查项。`,
+    ),
     promptStreams,
   );
 };
@@ -219,7 +225,10 @@ const selectClientsAccessibly = async (
   for (const state of states) {
     const included = await confirm({
       ...promptStreams,
-      message: `Configure ${clientDisplayNames.get(state.client.name) ?? state.client.name}? ${clientHint(state)}`,
+      message: t(
+        `Configure ${clientDisplayNames.get(state.client.name) ?? state.client.name}? ${clientHint(state)}`,
+        `是否配置 ${clientDisplayNames.get(state.client.name) ?? state.client.name}？${clientHint(state)}`,
+      ),
       initialValue: initial.has(state.client.name),
       vertical: true,
     });
@@ -238,7 +247,10 @@ const renderDetectedSummary = (states: readonly SetupClientState[]): void => {
           "◆  No agents detected. Choose any supported agent below.",
           "◆  未检测到智能体，可以手动选择支持的工具。",
         )
-      : `◆  Detected: ${humanList(detected.map(({ client }) => clientDisplayNames.get(client.name) ?? client.name))}`,
+      : t(
+          `◆  Detected: ${humanList(detected.map(({ client }) => clientDisplayNames.get(client.name) ?? client.name))}`,
+          `◆  已检测到：${humanList(detected.map(({ client }) => clientDisplayNames.get(client.name) ?? client.name))}`,
+        )
   );
 };
 
@@ -267,18 +279,21 @@ const renderReadyCapabilities = (
   writeLine(t("◆  What you can do now", "◆  现在可以做什么"));
   const providers = readyProviders(result);
   if (providers.length > 0)
-    writeLine(`│  Deep analysis: ${humanList(providers)}`);
+    writeLine(t(`│  Deep analysis: ${humanList(providers)}`, `│  深度分析工具：${humanList(providers)}`));
   if (readyClients.length > 0)
-    writeLine(`│  Agent access: ${humanList(readyClients)}`);
+    writeLine(t(`│  Agent access: ${humanList(readyClients)}`, `│  智能体接入：${humanList(readyClients)}`));
   if (result.doctor.identity?.skill.state === "aligned")
-    writeLine("│  Guided reverse-engineering workflows: installed");
+    writeLine(t("│  Guided reverse-engineering workflows: installed", "│  逆向工程工作流指引：已安装"));
   writeLine(
     `│  CLI: ${cliInvocation()} ${providers.length > 0 ? "analyze /path/to/app" : "capabilities"}`,
   );
   const firstClient = readyClients[0];
   if (firstClient !== undefined)
     writeLine(
-      `│  Try in ${firstClient}: "Explain how a feature works in /path/to/app and show the evidence."`,
+      t(
+        `│  Try in ${firstClient}: "Explain how a feature works in /path/to/app and show the evidence."`,
+        `│  请在 ${firstClient} 中尝试：“分析 /path/to/app 的功能实现并列出证据。”`,
+      ),
     );
 };
 
@@ -300,8 +315,10 @@ const displayProviderId = (id: string): string =>
 
 const humanList = (values: readonly string[]): string => {
   if (values.length < 2) return values[0] ?? "";
-  if (values.length === 2) return `${values[0]} and ${values[1]}`;
-  return `${values.slice(0, -1).join(", ")}, and ${values.at(-1)}`;
+  if (values.length === 2) return isZh ? `${values[0]} 和 ${values[1]}` : `${values[0]} and ${values[1]}`;
+  return isZh
+    ? `${values.slice(0, -1).join("、")} 和 ${values.at(-1)}`
+    : `${values.slice(0, -1).join(", ")}, and ${values.at(-1)}`;
 };
 
 const renderPreflight = (actions: readonly SetupAction[]): void => {
@@ -312,15 +329,16 @@ const renderPreflight = (actions: readonly SetupAction[]): void => {
     writeLine(`│  ${action.operation.toUpperCase()}  ${action.label}`);
     writeLine(`│          ${action.target}`);
     if (action.backupPath !== undefined)
-      writeLine(`│          backup: ${action.backupPath}`);
+      writeLine(t(`│          backup: ${action.backupPath}`, `│          备份：${action.backupPath}`));
     for (const origin of action.networkOrigins ?? [])
-      writeLine(`│          network: ${origin}`);
+      writeLine(t(`│          network: ${origin}`, `│          网络来源：${origin}`));
     if (action.integrity !== undefined)
-      writeLine(`│          integrity: ${action.integrity}`);
+      writeLine(t(`│          integrity: ${action.integrity}`, `│          完整性校验：${action.integrity}`));
     for (const command of action.commands ?? [])
-      writeLine(`│          command: ${command}`);
+      writeLine(t(`│          command: ${command}`, `│          命令：${command}`));
     writeLine(`│          ${action.detail}`);
-    if (action.external) writeLine("│          external software");
+    if (action.external)
+      writeLine(t("│          external software", "│          需要安装外部软件"));
   }
   writeLine("│");
   writeLine(
