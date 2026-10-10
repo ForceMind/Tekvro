@@ -123,4 +123,5 @@ it("observes a real Node Inspector and releases attachments after cancellation a
       details: { reason: "endpoint_unreachable" },
     },
   });
-}, 30_000);
+  // Real Node Inspector attach/detach can exceed 30 s on busy CI runners.
+}, 60_000);

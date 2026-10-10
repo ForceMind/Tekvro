@@ -1,6 +1,6 @@
-# ForceMind / REA 维护与开发说明
+# ForceMind / Tekvro（探核）维护与开发说明
 
-> 本仓库是 ForceMind 的独立私有研发工作区，并非 REA 官方项目。源项目为 [morluto/rea](https://github.com/morluto/rea)，采用 MIT 许可证。请保留原作者署名、许可证及原始出处。
+> 本仓库是 ForceMind 维护的 Tekvro（探核）独立研发项目，并非 REA 官方项目。源项目为 [morluto/rea](https://github.com/morluto/rea)，采用 MIT 许可证。请保留原作者署名、许可证及原始出处。
 
 ## 源码基线
 
@@ -13,16 +13,16 @@
 
 ## 项目目录
 
-| 目录 | 用途 |
-|---|---|
-| `src/` | 核心 TypeScript、CLI、MCP 服务及分析适配 |
-| `bridge/` | Ghidra、Hopper、LLDB、JADX、浏览器等桥接 |
-| `tests/` | 测试与契约、一致性、边界验证 |
-| `docs/` | 架构决策、集成和使用文档 |
-| `scripts/` | 构建、代码质量、验证及发布脚本 |
-| `third_party/` | 第三方资源与 Git submodule |
-| `website/` | 网站及示例 |
-| `.github/workflows/` | CI、实机验证和发布工作流 |
+| 目录                 | 用途                                     |
+| -------------------- | ---------------------------------------- |
+| `src/`               | 核心 TypeScript、CLI、MCP 服务及分析适配 |
+| `bridge/`            | Ghidra、Hopper、LLDB、JADX、浏览器等桥接 |
+| `tests/`             | 测试与契约、一致性、边界验证             |
+| `docs/`              | 架构决策、集成和使用文档                 |
+| `scripts/`           | 构建、代码质量、验证及发布脚本           |
+| `third_party/`       | 第三方资源与 Git submodule               |
+| `website/`           | 网站及示例                               |
+| `.github/workflows/` | CI、实机验证和发布工作流                 |
 
 ## 开发起步
 

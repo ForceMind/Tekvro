@@ -1,167 +1,70 @@
 import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
-import { SUPPORTED_CLIENT_DEFINITIONS } from "../../src/application/SupportedClients.js";
-import { PRODUCT_IDENTITY } from "../../src/identity.js";
 
-const readmeLanguages = [
-  { path: "README.md", label: "English" },
-  { path: "README_zh.md", label: "简体中文" },
-  { path: "README_zh-TW.md", label: "繁體中文" },
-  { path: "README_ja.md", label: "日本語" },
-  { path: "README_ko.md", label: "한국어" },
-  { path: "README_tr.md", label: "Türkçe" },
-  { path: "README_ru.md", label: "Русский" },
-  { path: "README_vi.md", label: "Tiếng Việt" },
-  { path: "README_th.md", label: "ไทย" },
-  { path: "README_de.md", label: "Deutsch" },
-  { path: "README_es.md", label: "Español" },
-  { path: "README_fr.md", label: "Français" },
-  { path: "README_uk.md", label: "Українська" },
-  { path: "README_pl.md", label: "Polski" },
-  { path: "README_pt-BR.md", label: "Português (Brasil)" },
-  { path: "README_ar.md", label: "العربية" },
-  { path: "README_fa.md", label: "فارسی" },
-] as const;
+const read = (path: string) => readFile(path, "utf8");
 
-const translatedReadmes = readmeLanguages
-  .map((language) => language.path)
-  .filter((path) => path !== "README.md");
-
-const normalizedProse = (content: string): string =>
-  content.replace(/\s+/gu, " ").trim();
-
-const jsonExamples = (content: string): unknown[] =>
-  [...content.matchAll(/```json\s*([\s\S]*?)```/gu)].map((match): unknown =>
-    JSON.parse(match[1] ?? ""),
-  );
-
-const shellExamples = (content: string): string[] =>
-  [...content.matchAll(/```bash\s*([\s\S]*?)```/gu)].map((match) =>
-    (match[1] ?? "").trim(),
-  );
-
-const linkedTargets = (content: string): string[] =>
-  [...content.matchAll(/\]\(([^)\s]+)\)/gu)]
-    .map((match) => match[1] ?? "")
-    .filter(
-      (target) =>
-        !target.startsWith("#") &&
-        !/^README(?:_[A-Za-z0-9-]+)?\.md$/u.test(target),
-    )
-    .sort();
-
-describe("onboarding documentation product facts", () => {
-  it.each(readmeLanguages)(
-    "links every available language from $path",
-    async ({ path, label }) => {
-      const content = await readFile(resolve(path), "utf8");
-      const selector = content.split("\n\n")[1] ?? "";
-      expect(selector).toContain(`**${label}**`);
-      for (const language of readmeLanguages) {
-        if (language.path !== path)
-          expect(selector).toContain(`[${language.label}](${language.path})`);
-      }
-    },
-  );
-
-  it("keeps detailed requirements and versioned MCP configuration aligned in the installation guide", async () => {
-    const content = await readFile(resolve("docs/installation.md"), "utf8");
-    expect(jsonExamples(content)).toContainEqual(
-      expect.objectContaining({
-        mcpServers: expect.objectContaining({
-          rea: expect.objectContaining({
-            command: "npx",
-            args: ["-y", PRODUCT_IDENTITY.registrationPackageSpecifier, "mcp"],
-          }),
-        }),
-      }),
-    );
-    expect(content).toContain("Node.js 22");
-    expect(content).toContain("macOS 12");
-    expect(content).toContain("Ubuntu 24.04");
-    expect(content).toContain("Fedora 41");
-    expect(content).toContain("Arch Linux");
-    expect(content).toContain("CachyOS");
-    for (const client of SUPPORTED_CLIENT_DEFINITIONS)
-      expect(content).toContain(client.displayName);
-  });
-
-  it.each(translatedReadmes)(
-    "keeps onboarding commands, linked guidance and structure aligned with English in %s",
-    async (path) => {
-      const [english, translated] = await Promise.all([
-        readFile(resolve("README.md"), "utf8"),
-        readFile(resolve(path), "utf8"),
-      ]);
-      expect(shellExamples(translated)).toEqual(shellExamples(english));
-      expect(linkedTargets(translated)).toEqual(linkedTargets(english));
-      const headingLevels = (content: string): number[] =>
-        [...content.matchAll(/^(#{1,6})\s/gmu)].map(
-          (match) => match[1]?.length ?? 0,
-        );
-      expect(headingLevels(translated)).toEqual(headingLevels(english));
-      expect(translated.match(/<summary>/gu)?.length).toBe(
-        english.match(/<summary>/gu)?.length,
-      );
-      expect(translated).toContain("Node.js 22.x");
-      expect(translated).toContain(">=22.19");
-      expect(translated).toContain("24.x");
-      expect(translated).toContain(">=24.11");
-      expect(translated).toContain("26+");
-      expect(translated).toContain("MCP-tool_catalog");
-    },
-  );
-
-  it("keeps both English CLI onboarding paths discoverable", async () => {
-    const content = await readFile(resolve("README.md"), "utf8");
-    expect(content).toMatch(
-      /\bnpx(?:\s+(?:--yes|-y))?\s+rea-agents(?:@[^\s]+)?\s+setup\b/u,
-    );
-    expect(content).toMatch(
-      /\bnpm\s+install\s+(?:--global|-g)\s+rea-agents\b/u,
-    );
-    expect(content).toContain("rea setup");
-  });
-
-  it("links to optional installer and unattended setup instructions", async () => {
-    const [readme, installation] = await Promise.all([
-      readFile(resolve("README.md"), "utf8"),
-      readFile(resolve("docs/installation.md"), "utf8"),
+describe("Tekvro independent onboarding", () => {
+  it("uses a Chinese-first landing page and independent project URL", async () => {
+    const [cn, en] = await Promise.all([
+      read("README.md"),
+      read("README.en.md"),
     ]);
-    expect(readme).toMatch(/\]\(docs\/installation\.md(?:#[^)]+)?\)/u);
-    const prose = normalizedProse(installation);
-    expect(prose).toContain(
-      "curl -fsSL https://raw.githubusercontent.com/morluto/rea/main/install.sh | bash",
-    );
-    expect(prose).toMatch(/\brea setup\b[^\n`]*--install-hopper\b/u);
+    expect(cn).toContain("# Tekvro · 探核");
+    expect(cn).toContain("TEKVRO_LANG=zh-CN");
+    expect(en).toContain("# Tekvro");
+    for (const content of [cn, en]) {
+      expect(content).toContain("https://github.com/ForceMind/REA");
+      expect(content).toContain("https://github.com/morluto/rea");
+      expect(content).toContain("LICENSE");
+      expect(content).not.toContain("https://rea.tools/");
+      expect(content).not.toContain("discord.gg");
+      expect(content).not.toMatch(/\bnpx\s+(?:-y\s+)?rea-agents@latest/u);
+    }
   });
 
-  it("documents explicit setup freshness and rollback", async () => {
-    const content = await readFile(resolve("docs/installation.md"), "utf8");
-    const prose = normalizedProse(content);
-    expect(prose).toMatch(
-      /\bnpx(?:\s+(?:--yes|-y))?\s+rea-agents@latest\s+setup\b/u,
+  it("retains attribution and fences public publishing until migration", async () => {
+    const [pkg, license, notice] = await Promise.all([
+      read("package.json"),
+      read("LICENSE"),
+      read("THIRD_PARTY_NOTICES.md"),
+    ]);
+    const config = JSON.parse(pkg) as {
+      name: string;
+      private: boolean;
+      repository: { url: string };
+      bin: Record<string, string>;
+    };
+    expect(config.private).toBe(true);
+    expect(config.name).toBe("rea-agents");
+    expect(config.repository.url).toBe(
+      "git+https://github.com/ForceMind/REA.git",
     );
-    expect(prose).toMatch(
-      /\bnpm exec (?:--yes|-y) --package=rea-agents@\d+\.\d+\.\d+ -- rea setup\b/u,
-    );
+    expect(config.bin.tekvro).toBe("scripts/rea.mjs");
+    expect(config.bin.rea).toBe("scripts/rea.mjs");
+    expect(license).toContain("Copyright (c) 2026 morluto");
+    expect(notice).toContain("f6fe575094658e99ced78d45f385633fbfaaae32");
   });
 
-  it("documents the published MCP Registry installation path", async () => {
-    const content = await readFile(resolve("docs/installation.md"), "utf8");
-    expect(content).toContain("MCP Registry");
-    expect(content).toContain("io.github.morluto/rea");
-    expect(jsonExamples(content)).toContainEqual(
-      expect.objectContaining({
-        mcpServers: expect.objectContaining({
-          rea: expect.objectContaining({
-            command: "npx",
-            args: ["-y", PRODUCT_IDENTITY.registrationPackageSpecifier, "mcp"],
-          }),
-        }),
-      }),
-    );
+  it("makes the documentation portal Chinese-first without falsifying translated coverage", async () => {
+    const [config, home, guide] = await Promise.all([
+      read("docs/.vitepress/config.ts"),
+      read("docs/index.md"),
+      read("docs/zh-CN/quick-start.md"),
+    ]);
+    expect(config).toContain('lang: "zh-CN"');
+    expect(config).toContain("https://github.com/ForceMind/REA");
+    expect(config).not.toContain("https://github.com/morluto/rea");
+    expect(home).toContain("用证据看懂软件");
+    expect(guide).toContain("npm ci");
+    expect(guide).toContain("npm run build:cached");
+    expect(guide).toContain("TEKVRO_LANG=zh-CN");
+  });
+
+  it("marks upstream npm examples as legacy and not Tekvro commands", async () => {
+    const guide = await read("docs/installation.md");
+    expect(guide).toContain("属于**原上游**");
+    expect(guide).toContain("zh-CN/quick-start.md");
+    expect(guide).toContain("Node.js 22");
   });
 });

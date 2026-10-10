@@ -1,8 +1,12 @@
-# Security Policy
+# Tekvro 安全说明 / Security
+
+> 本仓库为 ForceMind 独立维护的私有开发版，**未正式公开发行**。下方技术安全边界最初来源于 REA 6.1.0；其中“最新已发布版本”描述不适用于 Tekvro。请参阅 [中文安全说明](docs/zh-CN/security.md)。
+
+## 技术安全边界（历史原文）
 
 ## Supported versions
 
-Security fixes are provided for the latest published version of REA. Upgrade to the latest release before reporting a problem that may already have been resolved.
+Tekvro 尚未正式发布；报告中请提供当前仓库提交 SHA，无法按上游已发布 npm 版本推断修复状态。
 
 ## Reporting a vulnerability
 

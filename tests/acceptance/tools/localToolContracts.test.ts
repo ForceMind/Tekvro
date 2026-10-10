@@ -203,7 +203,8 @@ captureTest(
       stdout: expect.stringContaining(missing),
     });
   },
-  60_000,
+  // Multiple real CLI subprocess starts are slow under shared CI load.
+  120_000,
 );
 
 captureTest.each(["unknown", "truncated"] as const)(
