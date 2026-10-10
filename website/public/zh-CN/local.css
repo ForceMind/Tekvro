@@ -1,0 +1,41 @@
+/* Tekvro Chinese-first documentation pages; keep the original site stylesheet intact. */
+.zh-page { --accent:#176b69; background:#fff; }
+.zh-github-label { margin-left:.3rem; }
+.zh-hero { padding-block:clamp(4rem,8vw,7rem) 5rem; }
+.zh-kicker { color:#267771; font-size:.78rem; font-weight:760; letter-spacing:.16em; text-transform:uppercase; }
+.zh-hero h1 { max-width:860px; font-size:clamp(3rem,7.8vw,6.25rem); letter-spacing:-.065em; line-height:1.12; }
+.zh-accent { color:#168177; }
+.zh-lead { max-width:750px; font-size:clamp(1.08rem,1.65vw,1.36rem); line-height:1.85; color:var(--muted); }
+.zh-tags { display:flex; gap:.6rem; flex-wrap:wrap; margin:2.2rem 0 1.4rem; }
+.zh-tags span { border:1px solid #d9e8e4; background:#f5faf8; color:#276761; padding:.35rem .75rem; border-radius:999px; font-size:.85rem; }
+.zh-note { color:var(--muted); font-size:.9rem; line-height:1.8; }
+.zh-soft { background:#f7faf9; border-block:1px solid #ebf0ee; }
+.zh-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1rem; margin-top:2.25rem; }
+.zh-card { border:1px solid #dfe9e5; border-radius:18px; background:white; padding:1.6rem; min-width:0; }
+.zh-card h3 { margin-block:.45rem 1rem; }
+.zh-card p:last-child { color:var(--muted); margin:0; }
+.zh-num { color:#29867a; font-size:.75rem; font-weight:760; letter-spacing:.12em; }
+.zh-steps { list-style:none; margin:2rem 0 0; padding:0; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:1rem; counter-reset:steps; }
+.zh-steps li { border-top:2px solid #c9dfd8; padding:1.1rem .3rem 0; display:flex; flex-direction:column; gap:.7rem; counter-increment:steps; }
+.zh-steps li::before { content:"0" counter(steps); color:#177369; font-size:1.75rem; font-weight:800; }
+.zh-steps li span { font-size:.95rem; color:var(--muted); }
+.zh-code-wrap { margin:1.4rem 0; border:1px solid #dce6e3; border-radius:16px; background:#152524; color:#e7f5f0; overflow:hidden; }
+.zh-code-header { display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #29423d; padding:.7rem 1rem; font-size:.83rem; color:#b5d9cd; }
+.zh-code-header .copy-button { color:#e7f5f0; border-color:#58776d; background:transparent; }
+.zh-code-wrap pre { margin:0; padding:1.25rem; overflow-x:auto; font-size:.89rem; line-height:1.8; }
+.zh-code-wrap code { color:inherit; white-space:pre; }
+.zh-conclusion { max-width:930px; }
+.zh-doc { width:min(880px,calc(100% - 3.5rem)); padding-block:3.75rem 5rem; }
+.zh-doc h1 { font-size:clamp(2.4rem,5.8vw,4.25rem); }
+.zh-doc section { padding:1.5rem 0 2.2rem; border-bottom:1px solid #e4eeea; }
+.zh-doc section h2 { font-size:clamp(1.5rem,2.5vw,2rem); }
+.zh-doc section p { line-height:1.9; }
+.zh-anchor-nav { display:flex; gap:1rem; flex-wrap:wrap; margin:2rem 0; padding:1rem 0; border-block:1px solid #e4eeea; }
+.zh-anchor-nav a { font-size:.92rem; }
+.zh-next { display:flex; align-items:center; gap:1rem; flex-wrap:wrap; margin-top:2.5rem; }
+.zh-faq { display:grid; gap:.75rem; margin-top:2rem; }
+.zh-faq details { border:1px solid #dfe9e5; border-radius:14px; padding:1rem 1.2rem; }
+.zh-faq summary { font-weight:650; cursor:pointer; }
+.zh-faq details p { margin:1rem 0 0; color:var(--muted); line-height:1.85; }
+@media (max-width:850px) { .zh-grid{grid-template-columns:repeat(2,minmax(0,1fr));} .zh-steps{grid-template-columns:repeat(2,minmax(0,1fr));} }
+@media (max-width:600px) { .zh-hero{padding-block:3rem;} .zh-grid,.zh-steps{grid-template-columns:1fr;} .zh-doc{width:min(100% - 2rem,880px);} .zh-code-wrap pre{font-size:.8rem;} .zh-hero h1{font-size:3rem;} .zh-github-label{display:none;} }

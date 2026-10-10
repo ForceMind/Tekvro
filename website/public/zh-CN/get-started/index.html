@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Tekvro 探核中文安装指南：从 ForceMind 私有源码构建、检查环境、配置 Codex MCP，并进行第一次分析。" />
+    <title>快速开始 · Tekvro 探核</title>
+    <link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="../../assets/styles.css" />
+    <link rel="stylesheet" href="../local.css" />
+    <script src="../../assets/main.js" defer></script>
+  </head>
+  <body class="zh-page" id="top">
+    <a class="skip-link" href="#main">跳到正文</a>
+    <header class="site-header"><div class="container header-inner">
+      <a class="brand" href="../" aria-label="Tekvro 探核 首页"><span class="brand-name">Tekvro</span><span class="brand-caption">探核 · 用证据看懂软件</span></a>
+      <nav class="navigation" aria-label="主导航"><a href="../#capabilities">核心能力</a><a class="nav-start" href="./" aria-current="page">快速开始</a><a href="../faq/">常见问题</a><a href="../../get-started/" lang="en">English</a></nav>
+      <a class="nav-github" href="https://github.com/ForceMind/Tekvro">GitHub ↗</a>
+    </div></header>
+    <main class="container zh-doc" id="main">
+      <p class="zh-kicker">QUICK START / 中文指南</p><h1>从源码到第一次分析</h1>
+      <p class="zh-lead">Tekvro 暂时是私有研发项目，还没有独立的公开 npm 版本。下面所有命令均在你有权限访问的本地 Git 副本中执行。</p>
+      <nav class="zh-anchor-nav" aria-label="本页目录"><a href="#requirements">环境</a><a href="#build">构建</a><a href="#doctor">检查</a><a href="#mcp">MCP</a><a href="#analyze">分析</a><a href="#notes">注意事项</a></nav>
+      <section id="requirements"><h2>1. 确认环境</h2><p>使用与 <code>package.json</code> 兼容的 Node.js：<code>^22.19.0 || ^24.11.0 || >=26.0.0</code>。准备 npm、Git；Ghidra、Hopper、IDA 等只在需要对应原生分析能力时额外安装。</p>
+        <div class="zh-code-wrap"><div class="zh-code-header"><span>Terminal · 环境</span><button class="copy-button" data-copy="env-code" type="button">复制</button></div><pre><code id="env-code">node -v
+npm -v
+git --version</code></pre></div>
+      </section>
+      <section id="build"><h2>2. 克隆与构建源码</h2><p>先取回仓库和 Git 子模块，按照锁定的依赖安装。构建产物保留在你自己的工作副本中。</p>
+        <div class="zh-code-wrap"><div class="zh-code-header"><span>Terminal · 安装</span><button class="copy-button" data-copy="build-code" type="button">复制</button></div><pre><code id="build-code">git clone https://github.com/ForceMind/Tekvro.git
+cd Tekvro
+git submodule update --init --recursive
+npm ci
+npm run build:cached</code></pre></div>
+        <p class="zh-note">不要用 <code>npx rea-agents@latest</code> 代替上述步骤。它会访问原项目的公开 npm 包，并非这里的 Tekvro 源码。</p>
+      </section>
+      <section id="doctor"><h2>3. 检查功能是否准备好</h2><p>先运行只读检查，确认能用的分析引擎和所需组件。</p>
+        <div class="zh-code-wrap"><div class="zh-code-header"><span>Terminal · Doctor</span><button class="copy-button" data-copy="doctor-code" type="button">复制</button></div><pre><code id="doctor-code">node scripts/rea.mjs --help
+node scripts/rea.mjs doctor --json
+node scripts/rea.mjs capabilities --json</code></pre></div>
+      </section>
+      <section id="mcp"><h2>4. 连接 Codex 等 AI 客户端</h2><p>推荐先查看配置计划；只有确认目标客户端、路径、备份以及准备写入的启动命令正确之后，再执行实际配置。</p>
+        <div class="zh-code-wrap"><div class="zh-code-header"><span>Terminal · MCP</span><button class="copy-button" data-copy="mcp-code" type="button">复制</button></div><pre><code id="mcp-code">node scripts/rea.mjs doctor --client codex --json
+node scripts/rea.mjs setup --client codex --dry-run --json
+TEKVRO_LANG=zh-CN node scripts/rea.mjs setup --client codex</code></pre></div>
+        <p class="zh-note">私有 Tekvro 从源码注册时使用本机 Node.js 加本仓库的 CLI 绝对路径，不会自动下载公开的 <code>rea-agents</code>。Windows PowerShell 可先执行 <code>$env:TEKVRO_LANG="zh-CN"</code>，再运行最后一条 <code>node</code> 命令。</p>
+      </section>
+      <section id="analyze"><h2>5. 第一次本地调查</h2><p>下面的示例针对你拥有检查权限的 JavaScript 或 Electron 解包目录。请按实际情况替换绝对路径。</p>
+        <div class="zh-code-wrap"><div class="zh-code-header"><span>Terminal · 分析</span><button class="copy-button" data-copy="analyze-code" type="button">复制</button></div><pre><code id="analyze-code">node scripts/rea.mjs analyze-javascript-application /absolute/path/to/app --json</code></pre></div>
+        <p>请向 AI 明确要求区分“观察到的事实”“合理推断”和“仍然未知”。重要结论应能回溯到相应的文件、调用链或运行记录。</p>
+      </section>
+      <section id="notes"><h2>6. 安全、更新与局限</h2><ul>
+        <li>只分析你有权检查的目标；不要在未经审核时上传商业秘密、密钥或含个人数据的证据。</li>
+        <li>私有开发版已禁用原 npm 自动升级。更新本仓库请审阅 Git 变更后自行运行 <code>git pull --ff-only</code>，再执行 <code>npm ci</code> 和 <code>npm run build:cached</code>。</li>
+        <li>某些平台需要第三方原生分析软件；检测通过不代表你拥有这些软件的许可证。</li>
+        <li>REA 内部 CLI/MCP 标识处于兼容过渡阶段，不代表 Tekvro 已有独立公开发行包。</li>
+      </ul></section>
+      <div class="zh-next"><a class="button" href="../faq/">继续阅读常见问题 →</a><a class="button secondary" href="../">返回首页</a></div>
+    </main>
+    <footer class="site-footer"><div class="container footer-inner"><p>Tekvro · 探核 / ForceMind · <a href="https://github.com/ForceMind/Tekvro/blob/main/LICENSE">许可与版权</a></p><div class="footer-links"><a href="../">首页</a><a href="../../get-started/" lang="en">English</a></div></div></footer>
+    <a class="back-to-top" href="#top" aria-label="返回顶部">↑</a>
+  </body>
+</html>
