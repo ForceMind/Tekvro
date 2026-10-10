@@ -77,8 +77,27 @@ jobs:
           PY
           )"
           test -n "$matched_sha"
-          git merge --allow-unrelated-histories --no-ff --no-edit -X theirs \
-            -m "chore: import verified upstream REA source 6.1.0 [skip ci]" "$matched_sha"
-          git rm .github/workflows/rea-bootstrap-import.yml
-          git commit -m "chore: finalize verified source import [skip ci]"
-          git push origin HEAD:main
+          # Import the verified snapshot without writing workflow files. The Actions
+          # GITHUB_TOKEN cannot add upstream workflow files; they are restored
+          # separately through the GitHub connector after this commit.
+          mkdir -p "$RUNNER_TEMP/rea-verified-snapshot"
+          git archive "$matched_sha" | tar -x -C "$RUNNER_TEMP/rea-verified-snapshot"
+          rm -rf "$RUNNER_TEMP/rea-verified-snapshot/.github/workflows"
+          rsync -a "$RUNNER_TEMP/rea-verified-snapshot/" ./
+          git add -A
+
+          # git archive omits gitlink entries; re-add their original SHA pointers.
+          while IFS=$'\t' read -r metadata path; do
+            set -- $metadata
+            if [[ "${2:-}" == "commit" ]]; then
+              git update-index --add --cacheinfo "160000,${3},$path"
+            fi
+          done < <(git ls-tree -r "$matched_sha")
+
+          if git diff --cached --name-only | grep -q '^.github/workflows/'; then
+            echo "Refusing to modify workflow paths from Actions token" >&2
+            exit 1
+          fi
+          git commit --quiet -m "chore: import exact REA snapshot from upstream $matched_sha [skip ci]"
+          git push --quiet origin HEAD:main
+          echo "Verified REA source snapshot imported successfully."
