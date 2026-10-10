@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   import-source:
-    if: github.repository == 'ForceMind/REA' && github.event.head_commit.message == 'chore: bootstrap verified source import'
+    if: "github.repository == 'ForceMind/REA' && github.event.head_commit.message == 'chore: bootstrap verified source import'"
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
