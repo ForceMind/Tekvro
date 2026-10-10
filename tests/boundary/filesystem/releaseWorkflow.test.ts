@@ -125,7 +125,9 @@ it("keeps main pushes proposal-only and gates merged-release automation", async 
     "publish",
     "publish-mcp",
   ] as const) {
-    expect(workflow.jobs[name].if).toContain("github.repository == 'morluto/rea'");
+    expect(workflow.jobs[name].if).toContain(
+      "github.repository == 'morluto/rea'",
+    );
   }
   expect(workflow.concurrency.group).toBe(
     "release-${{ inputs.release_branch || github.event.pull_request.merge_commit_sha || github.ref_name }}",
