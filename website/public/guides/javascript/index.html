@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>JavaScript &amp; Electron — REA</title>
+    <title>JavaScript &amp; Electron — Tekvro</title>
     <meta
       name="description"
-      content="Trace a Notes CSV export through a renderer API, preload and IPC handler with REA. Includes downloadable example files and a verified analysis result."
+      content="Trace a Notes CSV export through a renderer API, preload and IPC handler with Tekvro. Includes downloadable example files and a verified analysis result."
     />
     <meta name="theme-color" content="#ffffff" />
     <link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml" />
@@ -17,20 +17,21 @@
     <a class="skip-link" href="#main">Skip to content</a>
     <header class="site-header">
       <div class="container header-inner">
-        <a class="brand" href="../../" aria-label="REA home"
-          ><span class="brand-name">REA</span
-          ><span class="brand-caption">Reverse Engineer Anything</span></a
+        <a class="brand" href="../../" aria-label="Tekvro home"
+          ><span class="brand-name">Tekvro</span
+          ><span class="brand-caption">用证据看懂软件</span></a
         >
         <nav class="navigation" aria-label="Main navigation">
           <a href="../../showcase/">Showcases</a
           ><a class="nav-start" href="../../get-started/">Get started</a
           ><a href="../">Guides</a><a href="../../faq/">FAQ</a>
+          <a href="https://github.com/ForceMind/Tekvro/blob/main/README.md" lang="zh-CN">简体中文</a>
         </nav>
         <a
           class="nav-github"
-          href="https://github.com/morluto/rea"
-          aria-label="REA on GitHub"
-          title="REA on GitHub"
+          href="https://github.com/ForceMind/Tekvro"
+          aria-label="Tekvro on GitHub"
+          title="Tekvro on GitHub"
         >
           <svg
             width="22"
@@ -115,7 +116,7 @@
                 <code>main.js</code> writes <code>downloads/notes.csv</code>.
               </p>
               <figcaption>
-                REA matches the literal IPC call to its handler and identifies
+                Tekvro matches the literal IPC call to its handler and identifies
                 the exposed API. The path is inferred from code; a runtime
                 capture can check what executes.
               </figcaption>
@@ -124,7 +125,7 @@
           <section class="article-section" id="ask">
             <h2>Ask about the CSV export</h2>
             <p>
-              <a href="../../get-started/#agent">Connect your agent to REA</a>
+              <a href="../../get-started/#agent">Connect your agent to Tekvro</a>
               and give it the app directory or ASAR file:
             </p>
             <div class="agent-terminal">
@@ -145,7 +146,7 @@
               <p class="terminal-prompt">
                 <span class="prompt-symbol" aria-hidden="true">›</span
                 ><span id="javascript-prompt"
-                  >Use REA to find what happens when I export notes in this app.
+                  >Use Tekvro to find what happens when I export notes in this app.
                   Where is the CSV created?</span
                 ><span class="terminal-cursor" aria-hidden="true"></span>
               </p>
@@ -155,7 +156,7 @@
               folder or <code>app.asar</code>.
             </p>
             <p>
-              REA reads the application files and builds a map of entrypoints,
+              Tekvro reads the application files and builds a map of entrypoints,
               modules and process boundaries. Your agent uses that map to narrow
               the investigation to the export feature.
             </p>
@@ -185,7 +186,7 @@
 });</code></pre>
             </div>
             <p>
-              REA records <code>notes.exportCsv</code> and the literal channel
+              Tekvro records <code>notes.exportCsv</code> and the literal channel
               <code>notes:export</code>. It pairs that invocation with the
               single matching handler in the main process.
             </p>
@@ -206,7 +207,7 @@
             </p>
             <div class="code-block">
               <div class="code-header">
-                <span>REA result · summary.ipc excerpt</span>
+                <span>Tekvro result · summary.ipc excerpt</span>
               </div>
               <pre><code>{
   &quot;literal_channels&quot;: 1,
@@ -217,7 +218,7 @@
 }</code></pre>
             </div>
             <p class="caption">
-              Recorded by REA 4.1.0 on the downloadable example below. Source
+              Recorded by Tekvro 4.1.0 on the downloadable example below. Source
               locations accompany the API, channel and handler findings.
             </p>
           </section>
@@ -295,7 +296,7 @@
             <p>
               For your own app, use the same command with its directory or ASAR
               path. An agent can follow a literal string, API name or IPC
-              channel with REA's feature tracing tools.
+              channel with Tekvro's feature tracing tools.
             </p>
           </section>
           <section class="article-section" id="next">
@@ -339,12 +340,12 @@
     </main>
     <footer class="site-footer">
       <div class="container footer-inner">
-        <p>REA · Reverse Engineer Anything</p>
+        <p>Tekvro · Reverse Engineer Anything</p>
         <div class="footer-links">
-          <a href="https://github.com/morluto/rea">Source</a
-          ><a href="https://github.com/morluto/rea/blob/main/LICENSE"
+          <a href="https://github.com/ForceMind/Tekvro">Source</a
+          ><a href="https://github.com/ForceMind/Tekvro/blob/main/LICENSE"
             >MIT license</a
-          ><a href="https://discord.gg/GkcryMnJDM">Community</a>
+          ><a href="https://github.com/ForceMind/Tekvro/issues">Community</a>
         </div>
       </div>
     </footer>
