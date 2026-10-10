@@ -39,7 +39,11 @@ node scripts/rea.mjs setup --client codex --dry-run --json
 TEKVRO_LANG=zh-CN node scripts/rea.mjs setup --client codex
 ```
 
+**更新限制：** 私有源码版本执行 `node scripts/rea.mjs update` 会安全地拒绝连接原项目 npm 更新渠道。需要更新时，请先审阅自己的 Git 提交，再在 Tekvro 目录运行 `git pull --ff-only`、`npm ci` 和 `npm run build:cached`；不要执行旧版自动更新命令。
+
 第三条命令会交互式请求你的许可，写入本机 Agent 配置，故不能把只读 doctor 的成功当成配置已完成。完成后重启 Agent 并检查 MCP 工具是否可用。
+
+**本地源码安全规则：** Tekvro 当前是私有开发版本。安装向导默认写入 `Node.js 可执行文件 + 本仓库的 scripts/rea.mjs 绝对路径 + mcp`，不会通过 `npx rea-agents` 下载原上游包。在 Codex 或其他客户端配置中，请检查该命令实际指向自己的 Tekvro 工作副本；如仍指向公开 npm 包，请重新执行当前仓库的安装向导并审阅变更计划。保留的 `rea` 注册键目前属于兼容设计，不等于使用原作者发行版本。
 
 ## 5. 开发检查
 

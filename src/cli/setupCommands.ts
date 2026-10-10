@@ -12,7 +12,11 @@ import {
 import { runSetup } from "../application/Setup.js";
 import { systemSetupHost } from "../application/SetupHost.js";
 import { isUninstallFailure, runUninstall } from "../application/Uninstall.js";
-import { isUpdateFailure, runUpdate } from "../application/Update.js";
+import {
+  isUpdateFailure,
+  runUpdate,
+  type UpdateResult,
+} from "../application/Update.js";
 import { systemUpdateHost } from "../application/UpdateRuntime.js";
 import {
   confirmInteractiveSetup,
@@ -94,7 +98,7 @@ const registerSetupCommand = (cli: CliInstance, logger: Logger): void => {
 
 const registerDoctorCommand = (cli: CliInstance, logger: Logger): void => {
   cli.command(CLI_COMMANDS.doctor, {
-    description: "Check whether REA is ready",
+    description: "Check whether Tekvro is ready",
     options: z.object({
       target: z.string().optional().describe("Optional app path to check"),
       client: z
@@ -126,12 +130,12 @@ const registerMaintenanceCommands = (
   logger: Logger,
 ): void => {
   cli.command(CLI_COMMANDS.uninstall, {
-    description: "Remove REA-owned agent configuration and skill files",
+    description: "Remove Tekvro-managed agent configuration and skill files",
     options: z.object({
       purgeData: z
         .boolean()
         .default(false)
-        .describe("Also remove REA caches and state"),
+        .describe("Also remove compatible local caches and state"),
     }),
     alias: { purgeData: "purge-data" },
     run: ({ options }) =>
@@ -144,21 +148,36 @@ const registerMaintenanceCommands = (
   });
   cli.command(CLI_COMMANDS.update, {
     description:
-      "Update this REA installation and verify the installed release",
+      "Update a published Tekvro installation (unavailable for private source builds)",
     run: ({ formatExplicit }) =>
       logCliCommand(
         logger,
         CLI_COMMANDS.update,
         () =>
-          runUpdate(
-            PRODUCT_IDENTITY.packageVersion,
-            systemUpdateHost(),
-            formatExplicit ? "structured" : "human",
-          ),
+          PRODUCT_IDENTITY.privateSourceBuild
+            ? Promise.resolve(privateSourceUpdateResult())
+            : runUpdate(
+                PRODUCT_IDENTITY.packageVersion,
+                systemUpdateHost(),
+                formatExplicit ? "structured" : "human",
+              ),
         isUpdateFailure,
       ),
   });
 };
+
+/**
+ * Do not query the upstream public registry or mutate a user's npm installation
+ * when this private source checkout receives the "update" command.
+ */
+export const privateSourceUpdateResult = (): UpdateResult => ({
+  status: "failed",
+  currentVersion: PRODUCT_IDENTITY.packageVersion,
+  latestVersion: null,
+  reason: "unknown-install-method",
+  remediation:
+    "Tekvro is currently a private source build. Do not use the public rea-agents npm updater. Update this Git checkout intentionally, then run npm ci and npm run build:cached from the Tekvro directory.",
+});
 
 interface SetupCommandOptions {
   readonly yes: boolean;

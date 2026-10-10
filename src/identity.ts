@@ -5,6 +5,9 @@
  */
 export const PRODUCT_IDENTITY = {
   displayName: "Tekvro",
+  // No independent Tekvro npm/MCP distribution has been published yet.
+  // Disable the registry updater until this fork owns a verified release.
+  privateSourceBuild: true,
   packageName: PACKAGE_METADATA.name,
   packageSpecifier: `${PACKAGE_METADATA.name}@latest`,
   registrationPackageSpecifier: `${PACKAGE_METADATA.name}@${PACKAGE_METADATA.version}`,

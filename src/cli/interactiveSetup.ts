@@ -269,8 +269,9 @@ const renderKeyboardHelp = (accessible: boolean): void => {
   );
 };
 
-const cliInvocation = (): string =>
-  process.env.npm_command === "exec" ? "npx rea-agents" : "rea";
+// This private development distribution is run from the repository checkout.
+// Never recommend fetching the public upstream npm package as Tekvro.
+const cliInvocation = (): string => "node scripts/rea.mjs";
 
 const renderReadyCapabilities = (
   result: SetupResult,

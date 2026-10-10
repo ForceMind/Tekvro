@@ -1,3 +1,5 @@
+import { resolve } from "node:path";
+
 import { expect, it } from "vitest";
 import { PRODUCT_IDENTITY } from "../identity.js";
 import {
@@ -5,6 +7,24 @@ import {
   npxRegistrationCommand,
 } from "./ClientRegistrationIdentity.js";
 import { setupRegistrationCommand } from "./SetupHost.js";
+
+it("keeps Tekvro's private source distribution distinct from upstream npm", () => {
+  expect(PRODUCT_IDENTITY.privateSourceBuild).toBe(true);
+});
+
+it.each(["win32", "linux", "darwin"] as const)(
+  "defaults to the local Node CLI on %s rather than fetching a public package",
+  (platform) => {
+    const expected = [
+      process.execPath,
+      resolve(process.argv[1] ?? PRODUCT_IDENTITY.cliBinary),
+      "mcp",
+    ];
+    expect(setupRegistrationCommand(platform)).toEqual(expected);
+    expect(setupRegistrationCommand(platform, false)).toEqual(expected);
+    expect(expected.join(" ")).not.toContain("npx");
+  },
+);
 
 it("uses a Windows executable for npm-run setup and preserves POSIX launchers", () => {
   expect(setupRegistrationCommand("win32", true)).toEqual([

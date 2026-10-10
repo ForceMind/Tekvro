@@ -30,20 +30,23 @@ import type {
 } from "./SetupTypes.js";
 import type { DoctorScope } from "./Doctor.js";
 
-/** Resolve the executable and arguments used in a managed MCP registration. */
+/**
+ * A source checkout must register its own CLI entrypoint, never silently fetch
+ * the unrelated public rea-agents package. Explicit npm mode remains available
+ * for compatibility tests and a future independently published distribution.
+ * Running through Node works even if scripts/rea.mjs is not executable on POSIX.
+ */
 export const setupRegistrationCommand = (
   platform: NodeJS.Platform,
-  useNpmRunner: boolean = process.env.npm_command === "exec",
+  useNpmRunner: boolean = false,
 ): readonly string[] =>
   useNpmRunner
     ? npxRegistrationCommand(platform)
-    : platform === "win32"
-      ? [
-          process.execPath,
-          resolve(process.argv[1] ?? PRODUCT_IDENTITY.cliBinary),
-          "mcp",
-        ]
-      : [resolve(process.argv[1] ?? PRODUCT_IDENTITY.cliBinary), "mcp"];
+    : [
+        process.execPath,
+        resolve(process.argv[1] ?? PRODUCT_IDENTITY.cliBinary),
+        "mcp",
+      ];
 
 export const filterClientsNeedingConfigure = async (
   host: SetupHost,
