@@ -77,7 +77,7 @@ jobs:
           PY
           )"
           test -n "$matched_sha"
-          git merge --allow-unrelated-histories --no-ff --no-edit \
+          git merge --allow-unrelated-histories --no-ff --no-edit -X theirs \
             -m "chore: import verified upstream REA source 6.1.0 [skip ci]" "$matched_sha"
           git rm .github/workflows/rea-bootstrap-import.yml
           git commit -m "chore: finalize verified source import [skip ci]"
