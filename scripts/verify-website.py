@@ -43,6 +43,30 @@ def check_site(site):
     if site / "index.html" not in pages:
         errors.append("website/public/index.html is missing")
 
+    # Chinese entrypoints are first-class site pages, not external README links.
+    for relative in (
+        "zh-CN/index.html",
+        "zh-CN/get-started/index.html",
+        "zh-CN/faq/index.html",
+    ):
+        document = site / relative
+        if document not in pages:
+            errors.append(f"website/public/{relative} is missing")
+        elif '<html lang="zh-CN">' not in document.read_text(encoding="utf-8"):
+            errors.append(f"{relative}: missing Chinese document language")
+
+    # Keep the original showcase and analysis examples, while giving every
+    # product page a navigable route to the local Chinese site.
+    for path in pages:
+        relative = path.relative_to(site)
+        is_product_page = relative == Path("index.html") or (
+            relative.parts[0] in {
+                "faq", "first-investigation", "get-started", "guides", "showcase"
+            }
+        )
+        if is_product_page and 'lang="zh-CN"' not in path.read_text(encoding="utf-8"):
+            errors.append(f"{relative}: missing Chinese navigation entry")
+
     for path, page in pages.items():
         label = path.relative_to(site)
         for identifier in page.duplicate_ids:

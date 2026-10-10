@@ -5,6 +5,7 @@ function initializeCopyButtons() {
       if (target === null) return;
 
       const status = document.getElementById("copy-status");
+      const zh = document.documentElement.lang.toLowerCase().startsWith("zh");
       const content = target.textContent.trim();
       const text =
         target.closest(".terminal-prompt") === null
@@ -12,8 +13,9 @@ function initializeCopyButtons() {
           : content.replace(/\s+/g, " ");
       try {
         await navigator.clipboard.writeText(text);
-        button.textContent = "Copied";
-        if (status !== null) status.textContent = "Code copied to clipboard.";
+        button.textContent = zh ? "已复制" : "Copied";
+        if (status !== null)
+          status.textContent = zh ? "已复制到剪贴板。" : "Code copied to clipboard.";
       } catch {
         const range = document.createRange();
         range.selectNodeContents(target);
@@ -22,13 +24,15 @@ function initializeCopyButtons() {
           selection.removeAllRanges();
           selection.addRange(range);
         }
-        button.textContent = "Selected";
+        button.textContent = zh ? "已选中" : "Selected";
         if (status !== null)
-          status.textContent = "Code selected. Use your keyboard to copy it.";
+          status.textContent = zh
+            ? "已选中内容，可通过键盘复制。"
+            : "Code selected. Use your keyboard to copy it.";
       }
 
       window.setTimeout(() => {
-        button.textContent = "Copy";
+        button.textContent = zh ? "复制" : "Copy";
       }, 2000);
     });
   });
