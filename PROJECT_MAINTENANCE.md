@@ -29,8 +29,8 @@
 Node.js 版本按 `package.json` 要求：`^22.19.0 || ^24.11.0 || >=26.0.0`。
 
 ```bash
-git clone https://github.com/ForceMind/REA.git
-cd REA
+git clone https://github.com/ForceMind/Tekvro.git
+cd Tekvro
 git submodule update --init --recursive
 npm ci
 npm run build

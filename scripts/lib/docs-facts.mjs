@@ -53,7 +53,7 @@ export const documentationFactIssues = async (root, catalog) => {
   for (const path of ["README.md", "README.en.md"]) {
     const content = await readFile(join(root, path), "utf8");
     requireText(issues, path, content, "Tekvro");
-    requireText(issues, path, content, "https://github.com/ForceMind/REA");
+    requireText(issues, path, content, "https://github.com/ForceMind/Tekvro");
     requireText(issues, path, content, "LICENSE");
     requireText(issues, path, content, "THIRD_PARTY_NOTICES.md");
     if (content.includes("https://rea.tools/"))

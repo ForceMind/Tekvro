@@ -14,7 +14,7 @@ describe("Tekvro independent onboarding", () => {
     expect(cn).toContain("TEKVRO_LANG=zh-CN");
     expect(en).toContain("# Tekvro");
     for (const content of [cn, en]) {
-      expect(content).toContain("https://github.com/ForceMind/REA");
+      expect(content).toContain("https://github.com/ForceMind/Tekvro");
       expect(content).toContain("https://github.com/morluto/rea");
       expect(content).toContain("LICENSE");
       expect(content).not.toContain("https://rea.tools/");
@@ -38,7 +38,7 @@ describe("Tekvro independent onboarding", () => {
     expect(config.private).toBe(true);
     expect(config.name).toBe("rea-agents");
     expect(config.repository.url).toBe(
-      "git+https://github.com/ForceMind/REA.git",
+      "git+https://github.com/ForceMind/Tekvro.git",
     );
     expect(config.bin.tekvro).toBe("scripts/rea.mjs");
     expect(config.bin.rea).toBe("scripts/rea.mjs");
@@ -53,7 +53,7 @@ describe("Tekvro independent onboarding", () => {
       read("docs/zh-CN/quick-start.md"),
     ]);
     expect(config).toContain('lang: "zh-CN"');
-    expect(config).toContain("https://github.com/ForceMind/REA");
+    expect(config).toContain("https://github.com/ForceMind/Tekvro");
     expect(config).not.toContain("https://github.com/morluto/rea");
     expect(home).toContain("用证据看懂软件");
     expect(guide).toContain("npm ci");

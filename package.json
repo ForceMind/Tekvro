@@ -6,11 +6,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ForceMind/REA.git"
+    "url": "git+https://github.com/ForceMind/Tekvro.git"
   },
-  "homepage": "https://github.com/ForceMind/REA#readme",
+  "homepage": "https://github.com/ForceMind/Tekvro#readme",
   "bugs": {
-    "url": "https://github.com/ForceMind/REA/issues"
+    "url": "https://github.com/ForceMind/Tekvro/issues"
   },
   "keywords": [
     "reverse-engineering",

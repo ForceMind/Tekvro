@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: Tekvro 中文文档
-    url: https://github.com/ForceMind/REA/blob/main/README.md
+    url: https://github.com/ForceMind/Tekvro/blob/main/README.md
     about: 请先查看中文快速开始、已知限制和开发说明
   - name: 私有安全报告
-    url: https://github.com/ForceMind/REA/security/advisories/new
+    url: https://github.com/ForceMind/Tekvro/security/advisories/new
     about: 涉及敏感细节的漏洞请通过私有报告提交，不要创建公开 Issue
