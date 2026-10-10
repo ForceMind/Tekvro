@@ -118,7 +118,7 @@ async function initializeGitHubStars() {
   if (count === null || count === undefined) return;
 
   try {
-    const response = await fetch("https://api.github.com/repos/morluto/rea", {
+    const response = await fetch("https://api.github.com/repos/ForceMind/Tekvro", {
       headers: { Accept: "application/vnd.github+json" },
       credentials: "omit",
       signal: AbortSignal.timeout(5000),
@@ -129,7 +129,7 @@ async function initializeGitHubStars() {
     if (!Number.isSafeInteger(stars) || stars < 0) return;
 
     const formatted = new Intl.NumberFormat("en-US").format(stars);
-    const label = `REA on GitHub (${formatted} ${stars === 1 ? "star" : "stars"})`;
+    const label = `Tekvro on GitHub (${formatted} ${stars === 1 ? "star" : "stars"})`;
     count.textContent = formatted;
     count.hidden = false;
     link.setAttribute("aria-label", label);
