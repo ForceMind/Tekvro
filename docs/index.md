@@ -2,45 +2,40 @@
 layout: home
 
 hero:
-  name: REA
-  text: Reverse Engineer Anything
-  tagline: Understand binaries, applications, and runtime behavior with one CLI and MCP server.
+  name: Tekvro · 探核
+  text: 用证据看懂软件
+  tagline: 本地优先的 AI 软件分析工具，连接 MCP、CLI、专业逆向引擎和运行时证据。
   actions:
     - theme: brand
-      text: Get started
-      link: /installation
+      text: 开始使用
+      link: /zh-CN/quick-start
     - theme: alt
-      text: View on GitHub
-      link: https://github.com/morluto/rea
+      text: 查看源码
+      link: https://github.com/ForceMind/REA
 
 features:
-  - title: Investigate with your agent
-    details: Connect REA to your coding agent, describe the app or feature you want to understand, and follow the evidence.
-    link: /mcp-prompts
-  - title: Inspect across formats
-    details: Explore native binaries, JavaScript and Electron apps, .NET assemblies, Android packages, firmware, and websites.
-    link: /installation
-  - title: Keep the evidence
-    details: Analysis runs locally and returns observations, limitations, and unknowns through the CLI and MCP.
+  - title: AI 协作分析
+    details: 将二进制文件、打包应用和运行时的分析能力交给 Codex 等 Agent 调用。
+    link: /zh-CN/architecture
+  - title: 证据驱动
+    details: 区分已观察事实、由证据推断的解释与尚不确定的内容。
     link: /mcp-contracts
+  - title: 中文入门
+    details: 提供中文部署、CLI、MCP、安全和维护说明；高级技术资料逐步翻译。
+    link: /zh-CN/quick-start
 ---
 
-## Start with one command
+## 本地构建
 
 ```bash
-npx rea-agents setup
+git clone https://github.com/ForceMind/REA.git
+cd REA
+git submodule update --init --recursive
+npm ci
+npm run build:cached
+node scripts/rea.mjs --help
 ```
 
-Choose your agent, review the planned changes, and approve setup. Native binary
-analysis can use an existing Hopper, Ghidra, or IDA installation; static
-JavaScript analysis needs no native analysis engine.
+目前未发布 Tekvro npm 包。此仓库仍有少量兼容用的 REA 内部标识；**请从仓库本地构建运行**，不要误将公开 `rea-agents` 包视为此版本。
 
-For a first result from an extracted JavaScript application or ASAR:
-
-```bash
-npx -y rea-agents@latest analyze-javascript-application /absolute/path/to/app --json
-```
-
-See [installation and setup](./installation.md) for requirements and configuration.
-
-![REA inspecting a native binary in Hopper](./assets/rea-hopper-analysis.png)
+继续阅读 [中文快速上手](./zh-CN/quick-start.md)、[架构](./zh-CN/architecture.md)与[安全](./zh-CN/security.md)。
