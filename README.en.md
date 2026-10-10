@@ -4,15 +4,15 @@
 
 [简体中文](README.md) · [Documentation](docs/index.md) · [Getting started (中文)](docs/zh-CN/quick-start.md) · [Maintenance](PROJECT_MAINTENANCE.md)
 
-> **Development status:** independent private work-in-progress by ForceMind, based on an exact REA 6.1.0 snapshot. The GitHub repository is currently `ForceMind/REA`. Tekvro is **not published** as an npm or MCP Registry package.
+> **Development status:** independent private work-in-progress by ForceMind, based on an exact REA 6.1.0 snapshot. The GitHub repository is `ForceMind/Tekvro`. Tekvro is **not published** as an npm or MCP Registry package.
 
 ## Build from source
 
 Node.js `^22.19.0 || ^24.11.0 || >=26.0.0` and npm are required.
 
 ```bash
-git clone https://github.com/ForceMind/REA.git
-cd REA
+git clone https://github.com/ForceMind/Tekvro.git
+cd Tekvro
 git submodule update --init --recursive
 npm ci
 npm run build:cached

@@ -5,7 +5,7 @@ AI 辅助的软件结构、二进制文件和运行行为分析工具。
 
 [English](README.en.md) · [中文文档](docs/index.md) · [快速上手](docs/zh-CN/quick-start.md) · [架构](docs/zh-CN/architecture.md) · [安全说明](docs/zh-CN/security.md) · [开发规范](PROJECT_MAINTENANCE.md)
 
-> **项目状态：内部研发版。** 目前 GitHub 仓库仍为 `ForceMind/REA`；**Tekvro / 探核** 是新产品名。代码原始基线为 REA 6.1.0。尚未对外发布 Tekvro 的 npm/MCP 包，也未完成所有系统的兼容性测试。
+> **项目状态：内部研发版。** GitHub 仓库已更名为 `ForceMind/Tekvro`；**Tekvro / 探核** 是新产品名。代码原始基线为 REA 6.1.0。尚未对外发布 Tekvro 的 npm/MCP 包，也未完成所有系统的兼容性测试。
 
 ## Tekvro 可以做什么？
 
@@ -24,8 +24,8 @@ Tekvro **不是**通用的“一键还原源码”工具，也不会自动获得
 **需要 Node.js `^22.19.0 || ^24.11.0 || >=26.0.0` 和 npm。** 请从本私有仓库构建，**不要把公开 npm 上的 `rea-agents` 误认作本项目构建**。
 
 ```bash
-git clone https://github.com/ForceMind/REA.git
-cd REA
+git clone https://github.com/ForceMind/Tekvro.git
+cd Tekvro
 git submodule update --init --recursive
 npm ci
 npm run build:cached

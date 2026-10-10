@@ -12,8 +12,8 @@
 ## 2. 克隆与构建
 
 ```bash
-git clone https://github.com/ForceMind/REA.git
-cd REA
+git clone https://github.com/ForceMind/Tekvro.git
+cd Tekvro
 git submodule update --init --recursive
 npm ci
 npm run build:cached

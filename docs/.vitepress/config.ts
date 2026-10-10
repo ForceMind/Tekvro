@@ -4,7 +4,7 @@ export default defineConfig({
   title: "Tekvro · 探核",
   description: "用证据看懂软件 — AI 辅助的本地软件分析工具",
   lang: "zh-CN",
-  base: "/REA/",
+  base: "/Tekvro/",
   themeConfig: {
     nav: [
       { text: "开始使用", link: "/zh-CN/quick-start" },
@@ -43,9 +43,9 @@ export default defineConfig({
       },
     ],
     search: { provider: "local" },
-    socialLinks: [{ icon: "github", link: "https://github.com/ForceMind/REA" }],
+    socialLinks: [{ icon: "github", link: "https://github.com/ForceMind/Tekvro" }],
     editLink: {
-      pattern: "https://github.com/ForceMind/REA/edit/main/docs/:path",
+      pattern: "https://github.com/ForceMind/Tekvro/edit/main/docs/:path",
       text: "编辑此页",
     },
     footer: {

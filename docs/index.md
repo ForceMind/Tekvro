@@ -11,7 +11,7 @@ hero:
       link: /zh-CN/quick-start
     - theme: alt
       text: 查看源码
-      link: https://github.com/ForceMind/REA
+      link: https://github.com/ForceMind/Tekvro
 
 features:
   - title: AI 协作分析
@@ -28,8 +28,8 @@ features:
 ## 本地构建
 
 ```bash
-git clone https://github.com/ForceMind/REA.git
-cd REA
+git clone https://github.com/ForceMind/Tekvro.git
+cd Tekvro
 git submodule update --init --recursive
 npm ci
 npm run build:cached
