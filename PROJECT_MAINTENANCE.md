@@ -13,16 +13,16 @@
 
 ## 项目目录
 
-| 目录 | 用途 |
-|---|---|
-| `src/` | 核心 TypeScript、CLI、MCP 服务及分析适配 |
-| `bridge/` | Ghidra、Hopper、LLDB、JADX、浏览器等桥接 |
-| `tests/` | 测试与契约、一致性、边界验证 |
-| `docs/` | 架构决策、集成和使用文档 |
-| `scripts/` | 构建、代码质量、验证及发布脚本 |
-| `third_party/` | 第三方资源与 Git submodule |
-| `website/` | 网站及示例 |
-| `.github/workflows/` | CI、实机验证和发布工作流 |
+| 目录                 | 用途                                     |
+| -------------------- | ---------------------------------------- |
+| `src/`               | 核心 TypeScript、CLI、MCP 服务及分析适配 |
+| `bridge/`            | Ghidra、Hopper、LLDB、JADX、浏览器等桥接 |
+| `tests/`             | 测试与契约、一致性、边界验证             |
+| `docs/`              | 架构决策、集成和使用文档                 |
+| `scripts/`           | 构建、代码质量、验证及发布脚本           |
+| `third_party/`       | 第三方资源与 Git submodule               |
+| `website/`           | 网站及示例                               |
+| `.github/workflows/` | CI、实机验证和发布工作流                 |
 
 ## 开发起步
 

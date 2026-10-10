@@ -31,7 +31,10 @@ export default defineConfig({
           { text: "安装与配置", link: "/installation" },
           { text: "CLI 与 Evidence", link: "/cli" },
           { text: "MCP 契约", link: "/mcp-contracts" },
-          { text: "JavaScript / Electron", link: "/javascript-artifact-reconstruction" },
+          {
+            text: "JavaScript / Electron",
+            link: "/javascript-artifact-reconstruction",
+          },
           { text: "浏览器观察", link: "/browser-observation" },
           { text: "原生二进制", link: "/native-investigation" },
           { text: "Android", link: "/android-analysis" },
@@ -41,7 +44,14 @@ export default defineConfig({
     ],
     search: { provider: "local" },
     socialLinks: [{ icon: "github", link: "https://github.com/ForceMind/REA" }],
-    editLink: { pattern: "https://github.com/ForceMind/REA/edit/main/docs/:path", text: "编辑此页" },
-    footer: { message: "Tekvro 是 REA 的独立衍生研发项目；原作者 MIT 许可证及版权说明予以保留。", copyright: "© 2026 ForceMind · Original REA © 2026 morluto" },
+    editLink: {
+      pattern: "https://github.com/ForceMind/REA/edit/main/docs/:path",
+      text: "编辑此页",
+    },
+    footer: {
+      message:
+        "Tekvro 是 REA 的独立衍生研发项目；原作者 MIT 许可证及版权说明予以保留。",
+      copyright: "© 2026 ForceMind · Original REA © 2026 morluto",
+    },
   },
 });

@@ -25,8 +25,10 @@ const clientDisplayNames: ReadonlyMap<string, string> = new Map(
 );
 
 /** Localize interactive human text; preserve CLI flags, JSON and MCP schemas. */
-const isZh = /^zh(?:[_-]|$)/iu.test((process.env.TEKVRO_LANG ?? process.env.LANG ?? "").trim());
-const t = (en: string, zh: string): string => isZh ? zh : en;
+const isZh = /^zh(?:[_-]|$)/iu.test(
+  (process.env.TEKVRO_LANG ?? process.env.LANG ?? "").trim(),
+);
+const t = (en: string, zh: string): string => (isZh ? zh : en);
 
 const promptStreams = {
   input: process.stdin,
@@ -43,7 +45,10 @@ export const confirmInteractiveSetup = async (
   if (context?.stage === "select" || context === undefined) {
     intro(t("Tekvro setup", "Tekvro 探核 · 配置向导"), promptStreams);
     writeLine(
-      t("│  Understand local apps and binaries from your terminal or agent.", "│  用终端或 AI 智能体调查本地软件与二进制文件。"),
+      t(
+        "│  Understand local apps and binaries from your terminal or agent.",
+        "│  用终端或 AI 智能体调查本地软件与二进制文件。",
+      ),
     );
     renderDetectedSummary(context?.clientStates ?? []);
     renderKeyboardHelp(accessible);
@@ -61,7 +66,10 @@ export const confirmInteractiveSetup = async (
     message:
       actions.length === 1
         ? t("Apply this change?", "是否应用这项修改？")
-        : t(`Apply these ${String(actions.length)} changes?`, `是否应用这 ${String(actions.length)} 项修改？`),
+        : t(
+            `Apply these ${String(actions.length)} changes?`,
+            `是否应用这 ${String(actions.length)} 项修改？`,
+          ),
     initialValue: true,
     active: t("Yes, apply", "确认应用"),
     inactive: t("No, cancel", "取消"),
@@ -131,7 +139,10 @@ const selectSetupActions = async (
     else {
       const included = await confirm({
         ...promptStreams,
-        message: t("Install the guided REA skill for CLI use?", "是否安装 Tekvro CLI 引导 Skill？"),
+        message: t(
+          "Install the guided REA skill for CLI use?",
+          "是否安装 Tekvro CLI 引导 Skill？",
+        ),
         initialValue: false,
         vertical: accessible,
       });
@@ -143,7 +154,10 @@ const selectSetupActions = async (
   if (hopper !== undefined) {
     const included = await confirm({
       ...promptStreams,
-      message: t("Install Hopper for deep binary analysis?", "是否安装 Hopper 进行深度二进制分析？"),
+      message: t(
+        "Install Hopper for deep binary analysis?",
+        "是否安装 Hopper 进行深度二进制分析？",
+      ),
       initialValue: false,
       vertical: accessible,
     });
@@ -155,12 +169,21 @@ const selectSetupActions = async (
 
 const clientHint = (state: SetupClientState): string =>
   state.configured
-    ? t("REA already configured · selected from existing configuration", "已存在 REA 配置 · 将复用现有配置")
+    ? t(
+        "REA already configured · selected from existing configuration",
+        "已存在 REA 配置 · 将复用现有配置",
+      )
     : state.status === "invalid"
-      ? t("Existing configuration needs repair before setup", "旧配置损坏 · 需要先修复")
+      ? t(
+          "Existing configuration needs repair before setup",
+          "旧配置损坏 · 需要先修复",
+        )
       : state.detected
         ? t("Detected · choose to configure", "已检测到 · 可选择配置")
-        : t("Not detected · configuration is still available", "未检测到 · 仍可以配置");
+        : t(
+            "Not detected · configuration is still available",
+            "未检测到 · 仍可以配置",
+          );
 
 const selectClients = async (
   states: readonly SetupClientState[],
@@ -211,7 +234,10 @@ const renderDetectedSummary = (states: readonly SetupClientState[]): void => {
   writeLine("│");
   writeLine(
     detected.length === 0
-      ? t("◆  No agents detected. Choose any supported agent below.", "◆  未检测到智能体，可以手动选择支持的工具。")
+      ? t(
+          "◆  No agents detected. Choose any supported agent below.",
+          "◆  未检测到智能体，可以手动选择支持的工具。",
+        )
       : `◆  Detected: ${humanList(detected.map(({ client }) => clientDisplayNames.get(client.name) ?? client.name))}`,
   );
 };
@@ -220,8 +246,14 @@ const renderKeyboardHelp = (accessible: boolean): void => {
   writeLine("│");
   writeLine(
     accessible
-      ? t("│  Keys: Enter answer · Ctrl-C cancel", "│  按键：Enter 确认 · Ctrl-C 取消")
-      : t("│  Keys: ↑/↓ navigate · Space toggle · Enter confirm · Ctrl-C cancel", "│  按键：↑↓ 移动 · 空格选择 · Enter 确认 · Ctrl-C 取消"),
+      ? t(
+          "│  Keys: Enter answer · Ctrl-C cancel",
+          "│  按键：Enter 确认 · Ctrl-C 取消",
+        )
+      : t(
+          "│  Keys: ↑/↓ navigate · Space toggle · Enter confirm · Ctrl-C cancel",
+          "│  按键：↑↓ 移动 · 空格选择 · Enter 确认 · Ctrl-C 取消",
+        ),
   );
 };
 
@@ -292,12 +324,21 @@ const renderPreflight = (actions: readonly SetupAction[]): void => {
   }
   writeLine("│");
   writeLine(
-    t("│  REA will preserve unrelated configuration and will not install or upgrade Node.js, npm, Homebrew, Java, or Ghidra.", "│  Tekvro 会保留无关配置，不会自动安装或升级 Node.js、npm、Homebrew、Java、Ghidra。"),
+    t(
+      "│  REA will preserve unrelated configuration and will not install or upgrade Node.js, npm, Homebrew, Java, or Ghidra.",
+      "│  Tekvro 会保留无关配置，不会自动安装或升级 Node.js、npm、Homebrew、Java、Ghidra。",
+    ),
   );
 };
 
 const cancelledDecision = (): SetupConfirmationDecision => {
-  cancel(t("Setup cancelled. No changes were made.", "配置已取消，没有修改任何文件。"), promptStreams);
+  cancel(
+    t(
+      "Setup cancelled. No changes were made.",
+      "配置已取消，没有修改任何文件。",
+    ),
+    promptStreams,
+  );
   return {
     approved: false,
     selectedActionIds: [],

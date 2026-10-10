@@ -6,7 +6,10 @@ const read = (path: string) => readFile(path, "utf8");
 
 describe("Tekvro independent onboarding", () => {
   it("uses a Chinese-first landing page and independent project URL", async () => {
-    const [cn, en] = await Promise.all([read("README.md"), read("README.en.md")]);
+    const [cn, en] = await Promise.all([
+      read("README.md"),
+      read("README.en.md"),
+    ]);
     expect(cn).toContain("# Tekvro · 探核");
     expect(cn).toContain("TEKVRO_LANG=zh-CN");
     expect(en).toContain("# Tekvro");
@@ -22,7 +25,9 @@ describe("Tekvro independent onboarding", () => {
 
   it("retains attribution and fences public publishing until migration", async () => {
     const [pkg, license, notice] = await Promise.all([
-      read("package.json"), read("LICENSE"), read("THIRD_PARTY_NOTICES.md"),
+      read("package.json"),
+      read("LICENSE"),
+      read("THIRD_PARTY_NOTICES.md"),
     ]);
     const config = JSON.parse(pkg) as {
       name: string;
@@ -32,7 +37,9 @@ describe("Tekvro independent onboarding", () => {
     };
     expect(config.private).toBe(true);
     expect(config.name).toBe("rea-agents");
-    expect(config.repository.url).toBe("git+https://github.com/ForceMind/REA.git");
+    expect(config.repository.url).toBe(
+      "git+https://github.com/ForceMind/REA.git",
+    );
     expect(config.bin.tekvro).toBe("scripts/rea.mjs");
     expect(config.bin.rea).toBe("scripts/rea.mjs");
     expect(license).toContain("Copyright (c) 2026 morluto");

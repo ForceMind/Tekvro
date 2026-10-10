@@ -58,15 +58,15 @@ TEKVRO_LANG=zh-CN node scripts/rea.mjs setup --client codex
 
 ## 代码结构
 
-| 目录 | 内容 |
-|---|---|
-| `src/` | 核心领域模型、分析适配器、CLI/MCP 协议 |
-| `bridge/` | 第三方逆向引擎的本地桥接 |
-| `tests/` | 自动化与契约测试 |
-| `scripts/` | 构建、检测、验证 |
-| `docs/` | 中文入门与详细技术文档 |
-| `skill-src/` | 面向 Agent 的工作指引 |
-| `third_party/` | 子模块与外部依赖 |
+| 目录           | 内容                                   |
+| -------------- | -------------------------------------- |
+| `src/`         | 核心领域模型、分析适配器、CLI/MCP 协议 |
+| `bridge/`      | 第三方逆向引擎的本地桥接               |
+| `tests/`       | 自动化与契约测试                       |
+| `scripts/`     | 构建、检测、验证                       |
+| `docs/`        | 中文入门与详细技术文档                 |
+| `skill-src/`   | 面向 Agent 的工作指引                  |
+| `third_party/` | 子模块与外部依赖                       |
 
 ## 维护与发布
 
