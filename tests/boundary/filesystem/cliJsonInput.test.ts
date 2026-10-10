@@ -1,0 +1,101 @@
+import { chmod, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+
+import { describe, expect, it, onTestFinished } from "vitest";
+
+import { parseCliJsonInput } from "../../../src/cliJsonInput.js";
+import { createTestTempDirectory } from "../../fixtures/temporaryDirectory.js";
+
+describe("CLI JSON input", () => {
+  it("distinguishes malformed inline text from files and preserves bracket-prefixed paths", async () => {
+    expect(await parseCliJsonInput("[", "test-input")).toMatchObject({
+      ok: false,
+      error: {
+        details: { issues: [{ reason: "invalid_format", expected: "JSON" }] },
+      },
+    });
+    expect(await parseCliJsonInput("[", "test-input")).toMatchObject({
+      ok: false,
+      error: {
+        details: { issues: [{ reason: "invalid_format", expected: "JSON" }] },
+      },
+    });
+    const root = await createTestTempDirectory("rea-json-input-");
+    const path = join(root, "input.json");
+    await writeFile(path, '{"value":1}');
+    expect(await parseCliJsonInput(path, "test-input")).toEqual({
+      ok: true,
+      value: { value: 1 },
+    });
+    expect(await parseCliJsonInput("false", "test-input")).toEqual({
+      ok: true,
+      value: false,
+    });
+    const bracketPath = join(root, "[input].json");
+    await writeFile(bracketPath, '["preserved"]');
+    expect(await parseCliJsonInput(bracketPath, "test-input")).toEqual({
+      ok: true,
+      value: ["preserved"],
+    });
+    for (const missingPath of [
+      join(root, "{capture}.json"),
+      join(root, "[missing].json"),
+    ])
+      expect(await parseCliJsonInput(missingPath, "test-input")).toMatchObject({
+        ok: false,
+        error: { input_path: missingPath, input_reason: "read-failed" },
+      });
+    expect(await parseCliJsonInput(root, "test-input")).toMatchObject({
+      ok: false,
+      error: { input_reason: "read-failed" },
+    });
+  });
+
+  it.each([
+    ["a missing file", "ENOENT"],
+    ["a directory", "EISDIR"],
+  ] as const)(
+    "lists the system cause when %s cannot be read",
+    async (kind, code) => {
+      const root = await createTestTempDirectory("rea-json-input-cause-");
+      const path = kind === "a directory" ? root : join(root, "missing.json");
+      expect(await parseCliJsonInput(path, "test-input")).toMatchObject({
+        ok: false,
+        error: {
+          code: "invalid_request",
+          input_path: path,
+          input_reason: "read-failed",
+          details: {
+            issues: [
+              {
+                path: [],
+                reason: "invalid_value",
+                message: `The JSON input file could not be read (${code}): ${path}`,
+              },
+            ],
+          },
+        },
+      });
+    },
+  );
+
+  it.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
+    "lists a permission denial as the cause of an unreadable file",
+    async () => {
+      const root = await createTestTempDirectory("rea-json-input-denied-");
+      const path = join(root, "input.json");
+      await writeFile(path, "{}");
+      await chmod(path, 0o000);
+      onTestFinished(() => chmod(path, 0o600));
+      expect(await parseCliJsonInput(path, "test-input")).toMatchObject({
+        ok: false,
+        error: {
+          input_reason: "read-failed",
+          details: {
+            issues: [{ message: expect.stringContaining("(EACCES)") }],
+          },
+        },
+      });
+    },
+  );
+});
