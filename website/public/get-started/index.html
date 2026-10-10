@@ -74,6 +74,7 @@
         <article class="article" aria-label="Tekvro getting started guide">
           <section class="article-section" id="agent">
             <h2>Connect your coding agent</h2>
+            <p><strong>Tekvro 私有开发版：</strong>请先克隆 <a href="https://github.com/ForceMind/Tekvro">ForceMind/Tekvro</a>，运行 <code>npm ci</code> 和 <code>npm run build:cached</code>。下方命令从仓库根目录执行。</p>
             <p>
               Run setup to connect Tekvro to your coding agent. Client choices
               include Claude Code, Codex, Cursor, Gemini CLI, Windsurf, Grok
@@ -100,7 +101,7 @@
                 <span class="prompt-symbol" aria-hidden="true">›</span
                 ><span id="agent-install-prompt"
                   >Install Tekvro from the ForceMind/Tekvro repository and connect it to this coding agent with
-                  rea-agents@latest setup. Show me the setup plan for approval,
+                  node scripts/rea.mjs setup. Show me the setup plan for approval,
                   then verify the installation.</span
                 ><span class="terminal-cursor" aria-hidden="true"></span>
               </p>
@@ -160,7 +161,7 @@
                   Copy
                 </button>
               </div>
-              <pre><code id="terminal-analysis">npx -y rea-agents@latest analyze-javascript-application \
+              <pre><code id="terminal-analysis">node scripts/rea.mjs analyze-javascript-application \
   /absolute/path/to/app --json</code></pre>
             </div>
             <p>
@@ -230,7 +231,7 @@
                         </div>
                         <pre><code id="ghidra-connect">export GHIDRA_INSTALL_DIR=/absolute/path/to/ghidra_12.1.4_PUBLIC
 export JAVA_HOME=/absolute/path/to/jdk-21
-npx -y rea-agents@latest doctor --provider ghidra --json
+node scripts/rea.mjs doctor --provider ghidra --json
 node scripts/rea.mjs setup</code></pre>
                       </div>
                       <p>
@@ -289,7 +290,7 @@ node scripts/rea.mjs setup</code></pre>
                         </div>
                         <pre><code id="ida-connect">$env:REA_IDA_MCP_CONFIG = "C:/analysis/ida-mcp.json"
 $env:REA_ANALYSIS_PROVIDER = "ida"
-npx -y rea-agents@latest doctor --provider ida --json
+node scripts/rea.mjs doctor --provider ida --json
 node scripts/rea.mjs setup</code></pre>
                       </div>
                       <p>
@@ -328,7 +329,7 @@ node scripts/rea.mjs setup</code></pre>
                   Copy
                 </button>
               </div>
-              <pre><code id="native-function">npx -y rea-agents@latest function /absolute/path/to/program main \
+              <pre><code id="native-function">node scripts/rea.mjs function /absolute/path/to/program main \
   --provider ghidra --json</code></pre>
             </div>
             <p>
@@ -368,7 +369,7 @@ node scripts/rea.mjs setup</code></pre>
                   Copy
                 </button>
               </div>
-              <pre><code id="client-doctor">npx -y rea-agents@latest doctor --client codex --json</code></pre>
+              <pre><code id="client-doctor">node scripts/rea.mjs doctor --client codex --json</code></pre>
             </div>
             <h3 class="small-heading">If a provider needs attention</h3>
             <p>Check the provider you're using. For Ghidra:</p>
@@ -384,7 +385,7 @@ node scripts/rea.mjs setup</code></pre>
                   Copy
                 </button>
               </div>
-              <pre><code id="provider-doctor">npx -y rea-agents@latest doctor --provider ghidra --json</code></pre>
+              <pre><code id="provider-doctor">node scripts/rea.mjs doctor --provider ghidra --json</code></pre>
             </div>
             <p>The report gives the failed check and a suggested next step.</p>
             <ul class="reading-list">

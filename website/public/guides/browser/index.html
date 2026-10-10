@@ -140,7 +140,7 @@
               <pre><code id="browser-start">google-chrome \
   --remote-debugging-port=9222 \
   --user-data-dir=/tmp/rea-notes-browser \
-  https://rea.tools/examples/notes-web/</code></pre>
+  http://127.0.0.1:8080/examples/notes-web/</code></pre>
             </div>
             <p>
               Use your installed browser's executable path on macOS or Windows.
@@ -203,7 +203,7 @@
                   Copy
                 </button>
               </div>
-              <pre><code id="browser-targets">npx -y rea-agents@latest list-browser-targets \
+              <pre><code id="browser-targets">node scripts/rea.mjs list-browser-targets \
   http://127.0.0.1:9222 --json</code></pre>
             </div>
             <p>
@@ -222,7 +222,7 @@
                   Copy
                 </button>
               </div>
-              <pre><code id="browser-capture">npx -y rea-agents@latest inspect-web-page \
+              <pre><code id="browser-capture">node scripts/rea.mjs inspect-web-page \
   http://127.0.0.1:9222 TARGET_ID \
   --observation-ms 10000 \
   --include-accessibility-text \
@@ -291,7 +291,7 @@
                   Copy
                 </button>
               </div>
-              <pre><code id="browser-scripts">npx -y rea-agents@latest inspect-web-page \
+              <pre><code id="browser-scripts">node scripts/rea.mjs inspect-web-page \
   http://127.0.0.1:9222 TARGET_ID \
   --include-script-sources --json</code></pre>
             </div>

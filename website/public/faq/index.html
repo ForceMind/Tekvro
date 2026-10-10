@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>FAQ — Tekvro</title>
+    <title>Tekvro FAQ — Tekvro</title>
     <meta
       name="description"
       content="Answers to common Tekvro questions: installation, updates, analysis tools, coding agents, troubleshooting and sharing examples."
@@ -157,7 +157,7 @@
                   Review the changes and restart your agent. Its Tekvro connection
                   pins a package version, so refreshing setup makes it use the
                   new release. For one-off CLI commands, use
-                  <code>npx -y rea-agents@latest</code> followed by the command.
+                  <code>node scripts/rea.mjs</code> followed by the command.
                 </p>
               </details>
               <details class="faq-item" id="skill">
@@ -235,7 +235,7 @@
                       Copy
                     </button>
                   </div>
-                  <pre><code id="faq-cli-analysis">npx -y rea-agents@latest analyze-javascript-application \
+                  <pre><code id="faq-cli-analysis">node scripts/rea.mjs analyze-javascript-application \
   /absolute/path/to/app --json</code></pre>
                 </div>
                 <p>
@@ -321,7 +321,7 @@
                       Copy
                     </button>
                   </div>
-                  <pre><code id="faq-doctor">npx -y rea-agents@latest doctor --client codex --json</code></pre>
+                  <pre><code id="faq-doctor">node scripts/rea.mjs doctor --client codex --json</code></pre>
                 </div>
                 <p>
                   Replace <code>codex</code> with your client ID, such as
