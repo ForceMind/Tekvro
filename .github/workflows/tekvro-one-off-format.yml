@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   format:
-    if: github.repository == 'ForceMind/REA' && github.event.head_commit.message == 'chore: run Tekvro formatting pass'
+    if: "github.repository == 'ForceMind/REA' && github.event.head_commit.message == 'chore: run Tekvro formatting pass'"
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
