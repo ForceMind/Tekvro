@@ -279,9 +279,19 @@ const renderReadyCapabilities = (
   writeLine(t("◆  What you can do now", "◆  现在可以做什么"));
   const providers = readyProviders(result);
   if (providers.length > 0)
-    writeLine(t(`│  Deep analysis: ${humanList(providers)}`, `│  深度分析工具：${humanList(providers)}`));
+    writeLine(
+      t(
+        `│  Deep analysis: ${humanList(providers)}`,
+        `│  深度分析工具：${humanList(providers)}`,
+      ),
+    );
   if (readyClients.length > 0)
-    writeLine(t(`│  Agent access: ${humanList(readyClients)}`, `│  智能体接入：${humanList(readyClients)}`));
+    writeLine(
+      t(
+        `│  Agent access: ${humanList(readyClients)}`,
+        `│  智能体接入：${humanList(readyClients)}`,
+      ),
+    );
   if (result.doctor.identity?.skill.state === "aligned")
     writeLine(t("│  Guided reverse-engineering workflows: installed", "│  逆向工程工作流指引：已安装"));
   writeLine(
@@ -315,7 +325,10 @@ const displayProviderId = (id: string): string =>
 
 const humanList = (values: readonly string[]): string => {
   if (values.length < 2) return values[0] ?? "";
-  if (values.length === 2) return isZh ? `${values[0]} 和 ${values[1]}` : `${values[0]} and ${values[1]}`;
+  if (values.length === 2)
+    return isZh
+      ? `${values[0]} 和 ${values[1]}`
+      : `${values[0]} and ${values[1]}`;
   return isZh
     ? `${values.slice(0, -1).join("、")} 和 ${values.at(-1)}`
     : `${values.slice(0, -1).join(", ")}, and ${values.at(-1)}`;
@@ -329,11 +342,21 @@ const renderPreflight = (actions: readonly SetupAction[]): void => {
     writeLine(`│  ${action.operation.toUpperCase()}  ${action.label}`);
     writeLine(`│          ${action.target}`);
     if (action.backupPath !== undefined)
-      writeLine(t(`│          backup: ${action.backupPath}`, `│          备份：${action.backupPath}`));
+      writeLine(
+        t(
+          `│          backup: ${action.backupPath}`,
+          `│          备份：${action.backupPath}`,
+        ),
+      );
     for (const origin of action.networkOrigins ?? [])
       writeLine(t(`│          network: ${origin}`, `│          网络来源：${origin}`));
     if (action.integrity !== undefined)
-      writeLine(t(`│          integrity: ${action.integrity}`, `│          完整性校验：${action.integrity}`));
+      writeLine(
+        t(
+          `│          integrity: ${action.integrity}`,
+          `│          完整性校验：${action.integrity}`,
+        ),
+      );
     for (const command of action.commands ?? [])
       writeLine(t(`│          command: ${command}`, `│          命令：${command}`));
     writeLine(`│          ${action.detail}`);
