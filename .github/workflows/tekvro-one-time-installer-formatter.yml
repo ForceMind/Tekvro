@@ -1,0 +1,35 @@
+name: One-time Tekvro pre-release installer formatter
+on:
+  push:
+    branches: [chore/tekvro-installer-formatter-20261011]
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    if: "github.repository == 'ForceMind/Tekvro' && github.event.head_commit.message == 'chore: format Tekvro installer tests'"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      HUSKY: "0"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Run pinned repository formatter on only two files
+        run: ./node_modules/.bin/oxfmt scripts/verify-published-package.mjs tests/boundary/filesystem/installScript.test.ts
+      - name: Commit style-only changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- scripts/verify-published-package.mjs tests/boundary/filesystem/installScript.test.ts
+          if ! git diff --cached --quiet; then
+            git commit -m 'style: normalize unpublished installer test fixtures [skip ci]'
+            git push origin HEAD:chore/tekvro-installer-formatter-20261011
+          fi
