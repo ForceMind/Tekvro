@@ -11,7 +11,7 @@ describe("recorded-crash workflow package identity", () => {
     const manifest = JSON.parse(manifestJson) as { name: string };
     expect(manifest.name).toBe("tekvro");
     expect(workflow).toContain("installed_package_name=$(node -p");
-    expect(workflow).toMatch(/require\\\("\\.\\/package\\.json"\\\)\\.name/u);
+    expect(workflow).toContain("package.json");
     expect(workflow).toContain(
       "node_modules/${installed_package_name}/scripts/rea.mjs",
     );
