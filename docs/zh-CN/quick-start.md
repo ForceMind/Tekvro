@@ -31,6 +31,16 @@ node scripts/rea.mjs analyze-javascript-application /absolute/path/to/js-app --j
 
 请将路径换成你拥有分析权限的本地目标，尽量用不含密钥与用户数据的样本。结果包含文件、结构、观察、推断与局限。
 
+可显式切换 CLI 人类可读帮助的语言（**命令名、选项、JSON 字段及 MCP 协议不变**）：
+
+```bash
+TEKVRO_LANG=zh-CN node scripts/rea.mjs --help
+TEKVRO_LANG=zh-CN node scripts/rea.mjs setup --help
+TEKVRO_LANG=zh-CN node scripts/rea.mjs doctor --help
+```
+
+Windows PowerShell 请先执行 `$env:TEKVRO_LANG="zh-CN"`，随后运行同样的 `node` 命令；设置 `TEKVRO_LANG=en` 可切回英文帮助。
+
 ## 4. 配置 Codex MCP
 
 ```bash
