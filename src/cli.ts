@@ -48,7 +48,8 @@ export const createCli = (
   );
   const cli = Cli.create(PRODUCT_IDENTITY.cliBinary, {
     version: PRODUCT_IDENTITY.packageVersion,
-    description: "Tekvro: investigate software with evidence from your terminal or agent.",
+    description:
+      "Tekvro: investigate software with evidence from your terminal or agent.",
     mcp: {
       command: localRegistrationCommandText(),
       instructions:

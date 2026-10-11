@@ -43,10 +43,7 @@ const verifyMcpAdd = async ({ cli, environment, npxLog }) => {
   await run(cli, ["mcp", "add"], environment);
   const mcpRegistration = await readFile(npxLog, "utf8");
   const expected = `add-mcp ${process.execPath} ${cli} mcp --name ${PRODUCT_IDENTITY.mcpServerKey}`;
-  if (
-    !mcpRegistration.includes(expected) ||
-    mcpRegistration.includes("npx -y")
-  )
+  if (!mcpRegistration.includes(expected) || mcpRegistration.includes("npx -y"))
     throw new Error("Incur mcp add did not register the local Tekvro Node CLI");
 };
 
