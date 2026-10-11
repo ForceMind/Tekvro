@@ -43,7 +43,9 @@ export default defineConfig({
       },
     ],
     search: { provider: "local" },
-    socialLinks: [{ icon: "github", link: "https://github.com/ForceMind/Tekvro" }],
+    socialLinks: [
+      { icon: "github", link: "https://github.com/ForceMind/Tekvro" },
+    ],
     editLink: {
       pattern: "https://github.com/ForceMind/Tekvro/edit/main/docs/:path",
       text: "编辑此页",

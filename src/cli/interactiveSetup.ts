@@ -103,7 +103,10 @@ export const renderInteractiveSetupResult = (result: SetupResult): void => {
     renderReadyCapabilities(result, readyClients);
     outro(
       changedClients.length === 0
-        ? t("Tekvro is ready for local app analysis.", "Tekvro 已准备好分析本地软件。")
+        ? t(
+            "Tekvro is ready for local app analysis.",
+            "Tekvro 已准备好分析本地软件。",
+          )
         : t(
             `Restart ${changedClients.join(", ")} to load Tekvro.`,
             `请重启 ${changedClients.join("、")} 以加载 Tekvro。`,
@@ -113,7 +116,9 @@ export const renderInteractiveSetupResult = (result: SetupResult): void => {
     return;
   }
   if (result.status === "planned" || result.status === "cancelled") return;
-  writeLine(`!  ${result.remediation ?? t("Setup needs attention.", "配置还需要进一步处理。")}`);
+  writeLine(
+    `!  ${result.remediation ?? t("Setup needs attention.", "配置还需要进一步处理。")}`,
+  );
   outro(
     t(
       `Run \`${cliInvocation()} doctor\` for the remaining checks.`,
@@ -250,7 +255,7 @@ const renderDetectedSummary = (states: readonly SetupClientState[]): void => {
       : t(
           `◆  Detected: ${humanList(detected.map(({ client }) => clientDisplayNames.get(client.name) ?? client.name))}`,
           `◆  已检测到：${humanList(detected.map(({ client }) => clientDisplayNames.get(client.name) ?? client.name))}`,
-        )
+        ),
   );
 };
 
@@ -294,7 +299,12 @@ const renderReadyCapabilities = (
       ),
     );
   if (result.doctor.identity?.skill.state === "aligned")
-    writeLine(t("│  Guided reverse-engineering workflows: installed", "│  逆向工程工作流指引：已安装"));
+    writeLine(
+      t(
+        "│  Guided reverse-engineering workflows: installed",
+        "│  逆向工程工作流指引：已安装",
+      ),
+    );
   writeLine(
     `│  CLI: ${cliInvocation()} ${providers.length > 0 ? "analyze /path/to/app" : "capabilities"}`,
   );
@@ -350,7 +360,9 @@ const renderPreflight = (actions: readonly SetupAction[]): void => {
         ),
       );
     for (const origin of action.networkOrigins ?? [])
-      writeLine(t(`│          network: ${origin}`, `│          网络来源：${origin}`));
+      writeLine(
+        t(`│          network: ${origin}`, `│          网络来源：${origin}`),
+      );
     if (action.integrity !== undefined)
       writeLine(
         t(
@@ -359,10 +371,14 @@ const renderPreflight = (actions: readonly SetupAction[]): void => {
         ),
       );
     for (const command of action.commands ?? [])
-      writeLine(t(`│          command: ${command}`, `│          命令：${command}`));
+      writeLine(
+        t(`│          command: ${command}`, `│          命令：${command}`),
+      );
     writeLine(`│          ${action.detail}`);
     if (action.external)
-      writeLine(t("│          external software", "│          需要安装外部软件"));
+      writeLine(
+        t("│          external software", "│          需要安装外部软件"),
+      );
   }
   writeLine("│");
   writeLine(

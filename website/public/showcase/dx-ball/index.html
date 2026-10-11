@@ -160,8 +160,8 @@
               <p class="terminal-prompt">
                 <span class="prompt-symbol" aria-hidden="true">›</span
                 ><span id="dxball-prompt"
-                  >Use Tekvro to find how DX-Ball calculates sound panning. Explain
-                  the calculation and show the code.</span
+                  >Use Tekvro to find how DX-Ball calculates sound panning.
+                  Explain the calculation and show the code.</span
                 ><span class="terminal-cursor" aria-hidden="true"></span>
               </p>
             </div>
@@ -171,10 +171,10 @@
               evidence behind the answer.
             </p>
             <p>
-              The agent used Tekvro to inspect the function, follow its brick-hit
-              caller and read the constants from the executable. Those results
-              supplied the input and arithmetic needed to write the C function
-              below.
+              The agent used Tekvro to inspect the function, follow its
+              brick-hit caller and read the constants from the executable. Those
+              results supplied the input and arithmetic needed to write the C
+              function below.
             </p>
             <p>
               The first function result for <code>0x406400</code> included
@@ -203,14 +203,18 @@
               </p>
             </details>
 
-            <h3 class="small-heading">Three questions answered through Tekvro</h3>
+            <h3 class="small-heading">
+              Three questions answered through Tekvro
+            </h3>
             <ol class="rea-queries">
               <li>
                 <h4>Recover the missing input</h4>
                 <div class="rea-query-pair">
                   <div class="code-block">
                     <div class="code-header">
-                      <span>Agent → Tekvro · <code>analyze_function</code></span>
+                      <span
+                        >Agent → Tekvro · <code>analyze_function</code></span
+                      >
                     </div>
                     <pre><code>{"procedure": "0x406400"}</code></pre>
                   </div>
@@ -234,7 +238,9 @@
                 <div class="rea-query-pair">
                   <div class="code-block">
                     <div class="code-header">
-                      <span>Agent → Tekvro · <code>analyze_function</code></span>
+                      <span
+                        >Agent → Tekvro · <code>analyze_function</code></span
+                      >
                     </div>
                     <pre><code>{"procedure": "0x411f40"}</code></pre>
                   </div>
@@ -248,9 +254,10 @@
                   </div>
                 </div>
                 <p>
-                  Tekvro identified this caller in the first result. Its preceding
-                  instructions scale <code>tile_x</code> by 30; adding 20 gives
-                  the brick's screen coordinate, <code>20 + 30 × tile_x</code>.
+                  Tekvro identified this caller in the first result. Its
+                  preceding instructions scale <code>tile_x</code> by 30; adding
+                  20 gives the brick's screen coordinate,
+                  <code>20 + 30 × tile_x</code>.
                 </p>
               </li>
               <li>
@@ -396,14 +403,14 @@
                 <p data-step-note="2" hidden>
                   <strong>02 · Multiply by 1.5625.</strong>
                   <code>FMUL</code> reads the double at <code>0x420068</code>.
-                  The bytes returned by Tekvro's <code>read_bytes</code> decode to
-                  <code>1.5625</code>; the C uses the same constant.
+                  The bytes returned by Tekvro's <code>read_bytes</code> decode
+                  to <code>1.5625</code>; the C uses the same constant.
                 </p>
                 <p data-step-note="3" hidden>
                   <strong>03 · Subtract 500.0.</strong> <code>FSUB</code> reads
-                  the double at <code>0x420070</code>. Tekvro's byte result decodes
-                  to <code>500.0</code>, shifting the calculation's center to
-                  screen coordinate <code>320</code>.
+                  the double at <code>0x420070</code>. Tekvro's byte result
+                  decodes to <code>500.0</code>, shifting the calculation's
+                  center to screen coordinate <code>320</code>.
                 </p>
                 <p data-step-note="4" hidden>
                   <strong>04 · Apply the stored scale.</strong> The second
@@ -512,8 +519,8 @@
                 </table>
               </div>
               <p class="caption">
-                Recorded with Tekvro 4.1.0 for the hash-pinned DX-Ball 1.07 target.
-                The linked investigation notes retain the Evidence IDs.
+                Recorded with Tekvro 4.1.0 for the hash-pinned DX-Ball 1.07
+                target. The linked investigation notes retain the Evidence IDs.
               </p>
             </details>
             <p class="caption">
