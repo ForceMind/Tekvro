@@ -42,9 +42,12 @@ const CODEX_ORIGINAL = [
 const verifyMcpAdd = async ({ cli, environment, npxLog }) => {
   await run(cli, ["mcp", "add"], environment);
   const mcpRegistration = await readFile(npxLog, "utf8");
-  const expected = `add-mcp npx -y ${PRODUCT_IDENTITY.registrationPackageSpecifier} mcp --name rea`;
-  if (!mcpRegistration.includes(expected))
-    throw new Error("Incur mcp add did not register the pinned npx command");
+  const expected = `add-mcp ${process.execPath} ${cli} mcp --name ${PRODUCT_IDENTITY.mcpServerKey}`;
+  if (
+    !mcpRegistration.includes(expected) ||
+    mcpRegistration.includes("npx -y")
+  )
+    throw new Error("Incur mcp add did not register the local Tekvro Node CLI");
 };
 
 const snapshotFiles = async (paths) =>

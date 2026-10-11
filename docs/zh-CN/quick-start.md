@@ -43,7 +43,9 @@ TEKVRO_LANG=zh-CN node scripts/rea.mjs setup --client codex
 
 第三条命令会交互式请求你的许可，写入本机 Agent 配置，故不能把只读 doctor 的成功当成配置已完成。完成后重启 Agent 并检查 MCP 工具是否可用。
 
-**本地源码安全规则：** Tekvro 当前是私有开发版本。安装向导默认写入 `Node.js 可执行文件 + 本仓库的 scripts/rea.mjs 绝对路径 + mcp`，不会通过 `npx rea-agents` 下载原上游包。在 Codex 或其他客户端配置中，请检查该命令实际指向自己的 Tekvro 工作副本；如仍指向公开 npm 包，请重新执行当前仓库的安装向导并审阅变更计划。保留的 `rea` 注册键目前属于兼容设计，不等于使用原作者发行版本。
+**本地源码安全规则：** Tekvro 当前是尚未独立发布的开发版本。安装向导默认写入 `Node.js 可执行文件 + 本仓库的 scripts/rea.mjs 绝对路径 + mcp`，不会通过 `npx rea-agents` 下载原上游包。在 Codex 或其他客户端配置中，请检查该命令实际指向自己的 Tekvro 工作副本；如仍指向公开 npm 包，请重新执行当前仓库的安装向导并审阅变更计划。保留的 `rea` 注册键目前属于兼容设计，不等于使用原作者发行版本。
+
+**另一种注册方式：** 在源码根目录执行 `node scripts/rea.mjs mcp add` 时，也应注册当前工作副本的 Node.js 与 CLI 文件绝对路径，而不是 `npx rea-agents`。安装后请核对客户端实际启动命令，确保它与使用的仓库一致。
 
 ## 5. 开发检查
 

@@ -4,9 +4,22 @@ import { expect, it } from "vitest";
 import { PRODUCT_IDENTITY } from "../identity.js";
 import {
   isOwnedClientRegistrationCommand,
+  localRegistrationCommand,
+  localRegistrationCommandText,
   npxRegistrationCommand,
 } from "./ClientRegistrationIdentity.js";
 import { setupRegistrationCommand } from "./SetupHost.js";
+
+it("uses the local Node executable for MCP registration, never npx", () => {
+  const target = "/tmp/Tekvro Source/scripts/rea.mjs";
+  const expected = [process.execPath, resolve(target), "mcp"];
+  expect(localRegistrationCommand(target)).toEqual(expected);
+  expect(localRegistrationCommandText(target)).toContain(
+    JSON.stringify(resolve(target)),
+  );
+  expect(localRegistrationCommandText(target)).not.toContain("npx");
+  expect(localRegistrationCommandText(target)).not.toContain("rea-agents@");
+});
 
 it("keeps Tekvro's private source distribution distinct from upstream npm", () => {
   expect(PRODUCT_IDENTITY.privateSourceBuild).toBe(true);
