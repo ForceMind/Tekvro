@@ -17,14 +17,14 @@ import { createTestTempDirectory } from "../../fixtures/temporaryDirectory.js";
 
 const execFileAsync = promisify(execFile);
 const expectedFailure =
-  "package did not retain its MCP Registry ownership marker";
+  "package did not declare the Tekvro MCP Registry identity";
 
 it("keeps npm pack output in the owned workspace when package validation fails", async () => {
   const testRoot = await createTestTempDirectory("rea-pack-isolation-");
   const packageRoot = join(testRoot, "source");
   const workspace = join(testRoot, "workspace");
   const npmCache = join(testRoot, "npm-cache");
-  const archiveName = "rea-agents-6.0.0.tgz";
+  const archiveName = "tekvro-6.0.0.tgz";
   const archivePath = join(packageRoot, archiveName);
   const sentinel = Buffer.from("caller-owned archive\n");
   await Promise.all([mkdir(packageRoot), mkdir(workspace), mkdir(npmCache)]);
@@ -32,10 +32,14 @@ it("keeps npm pack output in the owned workspace when package validation fails",
     writeFile(
       join(packageRoot, "package.json"),
       JSON.stringify({
-        name: "rea-agents",
+        name: "tekvro",
         version: "6.0.0",
         mcpName: "invalid-owner",
-        bin: { rea: "scripts/rea.mjs", "rea-agents": "scripts/rea.mjs" },
+        bin: {
+          tekvro: "scripts/rea.mjs",
+          rea: "scripts/rea.mjs",
+          "rea-agents": "scripts/rea.mjs",
+        },
         dependencies: { "@lydell/node-pty": "1.1.0" },
       }),
     ),
