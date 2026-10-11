@@ -36,14 +36,7 @@ const serverEnvironment = {
 delete serverEnvironment.HOPPER_TARGET_PATH;
 const transport = new StdioClientTransport({
   command: "npm",
-  args: [
-    "exec",
-    "--yes",
-    `--package=tekvro@${version}`,
-    "--",
-    "rea",
-    "mcp",
-  ],
+  args: ["exec", "--yes", `--package=tekvro@${version}`, "--", "rea", "mcp"],
   cwd: canaryRoot,
   env: serverEnvironment,
   stderr: "pipe",
@@ -233,8 +226,6 @@ async function findPreviousPublishedVersion(targetVersion, cwd, environment) {
     )
     .sort(rcompare)[0];
   if (previous === undefined)
-    throw new Error(
-      `No published tekvro version precedes ${targetVersion}`,
-    );
+    throw new Error(`No published tekvro version precedes ${targetVersion}`);
   return previous;
 }

@@ -22,11 +22,17 @@ describe("prepublication installer protections", { timeout: 20_000 }, () => {
     const fixture = await createFixture();
     for (const args of [[], ["--version", "0.3.0"], ["--dry-run"]]) {
       await expect(
-        execFileAsync("/bin/bash", [join(process.cwd(), "install.sh"), ...args], {
-          env: installerEnvironment(fixture),
-        }),
+        execFileAsync(
+          "/bin/bash",
+          [join(process.cwd(), "install.sh"), ...args],
+          {
+            env: installerEnvironment(fixture),
+          },
+        ),
       ).rejects.toMatchObject({
-        stderr: expect.stringContaining("Tekvro has no verified npm release yet"),
+        stderr: expect.stringContaining(
+          "Tekvro has no verified npm release yet",
+        ),
       });
     }
     await expect(readFile(fixture.npmLog, "utf8")).rejects.toMatchObject({
@@ -41,7 +47,9 @@ describe("prepublication installer protections", { timeout: 20_000 }, () => {
       [join(process.cwd(), "install.sh"), "--help"],
       { env: installerEnvironment(fixture) },
     );
-    expect(result.stdout).toContain("No independent npm installer is published");
+    expect(result.stdout).toContain(
+      "No independent npm installer is published",
+    );
     await expect(readFile(fixture.npmLog, "utf8")).rejects.toMatchObject({
       code: "ENOENT",
     });
@@ -425,7 +433,9 @@ const runInstaller = async (
   const start = source.indexOf(startMarker);
   const end = source.indexOf(endMarker);
   if (start < 0 || end < start || source.indexOf(startMarker, start + 1) !== -1)
-    throw new Error("The checked-in Tekvro installer must have its release gate");
+    throw new Error(
+      "The checked-in Tekvro installer must have its release gate",
+    );
   const fixtureScript = join(fixture.home, "installer-test-fixture.sh");
   await writeFile(
     fixtureScript,
