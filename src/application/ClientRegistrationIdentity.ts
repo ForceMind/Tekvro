@@ -3,7 +3,21 @@ import { valid } from "semver";
 
 import { PRODUCT_IDENTITY } from "../identity.js";
 
-/** Resolve a pinned npx launcher that stdio clients can spawn on the host. */
+/**
+ * Resolve the actual local Tekvro command in this source distribution.
+ * The launcher must not resolve to a similarly named public npm package.
+ */
+export const localRegistrationCommand = (
+  entrypoint: string = process.argv[1] ?? PRODUCT_IDENTITY.cliBinary,
+): readonly string[] => [process.execPath, resolve(entrypoint), "mcp"];
+
+/** Serialize the current local MCP command for a shell-aware CLI registerer. */
+export const localRegistrationCommandText = (entrypoint?: string): string =>
+  localRegistrationCommand(entrypoint)
+    .map((part) => (/\s|"/u.test(part) ? JSON.stringify(part) : part))
+    .join(" ");
+
+/** Resolve a pinned npx launcher only for explicitly requested compatibility. */
 export const npxRegistrationCommand = (
   platform: NodeJS.Platform = process.platform,
 ): readonly string[] => {

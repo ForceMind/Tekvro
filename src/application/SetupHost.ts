@@ -1,9 +1,11 @@
 import { access } from "node:fs/promises";
 import { homedir } from "node:os";
-import { resolve } from "node:path";
 
 import { PRODUCT_IDENTITY } from "../identity.js";
-import { npxRegistrationCommand } from "./ClientRegistrationIdentity.js";
+import {
+  localRegistrationCommand,
+  npxRegistrationCommand,
+} from "./ClientRegistrationIdentity.js";
 import {
   SUPPORTED_NODE_VERSION_PROSE,
   supportsNodeVersion,
@@ -40,13 +42,7 @@ export const setupRegistrationCommand = (
   platform: NodeJS.Platform,
   useNpmRunner: boolean = false,
 ): readonly string[] =>
-  useNpmRunner
-    ? npxRegistrationCommand(platform)
-    : [
-        process.execPath,
-        resolve(process.argv[1] ?? PRODUCT_IDENTITY.cliBinary),
-        "mcp",
-      ];
+  useNpmRunner ? npxRegistrationCommand(platform) : localRegistrationCommand();
 
 export const filterClientsNeedingConfigure = async (
   host: SetupHost,
