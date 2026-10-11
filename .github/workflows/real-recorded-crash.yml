@@ -96,4 +96,11 @@ jobs:
           npm install --prefix "${RUNNER_TEMP}/rea-core-installed" --ignore-scripts --no-fund --no-audit "${RUNNER_TEMP}/${core_package_name}"
       - name: Verify installed CLI and MCP against the source-owned recording
         shell: bash
-        run: node scripts/verify-recorded-crash.mjs "${RUNNER_TEMP}/rea-core-installed/node_modules/rea-agents/scripts/rea.mjs"
+        run: |
+          # Resolve the tarball's installed package path from the same manifest
+          # used by npm pack. Keep the historical CLI file as a compatibility
+          # entrypoint until Tekvro's launcher migration is complete.
+          installed_package_name=$(node -p 'require("./package.json").name')
+          installed_entry="${RUNNER_TEMP}/rea-core-installed/node_modules/${installed_package_name}/scripts/rea.mjs"
+          test -f "${installed_entry}"
+          node scripts/verify-recorded-crash.mjs "${installed_entry}"
