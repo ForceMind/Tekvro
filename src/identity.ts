@@ -12,7 +12,8 @@ export const PRODUCT_IDENTITY = {
   packageSpecifier: `${PACKAGE_METADATA.name}@latest`,
   registrationPackageSpecifier: `${PACKAGE_METADATA.name}@${PACKAGE_METADATA.version}`,
   packageVersion: PACKAGE_METADATA.version,
-  cliBinary: "rea",
+  cliBinary: "rea", // compatible CLI name; npm command "tekvro" also exists
+  legacyPackageName: "rea-agents",
   mcpCommand: `npx -y ${PACKAGE_METADATA.name}@${PACKAGE_METADATA.version} mcp`,
   mcpServerKey: "rea",
   skillName: "reverse-engineer-anything",

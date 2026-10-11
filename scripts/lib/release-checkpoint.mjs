@@ -141,11 +141,14 @@ async function resolveBaseline(git, tag) {
 }
 
 async function validateCandidate(git, sha, version, commits) {
+  const candidatePackage = await readJson(
+    git,
+    sha,
+    "package.json",
+    versionSchema.extend({ name: z.string() }),
+  );
   const versions = [
-    [
-      "package.json",
-      (await readJson(git, sha, "package.json", versionSchema)).version,
-    ],
+    ["package.json", candidatePackage.version],
     [
       ".release-please-manifest.json",
       (
@@ -181,13 +184,15 @@ async function validateCandidate(git, sha, version, commits) {
     }),
   );
   const npmPackage = server.packages.find(
-    (entry) => entry.identifier === "rea-agents",
+    (entry) => entry.identifier === candidatePackage.name,
   );
   if (npmPackage === undefined)
-    throw new Error("server.json is missing the rea-agents package.");
+    throw new Error(
+      `server.json is missing the ${candidatePackage.name} package.`,
+    );
   versions.push(
     ["server.json", server.version],
-    ["server.json rea-agents package", npmPackage.version],
+    [`server.json ${candidatePackage.name} package`, npmPackage.version],
   );
   // Catalogs are generated and checked from this candidate by the release job;
   // they are not version authority stored in the immutable source tree.
@@ -281,7 +286,7 @@ export async function inspectReleaseCheckpoint(git, options) {
     git,
     applicationSha,
     "package.json",
-    versionSchema,
+    versionSchema.extend({ name: z.string() }),
   );
   if (sourcePackage.version !== baselineVersion) {
     throw new Error(
@@ -293,7 +298,7 @@ export async function inspectReleaseCheckpoint(git, options) {
       `Expected release ${expectedVersion} must advance published baseline ${baselineVersion}.`,
     );
   }
-  const baselineTag = `refs/tags/rea-agents-${baselineVersion}`;
+  const baselineTag = `refs/tags/${sourcePackage.name}-${baselineVersion}`;
   const baselineSha = await resolveBaseline(git, baselineTag);
   await requireAncestor(
     git,

@@ -33,7 +33,7 @@ export async function verifyPackageUpdate({
   let registry;
   async function serveRegistry(request, response) {
     const pathname = new URL(request.url, registry).pathname;
-    if (pathname === "/rea-agents") {
+    if (pathname === `/${metadata.name}`) {
       response.setHeader("Content-Type", "application/json");
       response.end(
         JSON.stringify({

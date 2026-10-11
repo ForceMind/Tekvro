@@ -2,9 +2,9 @@
 
 **Investigate software with evidence.** Tekvro is a locally operated AI-assisted software analysis toolkit with a CLI, MCP server and adapters for JavaScript/Electron, native binaries, web runtime evidence and additional artifact types.
 
-[简体中文](README.md) · [Documentation](docs/index.md) · [Getting started (中文)](docs/zh-CN/quick-start.md) · [Maintenance](PROJECT_MAINTENANCE.md)
+[简体中文](README.md) · [Documentation](docs/index.md) · [Getting started (中文)](docs/zh-CN/quick-start.md) · [Distribution identity](docs/zh-CN/distribution.md) · [Maintenance](PROJECT_MAINTENANCE.md)
 
-> **Development status:** independent private work-in-progress by ForceMind, based on an exact REA 6.1.0 snapshot. The GitHub repository is `ForceMind/Tekvro`. Tekvro is **not published** as an npm or MCP Registry package.
+> **Development status:** public source under ForceMind, retaining the REA 6.1.0 engine baseline. The source package metadata has been renamed to `tekvro` with an independent MCP Registry manifest, but **neither npm nor MCP Registry distribution has been published**. The inherited `6.1.0` source version does not claim an official Tekvro release.
 
 ## Build from source
 
@@ -21,7 +21,7 @@ node scripts/rea.mjs doctor --json
 node scripts/rea.mjs analyze-javascript-application /absolute/path/to/app --json
 ```
 
-The existing `rea` CLI, internal `rea-agents` npm identity and MCP registration are temporarily retained for compatibility while the new standalone distribution is designed. Do **not** confuse publicly hosted `rea-agents` releases with this private fork.
+The source npm manifest is named `tekvro`, while `rea` and `rea-agents` CLI aliases and legacy MCP client registrations remain supported. The existing `rea` MCP configuration key is intentionally kept for compatibility. **Do not run `npx tekvro` until an independent release exists**, or confuse publicly hosted `rea-agents` with this source build.
 
 Configure an agent only after inspecting the plan:
 

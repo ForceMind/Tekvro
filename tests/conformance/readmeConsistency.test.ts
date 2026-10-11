@@ -36,11 +36,12 @@ describe("Tekvro independent onboarding", () => {
       bin: Record<string, string>;
     };
     expect(config.private).toBe(true);
-    expect(config.name).toBe("rea-agents");
+    expect(config.name).toBe("tekvro");
     expect(config.repository.url).toBe(
       "git+https://github.com/ForceMind/Tekvro.git",
     );
     expect(config.bin.tekvro).toBe("scripts/rea.mjs");
+    expect(config.bin["rea-agents"]).toBe("scripts/rea.mjs");
     expect(config.bin.rea).toBe("scripts/rea.mjs");
     expect(license).toContain("Copyright (c) 2026 morluto");
     expect(notice).toContain("f6fe575094658e99ced78d45f385633fbfaaae32");

@@ -3,9 +3,9 @@
 **用证据理解软件。**  
 AI 辅助的软件结构、二进制文件和运行行为分析工具。
 
-[English](README.en.md) · [中文文档](docs/index.md) · [快速上手](docs/zh-CN/quick-start.md) · [架构](docs/zh-CN/architecture.md) · [安全说明](docs/zh-CN/security.md) · [开发规范](PROJECT_MAINTENANCE.md)
+[English](README.en.md) · [中文文档](docs/index.md) · [快速上手](docs/zh-CN/quick-start.md) · [架构](docs/zh-CN/architecture.md) · [安全说明](docs/zh-CN/security.md) · [发行身份](docs/zh-CN/distribution.md) · [开发规范](PROJECT_MAINTENANCE.md)
 
-> **项目状态：内部研发版。** GitHub 仓库已更名为 `ForceMind/Tekvro`；**Tekvro / 探核** 是新产品名。代码原始基线为 REA 6.1.0。尚未对外发布 Tekvro 的 npm/MCP 包，也未完成所有系统的兼容性测试。
+> **项目状态：公开源码、独立 npm/MCP 身份迁移中。** Tekvro 基于原 REA 6.1.0 引擎持续改造；源码包元数据现使用 `tekvro` 与 `io.github.forcemind/tekvro`，但**尚未在 npm 或 MCP Registry 正式发布**。当前 `6.1.0` 是继承的引擎版本基线，并不代表 Tekvro 已对外发布该版本。
 
 ## Tekvro 可以做什么？
 
@@ -21,7 +21,7 @@ Tekvro **不是**通用的“一键还原源码”工具，也不会自动获得
 
 ## 从本仓库本地运行
 
-**需要 Node.js `^22.19.0 || ^24.11.0 || >=26.0.0` 和 npm。** 请从本私有仓库构建，**不要把公开 npm 上的 `rea-agents` 误认作本项目构建**。
+**需要 Node.js `^22.19.0 || ^24.11.0 || >=26.0.0` 和 npm。** 请从本仓库源码构建，**不要把公开 npm 上的 `rea-agents` 误认作本项目构建**。
 
 ```bash
 git clone https://github.com/ForceMind/Tekvro.git
@@ -40,7 +40,7 @@ node scripts/rea.mjs doctor --json
 node scripts/rea.mjs analyze-javascript-application /absolute/path/to/app --json
 ```
 
-> `tekvro` 已规划为新 CLI 命令别名；当前与旧 `rea` 调用兼容。项目的内部 npm 名称和 MCP 注册标识暂保留兼容，完整迁移将单独测试，避免破坏已有 Agent 配置。
+> 本地包名已改为 `tekvro`，`tekvro`、`rea`、`rea-agents` CLI 入口暂同时保留；既有 MCP 客户端配置键 `rea` 仍沿用以免破坏用户环境。**不要运行 `npx tekvro` 或将旧公开 `rea-agents` npm 包当成 Tekvro。** 独立发行进度见[发行身份与兼容说明](docs/zh-CN/distribution.md)。
 
 ## 为 AI Agent 配置 MCP
 
@@ -71,7 +71,7 @@ TEKVRO_LANG=zh-CN node scripts/rea.mjs setup --client codex
 ## 维护与发布
 
 - 独立研发由 ForceMind 维护。功能在分支开发，经 PR 和必要测试后合入。
-- **禁止直接把原项目的 npm/MCP 身份或官网用作 Tekvro 的发布渠道。** 当前设为私有包；正式发布需单独确认新包名、许可证、域名、发布安全配置。
+- **禁止直接把原项目的 npm/MCP 身份或官网用作 Tekvro 的发布渠道。** 当前 `private: true` 禁止发布；正式发布需单独确认新包名、许可证、域名、发布安全配置。
 - 保留原项目 MIT 协议及第三方组件的必要署名；原始来源与版本详见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 - 项目尚未完成全部中文化：本次中文化覆盖入门文档、帮助引导和新维护材料，底层工具描述与少量高级文档仍为英文。
 

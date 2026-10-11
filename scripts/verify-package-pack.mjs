@@ -32,12 +32,16 @@ export async function verifyPackagePack({ root, workspace }) {
   )
     throw new Error("package retained a lifecycle-dependent PTY installation");
   if (
+    packedManifest.name !== "tekvro" ||
+    packedManifest.bin?.tekvro !== "scripts/rea.mjs" ||
     packedManifest.bin?.rea !== "scripts/rea.mjs" ||
     packedManifest.bin?.["rea-agents"] !== "scripts/rea.mjs"
   )
-    throw new Error("package did not expose both rea command entry points");
-  if (packedManifest.mcpName !== "io.github.morluto/rea")
-    throw new Error("package did not retain its MCP Registry ownership marker");
+    throw new Error(
+      "package must expose Tekvro and both compatible rea command entry points",
+    );
+  if (packedManifest.mcpName !== "io.github.forcemind/tekvro")
+    throw new Error("package did not declare the Tekvro MCP Registry identity");
   if (packedFiles.some((path) => path.startsWith("package/skill-src/")))
     throw new Error(
       "package included authored skill sources instead of only the generated bundle",

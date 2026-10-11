@@ -39,7 +39,7 @@ const unwrapNpxCommand = (command: readonly string[]): readonly string[] => {
   return [];
 };
 
-/** Check that one parsed command points to REA's MCP entry point. */
+/** Identify the current Tekvro launcher and supported pre-rename registrations. */
 export const isOwnedClientRegistrationCommand = (
   command: readonly string[],
   currentCommandPath: string = resolve(process.argv[1] ?? "unknown"),
@@ -56,8 +56,11 @@ export const isOwnedClientRegistrationCommand = (
     const executable = command[0] ?? "";
     if (
       executable === PRODUCT_IDENTITY.cliBinary ||
+      executable === "tekvro" ||
       (isAbsolute(executable) &&
-        basename(executable) === PRODUCT_IDENTITY.cliBinary) ||
+        ["tekvro", PRODUCT_IDENTITY.cliBinary].includes(
+          basename(executable),
+        )) ||
       resolve(executable) === currentCommandPath
     )
       return true;
@@ -79,9 +82,20 @@ export const isOwnedClientRegistrationCommand = (
     packageReference === PRODUCT_IDENTITY.registrationPackageSpecifier
   )
     return true;
-  const versionPrefix = `${PRODUCT_IDENTITY.packageName}@`;
-  return (
-    packageReference.startsWith(versionPrefix) &&
-    valid(packageReference.slice(versionPrefix.length)) !== null
-  );
+  // Previously configured clients may still point to the published
+  // rea-agents package. Recognize this exact legacy identity for migration
+  // and uninstall, but never create a new upstream registration by default.
+  const versions = [
+    PRODUCT_IDENTITY.packageName,
+    PRODUCT_IDENTITY.legacyPackageName,
+  ];
+  return versions.some((name) => {
+    if (packageReference === name || packageReference === `${name}@latest`)
+      return true;
+    const prefix = `${name}@`;
+    return (
+      packageReference.startsWith(prefix) &&
+      valid(packageReference.slice(prefix.length)) !== null
+    );
+  });
 };
