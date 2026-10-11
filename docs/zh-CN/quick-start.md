@@ -19,7 +19,7 @@ npm ci
 npm run build:cached
 ```
 
-**重要：** 此命令从 ForceMind/Tekvro 公开 Git 仓库构建；npm 包仍配置 `private: true`，尚未发布独立的 `tekvro` 版本。公开 npm 上 `rea-agents` 的 `npx` 命令会下载原项目，不能替代本源码构建。
+**重要：** 此命令从 ForceMind/Tekvro 公开 Git 仓库构建；npm 包仍配置 `private: true`，尚未发布独立的 `tekvro` 版本。此时运行仓库根目录的 `install.sh` 只会给出源码安装指引，**不会访问 npm 或安装任何包**。公开 npm 上 `rea-agents` 的 `npx` 命令会下载原项目，不能替代本源码构建。
 
 ## 3. 尝试只读分析
 

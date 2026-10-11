@@ -41,7 +41,7 @@ node scripts/rea.mjs doctor --json
 
 1. 通过 GitHub CI 的类型检查、文档、四组测试、打包和 Linux/macOS/Windows 安装验证。
 2. 确认 npm 名称所有权与 MCP Registry 命名规则及仓库归属；这两项**尚未验证**，不能提前声称已占用或已发布。
-3. 修订仍指向旧包的 `install.sh`、旧版技术文档和发布验证脚本；**不得**借旧脚本向用户分发原 npm 包。
+3. `install.sh` 在 Tekvro 发布前**始终拒绝安装**，不会下载 npm 包、不会访问原项目；`scripts/verify-published-package.mjs` 也会在包声明 `private: true` 时提前停止。独立安装器与发布验证流程需在正式版本上线前完整重新验收。
 4. 创建独立的 Tekvro 发布版本体系及签名/Provenance 验证；当前 `6.1.0` 来源于引擎历史，不直接用作首个正式 Tekvro 版本声明。
 5. 在所有完成前保持 `"private": true` 及上游 Release 工作流保护，不修改旧仓库的发行权限。
 
