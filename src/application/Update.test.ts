@@ -18,7 +18,7 @@ class FakeUpdateHost implements UpdateHost {
   release: Result<string, ReleaseLookupFailure> = ok("3.3.0");
   installationResult: NpmInstallation | undefined = {
     prefix: "/fixture",
-    packageRoot: "/fixture/lib/node_modules/rea-agents",
+    packageRoot: "/fixture/lib/node_modules/tekvro",
   };
   installResult: Result<void, string> = ok(undefined);
   verified: Result<string, string> = ok("3.3.0");
@@ -97,7 +97,7 @@ describe("REA update", () => {
         "--ignore-scripts",
         "--prefix",
         "/fixture",
-        "rea-agents@3.3.0",
+        "tekvro@3.3.0",
       ],
     });
     expect(host.installedVersions).toEqual(["3.3.0"]);
@@ -294,14 +294,14 @@ describe("npm installation ownership", () => {
   });
 
   it("identifies the global prefix and package root", async () => {
-    const packageRoot = "/usr/local/lib/node_modules/rea-agents";
+    const packageRoot = "/usr/local/lib/node_modules/tekvro";
     await expect(
       detectNpmInstallation(packageRoot, host("/usr/local/lib/node_modules")),
     ).resolves.toEqual({ prefix: "/usr/local", packageRoot });
   });
 
-  it("retains the curl installer's custom Unix prefix", async () => {
-    const packageRoot = "/home/user/.local/lib/node_modules/rea-agents";
+  it("supports a custom Unix npm prefix" , async () => {
+    const packageRoot = "/home/user/.local/lib/node_modules/tekvro";
     await expect(
       detectNpmInstallation(packageRoot, host("/usr/local/lib/node_modules")),
     ).resolves.toEqual({ prefix: "/home/user/.local", packageRoot });
