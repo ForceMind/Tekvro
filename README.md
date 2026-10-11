@@ -21,7 +21,7 @@ Tekvro **不是**通用的“一键还原源码”工具，也不会自动获得
 
 ## 从本仓库本地运行
 
-**需要 Node.js `^22.19.0 || ^24.11.0 || >=26.0.0` 和 npm。** 请从本仓库源码构建，**不要把公开 npm 上的 `rea-agents` 误认作本项目构建**。
+**需要 Node.js `^22.19.0 || ^24.11.0 || >=26.0.0` 和 npm。** 请从本仓库源码构建，**不要把公开 npm 上的 `rea-agents` 误认作本项目构建**。独立发行前 `install.sh` 会拒绝执行下载，防止误装上游 npm 包。
 
 ```bash
 git clone https://github.com/ForceMind/Tekvro.git

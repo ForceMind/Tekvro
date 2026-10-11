@@ -14,6 +14,16 @@ import { completeVerifierRun, createVerifierRun } from "./lib/verifier-run.mjs";
 
 const verifierRun = createVerifierRun();
 const execFileAsync = promisify(execFile);
+// This verifier must never install the original author’s published npm package
+// or a similarly named third-party package before Tekvro owns its release.
+const sourceManifest = JSON.parse(
+  await readFile(new URL("../package.json", import.meta.url), "utf8"),
+);
+if (sourceManifest.private !== false || sourceManifest.name !== "tekvro")
+  throw new Error(
+    "Tekvro has no verified independent npm distribution yet. Refusing to fetch or execute a public package.",
+  );
+
 const version = process.argv[2];
 if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u.test(version ?? ""))
   throw new Error("Usage: node scripts/verify-published-package.mjs <version>");
@@ -26,14 +36,7 @@ const serverEnvironment = {
 delete serverEnvironment.HOPPER_TARGET_PATH;
 const transport = new StdioClientTransport({
   command: "npm",
-  args: [
-    "exec",
-    "--yes",
-    `--package=rea-agents@${version}`,
-    "--",
-    "rea",
-    "mcp",
-  ],
+  args: ["exec", "--yes", `--package=tekvro@${version}`, "--", "rea", "mcp"],
   cwd: canaryRoot,
   env: serverEnvironment,
   stderr: "pipe",
@@ -90,7 +93,7 @@ try {
 }
 
 process.stdout.write(
-  `${JSON.stringify({ verifier_run: await completeVerifierRun(verifierRun), package: "rea-agents", version, mcpTools: publishedToolCount, canonicalMcpTools: CATALOG_IDENTITY.counts.mcp_tools, update })}\n`,
+  `${JSON.stringify({ verifier_run: await completeVerifierRun(verifierRun), package: "tekvro", version, mcpTools: publishedToolCount, canonicalMcpTools: CATALOG_IDENTITY.counts.mcp_tools, update })}\n`,
 );
 
 async function verifyPublishedUpdate({ version: targetVersion, canaryRoot }) {
@@ -126,7 +129,7 @@ async function verifyPublishedUpdate({ version: targetVersion, canaryRoot }) {
       "--ignore-scripts",
       "--prefix",
       prefix,
-      `rea-agents@${previousVersion}`,
+      `tekvro@${previousVersion}`,
     ],
     { cwd: canaryRoot, env: environment, maxBuffer: 16 * 1024 * 1024 },
   );
@@ -149,18 +152,18 @@ async function verifyPublishedUpdate({ version: targetVersion, canaryRoot }) {
       "--no-package-lock",
       "--prefix",
       updaterPrefix,
-      `rea-agents@${targetVersion}`,
+      `tekvro@${targetVersion}`,
     ],
     { cwd: canaryRoot, env: environment, maxBuffer: 16 * 1024 * 1024 },
   );
-  const updaterRoot = join(updaterPrefix, "node_modules", "rea-agents");
+  const updaterRoot = join(updaterPrefix, "node_modules", "tekvro");
   const harness = join(canaryRoot, "update.mjs");
   await writeFile(
     harness,
     `
 import { runUpdate } from ${JSON.stringify(pathToFileURL(join(updaterRoot, "dist/application/Update.js")).href)};
 import { systemUpdateHost } from ${JSON.stringify(pathToFileURL(join(updaterRoot, "dist/application/UpdateRuntime.js")).href)};
-const result = await runUpdate(${JSON.stringify(previousVersion)}, systemUpdateHost(${JSON.stringify(join(npmRoot, "rea-agents"))}, ${JSON.stringify(home)}), "structured");
+const result = await runUpdate(${JSON.stringify(previousVersion)}, systemUpdateHost(${JSON.stringify(join(npmRoot, "tekvro"))}, ${JSON.stringify(home)}), "structured");
 process.stdout.write(JSON.stringify(result));
 if (result.status === "failed") process.exitCode = 1;
 `,
@@ -176,22 +179,22 @@ if (result.status === "failed") process.exitCode = 1;
     result.previousVersion !== previousVersion ||
     result.latestVersion !== targetVersion ||
     result.installedVersion !== targetVersion ||
-    result.command.at(-1) !== `rea-agents@${targetVersion}`
+    result.command.at(-1) !== `tekvro@${targetVersion}`
   )
     throw new Error(
-      `Published REA updater did not update ${previousVersion} to ${targetVersion}: ${stdout}`,
+      `Published Tekvro updater did not update ${previousVersion} to ${targetVersion}: ${stdout}`,
     );
 
   const installed = JSON.parse(
-    await readFile(join(npmRoot, "rea-agents", "package.json"), "utf8"),
+    await readFile(join(npmRoot, "tekvro", "package.json"), "utf8"),
   );
   if (installed.version !== targetVersion)
     throw new Error(
-      `REA update installed ${installed.version}, expected ${targetVersion}`,
+      `Tekvro update installed ${installed.version}, expected ${targetVersion}`,
     );
 
   const help = (
-    await execFileAsync(join(prefix, "bin", "rea-agents"), ["--help"], {
+    await execFileAsync(join(prefix, "bin", "tekvro"), ["--help"], {
       cwd: canaryRoot,
       env: environment,
     })
@@ -212,7 +215,7 @@ if (result.status === "failed") process.exitCode = 1;
 async function findPreviousPublishedVersion(targetVersion, cwd, environment) {
   const { stdout } = await execFileAsync(
     "npm",
-    ["view", "rea-agents", "versions", "--json"],
+    ["view", "tekvro", "versions", "--json"],
     { cwd, env: environment, maxBuffer: 16 * 1024 * 1024 },
   );
   const versions = JSON.parse(stdout);
@@ -223,8 +226,6 @@ async function findPreviousPublishedVersion(targetVersion, cwd, environment) {
     )
     .sort(rcompare)[0];
   if (previous === undefined)
-    throw new Error(
-      `No published rea-agents version precedes ${targetVersion}`,
-    );
+    throw new Error(`No published tekvro version precedes ${targetVersion}`);
   return previous;
 }

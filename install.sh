@@ -1,19 +1,19 @@
 #!/bin/bash
 set -euo pipefail
 
-PACKAGE="rea-agents"
-REPOSITORY="morluto/rea"
+PACKAGE="tekvro"
+REPOSITORY="ForceMind/Tekvro"
 numeric_identifier='(0|[1-9][0-9]*)'
 prerelease_identifier="(${numeric_identifier}|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)"
 build_identifier='[0-9A-Za-z-]+'
 version_pattern="${numeric_identifier}\\.${numeric_identifier}\\.${numeric_identifier}(-${prerelease_identifier}(\\.${prerelease_identifier})*)?(\\+${build_identifier}(\\.${build_identifier})*)?"
-version="${REA_VERSION:-}"
+version="${TEKVRO_VERSION:-}"
 dry_run=false
 start_setup=true
 verbose=false
 
 fail() {
-  printf 'REA installation failed: %s\n' "$1" >&2
+  printf 'Tekvro installation failed: %s\n' "$1" >&2
   exit 1
 }
 
@@ -21,7 +21,7 @@ usage() {
   cat <<'EOF'
 Usage: install.sh [--version VERSION] [--dry-run] [--no-setup] [--no-prompt] [--verbose]
 
-Installs only the REA CLI. Run `rea setup` separately to configure Hopper and agents.
+Tekvro source-only development build. No independent npm installer is published yet.
 EOF
 }
 
@@ -52,12 +52,18 @@ while (($# > 0)); do
   esac
 done
 
+# TEKVRO_PRE_RELEASE_GUARD_BEGIN
+# No release of the Tekvro npm package has been verified or published.
+# Never fall back to the original author’s public rea-agents package.
+fail "Tekvro has no verified npm release yet. Clone https://github.com/ForceMind/Tekvro and run npm ci && npm run build:cached instead; no files were changed."
+# TEKVRO_PRE_RELEASE_GUARD_END
+
 if [[ "$verbose" == true ]]; then
   set -x
 fi
 
 platform="$(uname -s)"
-[[ "$platform" == "Darwin" || "$platform" == "Linux" ]] || fail "REA supports macOS and selected 64-bit Linux distributions."
+[[ "$platform" == "Darwin" || "$platform" == "Linux" ]] || fail "Tekvro supports macOS and selected 64-bit Linux distributions."
 command -v curl >/dev/null 2>&1 || fail "curl is required. Install curl, then rerun this installer."
 command -v node >/dev/null 2>&1 || fail "Node.js 22.x (>=22.19), 24.x (>=24.11), or 26+ is required; install it from https://nodejs.org and retry."
 command -v npm >/dev/null 2>&1 || fail "npm is required; install it with Node.js and retry."
@@ -73,9 +79,9 @@ fi
 if [[ -n "$version" ]]; then
   [[ "$version" =~ ^${version_pattern}$ ]] || fail "version must be an exact semantic version."
 else
-  release_json="$(curl -fsSL --proto '=https' --tlsv1.2 --retry 3 -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/$REPOSITORY/releases/latest")" || fail "the latest REA release could not be resolved. Check network access or pass --version VERSION, then retry."
+  release_json="$(curl -fsSL --proto '=https' --tlsv1.2 --retry 3 -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/$REPOSITORY/releases/latest")" || fail "the latest Tekvro release could not be resolved. Check network access or pass --version VERSION, then retry."
   tag="$(printf '%s' "$release_json" | node -e 'let s="";process.stdin.on("data",c=>s+=c).on("end",()=>{const v=JSON.parse(s).tag_name;if(typeof v!=="string")process.exit(1);process.stdout.write(v)})' 2>/dev/null)" || fail "the release response was invalid. Retry later or pass --version VERSION."
-  [[ "$tag" =~ ^rea-agents-(${version_pattern})$ ]] || fail "the latest release tag was invalid. Retry later or pass --version VERSION."
+  [[ "$tag" =~ ^tekvro-(${version_pattern})$ ]] || fail "the latest release tag was invalid. Retry later or pass --version VERSION."
   version="${BASH_REMATCH[1]}"
 fi
 
@@ -88,13 +94,13 @@ fi
 prefix_args=()
 if [[ "$platform" == "Linux" ]]; then
   prefix_args=(--prefix "$HOME/.local")
-  install_bin="$HOME/.local/bin/rea"
+  install_bin="$HOME/.local/bin/tekvro"
 else
   npm_prefix="$(npm prefix --global)" || fail "the npm global prefix could not be read. Repair the npm configuration, then retry."
-  install_bin="$npm_prefix/bin/rea"
+  install_bin="$npm_prefix/bin/tekvro"
 fi
 
-printf 'REA install plan\n'
+printf 'Tekvro install plan\n'
 printf '  Version: %s\n' "$version"
 printf '  Runtime: Node.js %s\n' "$node_version"
 printf '  Command: npm install --global %s@%s\n' "$PACKAGE" "$version"
@@ -107,14 +113,14 @@ if [[ "$dry_run" == true ]]; then
 fi
 
 printf 'Installing %s@%s...\n' "$PACKAGE" "$version"
-npm install --global ${prefix_args[@]+"${prefix_args[@]}"} "$PACKAGE@$version" || fail "npm could not install REA. Check registry access and npm permissions, then retry."
-[[ -x "$install_bin" ]] || fail "npm completed without installing the rea command. Check the npm global bin directory and PATH, then retry."
-installed_version="$("$install_bin" --version 2>/dev/null | tr -d '[:space:]')" || fail "the installed REA version could not be read. Reinstall the requested version, then retry."
+npm install --global ${prefix_args[@]+"${prefix_args[@]}"} "$PACKAGE@$version" || fail "npm could not install Tekvro. Check registry access and npm permissions, then retry."
+[[ -x "$install_bin" ]] || fail "npm completed without installing the tekvro command. Check the npm global bin directory and PATH, then retry."
+installed_version="$("$install_bin" --version 2>/dev/null | tr -d '[:space:]')" || fail "the installed Tekvro version could not be read. Reinstall the requested version, then retry."
 [[ "$installed_version" == "$version" ]] || fail "installed version $installed_version does not match $version. Reinstall the requested version, then retry."
 
-printf 'REA %s is installed.\n' "$version"
+printf 'Tekvro %s is installed.\n' "$version"
 if [[ "$start_setup" == true && -r /dev/tty && -w /dev/tty && -t 1 ]]; then
-  printf 'Starting REA setup...\n'
+  printf 'Starting Tekvro setup...\n'
   "$install_bin" setup </dev/tty >/dev/tty
 else
   printf 'Run %s setup to configure Hopper and agents.\n' "$install_bin"
