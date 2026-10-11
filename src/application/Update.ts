@@ -154,7 +154,7 @@ export const runUpdate = async (
       latestVersion: targetVersion,
       reason: "unknown-install-method",
       remediation:
-        "Update this installation with the package manager or source checkout that owns it. For a one-off latest invocation, use npx rea-agents@latest.",
+        "Update this installation with the package manager or source checkout that owns it. Only use the official Tekvro registry package when an independent release has been published.",
     };
   const installed = await host.installVersion(
     installation,
