@@ -1,5 +1,7 @@
 import { z } from "incur";
 
+import { selectHumanText, type CliLocaleEnvironment } from "./localization.js";
+
 import {
   DOCTOR_PROVIDER_IDS,
   runDoctor,
@@ -39,51 +41,96 @@ const supportedClientSchema = z
     "Unsupported agent integration",
   );
 
+type HumanText = (english: string, chinese: string) => string;
+
 /** Register setup, doctor, uninstall, and update CLI commands. */
 export const registerSetupCommands = (
   cli: CliInstance,
   logger: Logger,
+  environment: CliLocaleEnvironment = process.env,
 ): void => {
-  registerSetupCommand(cli, logger);
-  registerDoctorCommand(cli, logger);
-  registerMaintenanceCommands(cli, logger);
+  const text: HumanText = (english, chinese) =>
+    selectHumanText(english, chinese, environment);
+  registerSetupCommand(cli, logger, text);
+  registerDoctorCommand(cli, logger, text);
+  registerMaintenanceCommands(cli, logger, text);
 };
 
-const registerSetupCommand = (cli: CliInstance, logger: Logger): void => {
+const registerSetupCommand = (
+  cli: CliInstance,
+  logger: Logger,
+  text: HumanText,
+): void => {
   cli.command(CLI_COMMANDS.setup, {
-    description: "Configure agent integrations and optional analysis providers",
+    description: text(
+      "Configure agent integrations and optional analysis providers",
+      "配置 AI 智能体接入及可选分析引擎",
+    ),
     outputPolicy: "agent-only",
     options: z.object({
       yes: z
         .boolean()
         .default(false)
-        .describe("Approve user-owned setup actions without prompting"),
+        .describe(
+          text(
+            "Approve user-owned setup actions without prompting",
+            "无需交互确认已授权的配置操作",
+          ),
+        ),
       installHopper: z
         .boolean()
         .default(false)
-        .describe("Also approve Hopper installation with --yes"),
+        .describe(
+          text(
+            "Also approve Hopper installation with --yes",
+            "与 --yes 一起批准安装 Hopper",
+          ),
+        ),
       client: z
         .array(supportedClientSchema)
         .default([])
-        .describe("Agent integration to configure; repeat for multiple agents"),
+        .describe(
+          text(
+            "Agent integration to configure; repeat for multiple agents",
+            "指定要配置的智能体，可重复传入",
+          ),
+        ),
       allDetected: z
         .boolean()
         .default(false)
-        .describe("Configure every detected supported agent"),
+        .describe(
+          text(
+            "Configure every detected supported agent",
+            "配置所有检测到且受支持的智能体",
+          ),
+        ),
       skill: z
         .boolean()
         .optional()
         .describe(
-          "Override the bundled skill included with agent integrations",
+          text(
+            "Override the bundled skill included with agent integrations",
+            "显式指定是否安装随智能体接入附带的 Skill",
+          ),
         ),
       dryRun: z
         .boolean()
         .default(false)
-        .describe("Print the resolved plan without applying it"),
+        .describe(
+          text(
+            "Print the resolved plan without applying it",
+            "只显示操作计划，不修改配置",
+          ),
+        ),
       accessible: z
         .boolean()
         .default(false)
-        .describe("Use sequential accessible setup prompts"),
+        .describe(
+          text(
+            "Use sequential accessible setup prompts",
+            "使用逐项确认的无障碍配置提示",
+          ),
+        ),
     }),
     alias: { yes: "y" },
     run: ({ options, formatExplicit }) =>
@@ -96,23 +143,50 @@ const registerSetupCommand = (cli: CliInstance, logger: Logger): void => {
   });
 };
 
-const registerDoctorCommand = (cli: CliInstance, logger: Logger): void => {
+const registerDoctorCommand = (
+  cli: CliInstance,
+  logger: Logger,
+  text: HumanText,
+): void => {
   cli.command(CLI_COMMANDS.doctor, {
-    description: "Check whether Tekvro is ready",
+    description: text(
+      "Check whether Tekvro is ready",
+      "检查 Tekvro 环境和分析能力是否就绪",
+    ),
     options: z.object({
-      target: z.string().optional().describe("Optional app path to check"),
+      target: z
+        .string()
+        .optional()
+        .describe(
+          text("Optional app path to check", "可选：要检查的本地应用路径"),
+        ),
       client: z
         .array(supportedClientSchema)
         .default([])
-        .describe("Agent registration whose readiness is required; repeatable"),
+        .describe(
+          text(
+            "Agent registration whose readiness is required; repeatable",
+            "指定必须就绪的智能体，可重复传入",
+          ),
+        ),
       provider: z
         .array(z.enum(DOCTOR_PROVIDER_IDS))
         .default([])
-        .describe("Deep-analysis provider whose readiness is required"),
+        .describe(
+          text(
+            "Deep-analysis provider whose readiness is required",
+            "指定必须就绪的深度分析引擎",
+          ),
+        ),
       skill: z
         .boolean()
         .optional()
-        .describe("Require the installed REA skill identity to be aligned"),
+        .describe(
+          text(
+            "Require the installed REA skill identity to be aligned",
+            "要求已安装的兼容 Skill 标识一致",
+          ),
+        ),
     }),
     run: ({ options }) =>
       logCliCommand(logger, "doctor", () =>
@@ -128,14 +202,23 @@ const registerDoctorCommand = (cli: CliInstance, logger: Logger): void => {
 const registerMaintenanceCommands = (
   cli: CliInstance,
   logger: Logger,
+  text: HumanText,
 ): void => {
   cli.command(CLI_COMMANDS.uninstall, {
-    description: "Remove Tekvro-managed agent configuration and skill files",
+    description: text(
+      "Remove Tekvro-managed agent configuration and skill files",
+      "移除 Tekvro 管理的智能体配置及 Skill 文件",
+    ),
     options: z.object({
       purgeData: z
         .boolean()
         .default(false)
-        .describe("Also remove compatible local caches and state"),
+        .describe(
+          text(
+            "Also remove compatible local caches and state",
+            "同时清理兼容的本地缓存和状态",
+          ),
+        ),
     }),
     alias: { purgeData: "purge-data" },
     run: ({ options }) =>
@@ -147,8 +230,10 @@ const registerMaintenanceCommands = (
       ),
   });
   cli.command(CLI_COMMANDS.update, {
-    description:
+    description: text(
       "Update a published Tekvro installation (unavailable for private source builds)",
+      "更新已发布的 Tekvro 安装（源码开发版暂不可用）",
+    ),
     run: ({ formatExplicit }) =>
       logCliCommand(
         logger,

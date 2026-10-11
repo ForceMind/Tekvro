@@ -7,6 +7,7 @@ import { createLogger, parseLogLevel } from "./logger.js";
 import { PRODUCT_IDENTITY } from "./identity.js";
 import { localRegistrationCommandText } from "./application/ClientRegistrationIdentity.js";
 import { registerSetupCommands } from "./cli/setupCommands.js";
+import { selectHumanText } from "./cli/localization.js";
 import { registerCoreAnalysisCommands } from "./cli/coreAnalysisCommands.js";
 import { registerUtilityCommands } from "./cli/utilityCommands.js";
 import { registerArtifactCommands } from "./cli/artifactCommands.js";
@@ -48,8 +49,11 @@ export const createCli = (
   );
   const cli = Cli.create(PRODUCT_IDENTITY.cliBinary, {
     version: PRODUCT_IDENTITY.packageVersion,
-    description:
+    description: selectHumanText(
       "Tekvro: investigate software with evidence from your terminal or agent.",
+      "Tekvro 探核：从终端或 AI 智能体出发，用证据调查软件。",
+      environment,
+    ),
     mcp: {
       command: localRegistrationCommandText(),
       instructions:
@@ -58,7 +62,7 @@ export const createCli = (
     sync: false,
   });
 
-  registerSetupCommands(cli, logger);
+  registerSetupCommands(cli, logger, environment);
   registerCoreAnalysisCommands(cli, logger, resultOutput);
   registerUtilityCommands(cli, logger, environment);
   registerEvmCommands(cli, logger, environment);
