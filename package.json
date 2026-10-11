@@ -1,6 +1,6 @@
 {
-  "name": "rea-agents",
-  "mcpName": "io.github.morluto/rea",
+  "name": "tekvro",
+  "mcpName": "io.github.forcemind/tekvro",
   "version": "6.1.0",
   "description": "Tekvro 探核 — locally operated, evidence-first AI-assisted software inspection through CLI and MCP (development build based on REA).",
   "license": "MIT",
