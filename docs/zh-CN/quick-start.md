@@ -1,12 +1,12 @@
 # Tekvro / 探核：中文快速开始
 
-[返回首页](../../README.md) · [架构](architecture.md) · [安全](security.md)
+[返回首页](../../README.md) · [架构](architecture.md) · [安全](security.md) · [发行身份](distribution.md)
 
 ## 1. 准备环境
 
 - Node.js：`^22.19.0 || ^24.11.0 || >=26.0.0`，检查 `node -v`。
 - npm：与 `package-lock.json` 兼容的版本。
-- Git：用于拉取私有代码及子模块。
+- Git：用于拉取公开代码及子模块。
 - Ghidra、Hopper、IDA、JADX 等为**可选**，仅在你实际需要的分析任务中配置；静态 JavaScript 目录分析无需先安装反编译器。
 
 ## 2. 克隆与构建
@@ -19,7 +19,7 @@ npm ci
 npm run build:cached
 ```
 
-**重要：** 此命令从 ForceMind 私有仓库运行。公开 npm 上 `rea-agents` 的 `npx` 命令会下载原项目版本，不是本仓库的 Tekvro 定制代码。
+**重要：** 此命令从 ForceMind/Tekvro 公开 Git 仓库构建；npm 包仍配置 `private: true`，尚未发布独立的 `tekvro` 版本。公开 npm 上 `rea-agents` 的 `npx` 命令会下载原项目，不能替代本源码构建。
 
 ## 3. 尝试只读分析
 
@@ -60,4 +60,4 @@ npm run docs:build
 
 ## 6. 已知兼容边界
 
-内部旧命令 `rea`、内部 npm `rea-agents`、MCP key `rea` 暂时保留；Tekvro 目前**未正式发行**。后续会建立兼容迁移、发布及品牌独立性验证。高级英文技术资料仍可从 [文档导航](../index.md) 找到。
+源码 npm 包名是 `tekvro`，MCP Registry 草案标识是 `io.github.forcemind/tekvro`，二者均**未正式发行**。旧 CLI `rea` / `rea-agents` 别名和 MCP 客户端键 `rea` 暂时保留；旧注册命令仍可识别，但新安装默认使用本地 Tekvro。详细说明见[发行身份与兼容策略](distribution.md)，高级英文技术资料可从[文档导航](../index.md)找到。

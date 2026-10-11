@@ -83,7 +83,10 @@ export const isOwnedClientRegistrationCommand = (
   // Previously configured clients may still point to the published
   // rea-agents package. Recognize this exact legacy identity for migration
   // and uninstall, but never create a new upstream registration by default.
-  const versions = [PRODUCT_IDENTITY.packageName, "rea-agents"];
+  const versions = [
+    PRODUCT_IDENTITY.packageName,
+    PRODUCT_IDENTITY.legacyPackageName,
+  ];
   return versions.some((name) => {
     if (packageReference === name || packageReference === `${name}@latest`)
       return true;

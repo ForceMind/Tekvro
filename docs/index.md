@@ -36,6 +36,6 @@ npm run build:cached
 node scripts/rea.mjs --help
 ```
 
-目前未发布 Tekvro npm 包。此仓库仍有少量兼容用的 REA 内部标识；**请从仓库本地构建运行**，不要误将公开 `rea-agents` 包视为此版本。
+当前源码包名已更新为 `tekvro`，但**尚未发布 Tekvro npm/MCP Registry 包**。旧 REA 命令和 MCP 客户端注册键仍用于兼容；请从本仓库源码构建，不要误用公开 `rea-agents` 包。详见[发行身份与兼容策略](zh-CN/distribution.md)。
 
 继续阅读 [中文快速上手](./zh-CN/quick-start.md)、[架构](./zh-CN/architecture.md)与[安全](./zh-CN/security.md)。
