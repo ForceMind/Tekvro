@@ -58,7 +58,9 @@ export const isOwnedClientRegistrationCommand = (
       executable === PRODUCT_IDENTITY.cliBinary ||
       executable === "tekvro" ||
       (isAbsolute(executable) &&
-        ["tekvro", PRODUCT_IDENTITY.cliBinary].includes(basename(executable))) ||
+        ["tekvro", PRODUCT_IDENTITY.cliBinary].includes(
+          basename(executable),
+        )) ||
       resolve(executable) === currentCommandPath
     )
       return true;

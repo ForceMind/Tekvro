@@ -4,16 +4,16 @@
 
 ## 当前身份
 
-| 项目 | 当前源码值 | 是否已公开发行 |
-| --- | --- | --- |
-| GitHub | [ForceMind/Tekvro](https://github.com/ForceMind/Tekvro) | 是，公开源码 |
-| npm 包声明 | `tekvro` | **否**，不可按已发布包使用 |
-| MCP Registry 草案 | `io.github.forcemind/tekvro` | **否**，未登记 |
-| CLI 首选入口 | `tekvro` | 源码构建／本地打包使用 |
-| 兼容 CLI 入口 | `rea`、`rea-agents` | 保留原命令 |
-| MCP 客户端注册键 | `rea` | 保留现有客户端配置 |
-| 现有版本字段 | `6.1.0` | 来自既有引擎基线，**不是 Tekvro 已发布版本** |
-| 许可证 | 原 MIT 与其他第三方授权 | 必须保留版权与授权告知 |
+| 项目              | 当前源码值                                              | 是否已公开发行                               |
+| ----------------- | ------------------------------------------------------- | -------------------------------------------- |
+| GitHub            | [ForceMind/Tekvro](https://github.com/ForceMind/Tekvro) | 是，公开源码                                 |
+| npm 包声明        | `tekvro`                                                | **否**，不可按已发布包使用                   |
+| MCP Registry 草案 | `io.github.forcemind/tekvro`                            | **否**，未登记                               |
+| CLI 首选入口      | `tekvro`                                                | 源码构建／本地打包使用                       |
+| 兼容 CLI 入口     | `rea`、`rea-agents`                                     | 保留原命令                                   |
+| MCP 客户端注册键  | `rea`                                                   | 保留现有客户端配置                           |
+| 现有版本字段      | `6.1.0`                                                 | 来自既有引擎基线，**不是 Tekvro 已发布版本** |
+| 许可证            | 原 MIT 与其他第三方授权                                 | 必须保留版权与授权告知                       |
 
 ## 如何运行
 

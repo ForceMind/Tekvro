@@ -300,7 +300,7 @@ describe("npm installation ownership", () => {
     ).resolves.toEqual({ prefix: "/usr/local", packageRoot });
   });
 
-  it("supports a custom Unix npm prefix" , async () => {
+  it("supports a custom Unix npm prefix", async () => {
     const packageRoot = "/home/user/.local/lib/node_modules/tekvro";
     await expect(
       detectNpmInstallation(packageRoot, host("/usr/local/lib/node_modules")),

@@ -187,7 +187,9 @@ async function validateCandidate(git, sha, version, commits) {
     (entry) => entry.identifier === candidatePackage.name,
   );
   if (npmPackage === undefined)
-    throw new Error(`server.json is missing the ${candidatePackage.name} package.`);
+    throw new Error(
+      `server.json is missing the ${candidatePackage.name} package.`,
+    );
   versions.push(
     ["server.json", server.version],
     [`server.json ${candidatePackage.name} package`, npmPackage.version],

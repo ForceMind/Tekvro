@@ -21,7 +21,9 @@ export async function verifyPackageInstall({
   const packageRunnerCli = join(prefix, "bin", "rea-agents");
   for (const legacy of [legacyCli, packageRunnerCli]) {
     if (!(await run(legacy, ["--help"], environment)).includes("setup"))
-      throw new Error(`packaged compatibility alias did not expose setup: ${legacy}`);
+      throw new Error(
+        `packaged compatibility alias did not expose setup: ${legacy}`,
+      );
   }
   const processCaptureCapabilityUrl = pathToFileURL(
     join(

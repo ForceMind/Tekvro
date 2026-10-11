@@ -65,13 +65,7 @@ try {
     ["install", "--no-package-lock", "--no-save", "--prefix", prefix, tarball],
     workspace,
   );
-  const entry = join(
-    prefix,
-    "node_modules",
-    "tekvro",
-    "scripts",
-    "rea.mjs",
-  );
+  const entry = join(prefix, "node_modules", "tekvro", "scripts", "rea.mjs");
   const environment = {
     ...process.env,
     REA_ANALYSIS_PROVIDER: "auto",
