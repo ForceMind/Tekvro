@@ -285,7 +285,8 @@ const verifyAbsentOpenCodeSetup = async ({ cli, environment, home }) => {
     !result.appliedActions.includes("configured_opencode") ||
     config.mcp?.rea?.type !== "local" ||
     config.mcp.rea.enabled !== true ||
-    JSON.stringify(config.mcp.rea.command) !== JSON.stringify([cli, "mcp"])
+    JSON.stringify(config.mcp.rea.command) !==
+      JSON.stringify([process.execPath, cli, "mcp"])
   )
     throw new Error(
       `packaged setup did not configure explicitly selected OpenCode without a config file: ${JSON.stringify(result)}`,
@@ -326,8 +327,9 @@ const verifyAbsentClaudeCodeSetup = async ({ cli, environment, home }) => {
     firstExecution.status !== 0 ||
     first.status !== "ready" ||
     !first.appliedActions.includes("configured_claude_code") ||
-    config.mcpServers?.rea?.command !== cli ||
-    JSON.stringify(config.mcpServers?.rea?.args) !== JSON.stringify(["mcp"]) ||
+    config.mcpServers?.rea?.command !== process.execPath ||
+    JSON.stringify(config.mcpServers?.rea?.args) !==
+      JSON.stringify([cli, "mcp"]) ||
     (await pathExists(markerPath)) ||
     registration?.state !== "aligned" ||
     registration.config_path !== configPath
@@ -419,8 +421,9 @@ const assertClientConfig = async (cli, configPath) => {
   const config = json(await readFile(configPath, "utf8"));
   if (
     config.existing !== true ||
-    config.mcpServers?.rea?.command !== cli ||
-    JSON.stringify(config.mcpServers?.rea?.args) !== JSON.stringify(["mcp"])
+    config.mcpServers?.rea?.command !== process.execPath ||
+    JSON.stringify(config.mcpServers?.rea?.args) !==
+      JSON.stringify([cli, "mcp"])
   )
     throw new Error("packaged client readback failed");
   if (
@@ -448,7 +451,8 @@ const assertOpenCodeConfig = async ({
     (expectedRegistration &&
       (mcp?.rea?.type !== "local" ||
         mcp.rea.enabled !== true ||
-        JSON.stringify(mcp.rea.command) !== JSON.stringify([cli, "mcp"]))) ||
+        JSON.stringify(mcp.rea.command) !==
+          JSON.stringify([process.execPath, cli, "mcp"]))) ||
     (!expectedRegistration && mcp?.rea !== undefined)
   )
     throw new Error("packaged OpenCode JSONC registration readback failed");
@@ -465,7 +469,8 @@ const assertCodexSymlink = async ({
     !(await lstat(codexConfig)).isSymbolicLink() ||
     !(await lstat(cursorConfig)).isSymbolicLink() ||
     !codex.includes("[mcp_servers.rea]") ||
-    !codex.includes(`command = "${cli}"`) ||
+    !codex.includes(`command = "${process.execPath}"`) ||
+    !codex.includes(cli) ||
     !codex.includes("startup_timeout_sec = 30") ||
     !codex.startsWith(CODEX_ORIGINAL) ||
     (await readFile(`${codexConfig}.rea.backup`, "utf8")) !== CODEX_ORIGINAL ||
@@ -598,7 +603,8 @@ const verifySetupFailureRecovery = async ({
   if (
     recovered.status !== status ||
     recoveredExecution.status !== (status === "ready" ? 0 : 1) ||
-    json(await readFile(cursorConfig, "utf8")).mcpServers?.rea?.command !== cli
+    json(await readFile(cursorConfig, "utf8")).mcpServers?.rea?.command !==
+      process.execPath
   )
     throw new Error("packaged setup did not recover");
 };

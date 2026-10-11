@@ -322,7 +322,7 @@ describe("canonical product catalog drift", () => {
     await writeFile(
       englishPath,
       english.replaceAll(
-        "https://github.com/ForceMind/REA",
+        "https://github.com/ForceMind/Tekvro",
         "https://github.com/morluto/rea",
       ),
       "utf8",
@@ -333,7 +333,7 @@ describe("canonical product catalog drift", () => {
       await createProductCatalog(root),
     );
     expect(issues).toContain(
-      "README.en.md: missing https://github.com/ForceMind/REA",
+      "README.en.md: missing https://github.com/ForceMind/Tekvro",
     );
   });
 

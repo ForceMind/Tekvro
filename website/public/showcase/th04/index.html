@@ -146,8 +146,8 @@
               <p class="terminal-prompt">
                 <span class="prompt-symbol" aria-hidden="true">›</span
                 ><span id="th04-prompt"
-                  >Use Tekvro to find how TH04 creates a ring of bullets and aims
-                  it at the player. Explain the calculation and show the
+                  >Use Tekvro to find how TH04 creates a ring of bullets and
+                  aims it at the player. Explain the calculation and show the
                   code.</span
                 ><span class="terminal-cursor" aria-hidden="true"></span>
               </p>
@@ -218,9 +218,9 @@ bullet_template_tune();</code></pre>
             <h2>What Tekvro returns</h2>
             <p>
               We inspect <code>bullet_velocity_and_angle_set()</code>, the
-              function that sets each bullet's velocity and angle. Tekvro returns
-              its instructions, pseudocode and references. Three parts of that
-              result explain the pattern.
+              function that sets each bullet's velocity and angle. Tekvro
+              returns its instructions, pseudocode and references. Three parts
+              of that result explain the pattern.
             </p>
             <ol class="rea-queries">
               <li>
@@ -255,7 +255,9 @@ module_bytes: 150114</code></pre>
                 <div class="rea-query-pair">
                   <div class="code-block">
                     <div class="code-header">
-                      <span>Agent → Tekvro · <code>analyze_function</code></span>
+                      <span
+                        >Agent → Tekvro · <code>analyze_function</code></span
+                      >
                     </div>
                     <pre><code>{"procedure": "0x2cfc8"}</code></pre>
                   </div>
@@ -588,10 +590,10 @@ no_aim:
               <p>
                 The source names and compiler checks come from TH04 checkpoint
                 <code>0d72e980</code>. Earlier reconstruction observations used
-                the project's own analysis scripts; this page adds a fresh Tekvro
-                inspection of the same original target. The supplied game's
-                identity is pinned by its repository manifest, with independent
-                pristine-dump provenance still open.
+                the project's own analysis scripts; this page adds a fresh
+                Tekvro inspection of the same original target. The supplied
+                game's identity is pinned by its repository manifest, with
+                independent pristine-dump provenance still open.
               </p>
               <p>
                 The figure illustrates the angle calculation. Full-game

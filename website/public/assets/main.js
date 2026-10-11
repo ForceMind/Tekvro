@@ -15,7 +15,9 @@ function initializeCopyButtons() {
         await navigator.clipboard.writeText(text);
         button.textContent = zh ? "已复制" : "Copied";
         if (status !== null)
-          status.textContent = zh ? "已复制到剪贴板。" : "Code copied to clipboard.";
+          status.textContent = zh
+            ? "已复制到剪贴板。"
+            : "Code copied to clipboard.";
       } catch {
         const range = document.createRange();
         range.selectNodeContents(target);
@@ -122,11 +124,14 @@ async function initializeGitHubStars() {
   if (count === null || count === undefined) return;
 
   try {
-    const response = await fetch("https://api.github.com/repos/ForceMind/Tekvro", {
-      headers: { Accept: "application/vnd.github+json" },
-      credentials: "omit",
-      signal: AbortSignal.timeout(5000),
-    });
+    const response = await fetch(
+      "https://api.github.com/repos/ForceMind/Tekvro",
+      {
+        headers: { Accept: "application/vnd.github+json" },
+        credentials: "omit",
+        signal: AbortSignal.timeout(5000),
+      },
+    );
     if (!response.ok) return;
     const repository = await response.json();
     const stars = repository.stargazers_count;

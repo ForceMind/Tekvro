@@ -1,8 +1,12 @@
 <!doctype html>
 <html lang="zh-CN">
   <head>
-    <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="Tekvro 探核常见问题：逆向分析能力、源代码恢复、安装依赖、安全隐私和本地 MCP 连接。" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Tekvro 探核常见问题：逆向分析能力、源代码恢复、安装依赖、安全隐私和本地 MCP 连接。"
+    />
     <title>常见问题 · Tekvro 探核</title>
     <link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="../../assets/styles.css" />
@@ -11,25 +15,96 @@
   </head>
   <body class="zh-page" id="top">
     <a class="skip-link" href="#main">跳到正文</a>
-    <header class="site-header"><div class="container header-inner">
-      <a class="brand" href="../" aria-label="Tekvro 探核 首页"><span class="brand-name">Tekvro</span><span class="brand-caption">探核 · 用证据看懂软件</span></a>
-      <nav class="navigation" aria-label="主导航"><a href="../#capabilities">核心能力</a><a href="../get-started/">快速开始</a><a class="nav-start" href="./" aria-current="page">常见问题</a><a href="../../faq/" lang="en">English</a></nav>
-      <a class="nav-github" href="https://github.com/ForceMind/Tekvro">GitHub ↗</a>
-    </div></header>
-    <main class="container zh-doc" id="main">
-      <p class="zh-kicker">FREQUENTLY ASKED QUESTIONS</p><h1>使用 Tekvro 前，你应该知道这些</h1>
-      <div class="zh-faq">
-        <details open><summary>Tekvro 是一个 AI 模型吗？</summary><p>不是。它把本地软件分析、专业逆向引擎和结构化证据连接给支持 MCP 的 AI 工具；AI 负责提出问题、解释发现和组织调查。</p></details>
-        <details><summary>能还原任何软件的完整源代码吗？</summary><p>不能保证。反编译通常只能得到近似结构，编译优化、混淆、加密和缺失符号都会降低可恢复性。服务端代码也不会凭客户端文件自动出现。</p></details>
-        <details><summary>为什么需要 Ghidra、Hopper 或 IDA？</summary><p>这些工具提供原生二进制的底层分析能力。Tekvro 的不同适配器有不同系统依赖与许可要求，JavaScript 静态分析不必先安装所有引擎。</p></details>
-        <details><summary>是否可以用 npx rea-agents 直接安装？</summary><p>不可以把它当作此私有 Tekvro 版本。公开的 <code>rea-agents</code> 是原工程的发行标识。请按<a href="../get-started/">中文安装指南</a>从 ForceMind/Tekvro 源码构建。</p></details>
-        <details><summary>为什么配置里还会出现 rea 字样？</summary><p>当前仍保留一部分 CLI、MCP 注册键和第三方工具适配的兼容标识，以免删除成熟功能或破坏客户端配置。对外品牌已采用 Tekvro；内部身份迁移会逐项经过测试。</p></details>
-        <details><summary>使用 Tekvro 会把文件传到云端吗？</summary><p>本地分析与是否把输出交给远端 AI 模型是两个问题。若使用联网 Agent，调查报告、代码片段或字符串可能随提问进入模型上下文。请先核对隐私设置与目标数据的授权范围。</p></details>
-        <details><summary>项目现在可以直接公开发布吗？</summary><p>还不可以。Tekvro 目前是私有研发版，正式 npm 包、MCP Registry 身份和官网发布渠道尚未完整迁移与验收。原 MIT 许可和第三方组件的授权条款仍需遵守。</p></details>
+    <header class="site-header">
+      <div class="container header-inner">
+        <a class="brand" href="../" aria-label="Tekvro 探核 首页"
+          ><span class="brand-name">Tekvro</span
+          ><span class="brand-caption">探核 · 用证据看懂软件</span></a
+        >
+        <nav class="navigation" aria-label="主导航">
+          <a href="../#capabilities">核心能力</a
+          ><a href="../get-started/">快速开始</a
+          ><a class="nav-start" href="./" aria-current="page">常见问题</a
+          ><a href="../../faq/" lang="en">English</a>
+        </nav>
+        <a class="nav-github" href="https://github.com/ForceMind/Tekvro"
+          >GitHub ↗</a
+        >
       </div>
-      <div class="zh-next"><a class="button" href="../get-started/">开始配置</a><a class="button secondary" href="../">返回首页</a></div>
+    </header>
+    <main class="container zh-doc" id="main">
+      <p class="zh-kicker">FREQUENTLY ASKED QUESTIONS</p>
+      <h1>使用 Tekvro 前，你应该知道这些</h1>
+      <div class="zh-faq">
+        <details open>
+          <summary>Tekvro 是一个 AI 模型吗？</summary>
+          <p>
+            不是。它把本地软件分析、专业逆向引擎和结构化证据连接给支持 MCP 的 AI
+            工具；AI 负责提出问题、解释发现和组织调查。
+          </p>
+        </details>
+        <details>
+          <summary>能还原任何软件的完整源代码吗？</summary>
+          <p>
+            不能保证。反编译通常只能得到近似结构，编译优化、混淆、加密和缺失符号都会降低可恢复性。服务端代码也不会凭客户端文件自动出现。
+          </p>
+        </details>
+        <details>
+          <summary>为什么需要 Ghidra、Hopper 或 IDA？</summary>
+          <p>
+            这些工具提供原生二进制的底层分析能力。Tekvro
+            的不同适配器有不同系统依赖与许可要求，JavaScript
+            静态分析不必先安装所有引擎。
+          </p>
+        </details>
+        <details>
+          <summary>是否可以用 npx rea-agents 直接安装？</summary>
+          <p>
+            不可以把它当作此私有 Tekvro 版本。公开的
+            <code>rea-agents</code> 是原工程的发行标识。请按<a
+              href="../get-started/"
+              >中文安装指南</a
+            >从 ForceMind/Tekvro 源码构建。
+          </p>
+        </details>
+        <details>
+          <summary>为什么配置里还会出现 rea 字样？</summary>
+          <p>
+            当前仍保留一部分 CLI、MCP
+            注册键和第三方工具适配的兼容标识，以免删除成熟功能或破坏客户端配置。对外品牌已采用
+            Tekvro；内部身份迁移会逐项经过测试。
+          </p>
+        </details>
+        <details>
+          <summary>使用 Tekvro 会把文件传到云端吗？</summary>
+          <p>
+            本地分析与是否把输出交给远端 AI 模型是两个问题。若使用联网
+            Agent，调查报告、代码片段或字符串可能随提问进入模型上下文。请先核对隐私设置与目标数据的授权范围。
+          </p>
+        </details>
+        <details>
+          <summary>项目现在可以直接公开发布吗？</summary>
+          <p>
+            还不可以。Tekvro 目前是私有研发版，正式 npm 包、MCP Registry
+            身份和官网发布渠道尚未完整迁移与验收。原 MIT
+            许可和第三方组件的授权条款仍需遵守。
+          </p>
+        </details>
+      </div>
+      <div class="zh-next">
+        <a class="button" href="../get-started/">开始配置</a
+        ><a class="button secondary" href="../">返回首页</a>
+      </div>
     </main>
-    <footer class="site-footer"><div class="container footer-inner"><p>Tekvro · 探核 / ForceMind</p><div class="footer-links"><a href="../">首页</a><a href="../../faq/" lang="en">English</a><a href="https://github.com/ForceMind/Tekvro">GitHub</a></div></div></footer>
+    <footer class="site-footer">
+      <div class="container footer-inner">
+        <p>Tekvro · 探核 / ForceMind</p>
+        <div class="footer-links">
+          <a href="../">首页</a><a href="../../faq/" lang="en">English</a
+          ><a href="https://github.com/ForceMind/Tekvro">GitHub</a>
+        </div>
+      </div>
+    </footer>
     <a class="back-to-top" href="#top" aria-label="返回顶部">↑</a>
   </body>
 </html>
