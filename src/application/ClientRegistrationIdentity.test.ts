@@ -60,6 +60,9 @@ it("uses a Windows executable for npm-run setup and preserves POSIX launchers", 
 
 it.each(
   [
+    ["npx", "-y", "tekvro@6.1.0", "mcp"],
+    ["npx", "-y", "tekvro@latest", "mcp"],
+    ["npx", "-y", "rea-agents@latest", "mcp"],
     npxRegistrationCommand("win32"),
     ["cmd", "/c", "npx", "-y", "rea-agents@5.0.0", "mcp"],
     ["npx", "-y", "rea-agents@5.0.0", "mcp"],
@@ -70,6 +73,8 @@ it.each(
 
 it.each(
   [
+    ["npx", "-y", "rea-agents@6.1.0", "mcp", ";", "rm"],
+    ["npx", "-y", "other-package@6.1.0", "mcp"],
     ["cmd.exe", "/d", "/c", "node", "custom.js", "mcp"],
     ["cmd.exe", "/k", "npx", "-y", "rea-agents@5.0.0", "mcp"],
     ["cmd.exe", "/c", "npx -y rea-agents@5.0.0 mcp"],
