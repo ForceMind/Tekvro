@@ -1,9 +1,6 @@
 import { z } from "incur";
 
-import {
-  selectHumanText,
-  type CliLocaleEnvironment,
-} from "./localization.js";
+import { selectHumanText, type CliLocaleEnvironment } from "./localization.js";
 
 import {
   DOCTOR_PROVIDER_IDS,
@@ -65,25 +62,48 @@ const registerSetupCommand = (
   text: HumanText,
 ): void => {
   cli.command(CLI_COMMANDS.setup, {
-    description: text("Configure agent integrations and optional analysis providers", "配置 AI 智能体接入及可选分析引擎"),
+    description: text(
+      "Configure agent integrations and optional analysis providers",
+      "配置 AI 智能体接入及可选分析引擎",
+    ),
     outputPolicy: "agent-only",
     options: z.object({
       yes: z
         .boolean()
         .default(false)
-        .describe(text("Approve user-owned setup actions without prompting", "无需交互确认已授权的配置操作")),
+        .describe(
+          text(
+            "Approve user-owned setup actions without prompting",
+            "无需交互确认已授权的配置操作",
+          ),
+        ),
       installHopper: z
         .boolean()
         .default(false)
-        .describe(text("Also approve Hopper installation with --yes", "与 --yes 一起批准安装 Hopper")),
+        .describe(
+          text(
+            "Also approve Hopper installation with --yes",
+            "与 --yes 一起批准安装 Hopper",
+          ),
+        ),
       client: z
         .array(supportedClientSchema)
         .default([])
-        .describe(text("Agent integration to configure; repeat for multiple agents", "指定要配置的智能体，可重复传入")),
+        .describe(
+          text(
+            "Agent integration to configure; repeat for multiple agents",
+            "指定要配置的智能体，可重复传入",
+          ),
+        ),
       allDetected: z
         .boolean()
         .default(false)
-        .describe(text("Configure every detected supported agent", "配置所有检测到且受支持的智能体")),
+        .describe(
+          text(
+            "Configure every detected supported agent",
+            "配置所有检测到且受支持的智能体",
+          ),
+        ),
       skill: z
         .boolean()
         .optional()
@@ -96,11 +116,21 @@ const registerSetupCommand = (
       dryRun: z
         .boolean()
         .default(false)
-        .describe(text("Print the resolved plan without applying it", "只显示操作计划，不修改配置")),
+        .describe(
+          text(
+            "Print the resolved plan without applying it",
+            "只显示操作计划，不修改配置",
+          ),
+        ),
       accessible: z
         .boolean()
         .default(false)
-        .describe(text("Use sequential accessible setup prompts", "使用逐项确认的无障碍配置提示")),
+        .describe(
+          text(
+            "Use sequential accessible setup prompts",
+            "使用逐项确认的无障碍配置提示",
+          ),
+        ),
     }),
     alias: { yes: "y" },
     run: ({ options, formatExplicit }) =>
@@ -119,21 +149,44 @@ const registerDoctorCommand = (
   text: HumanText,
 ): void => {
   cli.command(CLI_COMMANDS.doctor, {
-    description: text("Check whether Tekvro is ready", "检查 Tekvro 环境和分析能力是否就绪"),
+    description: text(
+      "Check whether Tekvro is ready",
+      "检查 Tekvro 环境和分析能力是否就绪",
+    ),
     options: z.object({
-      target: z.string().optional().describe(text("Optional app path to check", "可选：要检查的本地应用路径")),
+      target: z
+        .string()
+        .optional()
+        .describe(
+          text("Optional app path to check", "可选：要检查的本地应用路径"),
+        ),
       client: z
         .array(supportedClientSchema)
         .default([])
-        .describe(text("Agent registration whose readiness is required; repeatable", "指定必须就绪的智能体，可重复传入")),
+        .describe(
+          text(
+            "Agent registration whose readiness is required; repeatable",
+            "指定必须就绪的智能体，可重复传入",
+          ),
+        ),
       provider: z
         .array(z.enum(DOCTOR_PROVIDER_IDS))
         .default([])
-        .describe(text("Deep-analysis provider whose readiness is required", "指定必须就绪的深度分析引擎")),
+        .describe(
+          text(
+            "Deep-analysis provider whose readiness is required",
+            "指定必须就绪的深度分析引擎",
+          ),
+        ),
       skill: z
         .boolean()
         .optional()
-        .describe(text("Require the installed REA skill identity to be aligned", "要求已安装的兼容 Skill 标识一致")),
+        .describe(
+          text(
+            "Require the installed REA skill identity to be aligned",
+            "要求已安装的兼容 Skill 标识一致",
+          ),
+        ),
     }),
     run: ({ options }) =>
       logCliCommand(logger, "doctor", () =>
@@ -152,12 +205,20 @@ const registerMaintenanceCommands = (
   text: HumanText,
 ): void => {
   cli.command(CLI_COMMANDS.uninstall, {
-    description: text("Remove Tekvro-managed agent configuration and skill files", "移除 Tekvro 管理的智能体配置及 Skill 文件"),
+    description: text(
+      "Remove Tekvro-managed agent configuration and skill files",
+      "移除 Tekvro 管理的智能体配置及 Skill 文件",
+    ),
     options: z.object({
       purgeData: z
         .boolean()
         .default(false)
-        .describe(text("Also remove compatible local caches and state", "同时清理兼容的本地缓存和状态")),
+        .describe(
+          text(
+            "Also remove compatible local caches and state",
+            "同时清理兼容的本地缓存和状态",
+          ),
+        ),
     }),
     alias: { purgeData: "purge-data" },
     run: ({ options }) =>
