@@ -13,16 +13,26 @@ export const registerWebScriptCommands = (
   logger: Logger,
 ): void => {
   cli.command(CLI_COMMANDS.exportWebScripts, {
-    description:
-      selectHumanText("Export retained website scripts into an absent directory for static JavaScript analysis", "将已保留的网页脚本导出到新目录，供 JavaScript 静态分析"),
+    description: selectHumanText(
+      "Export retained website scripts into an absent directory for static JavaScript analysis",
+      "将已保留的网页脚本导出到新目录，供 JavaScript 静态分析",
+    ),
     args: z.object({
       capturePath: z
         .string()
-        .describe(selectHumanText("Absolute path to saved page or scenario capture JSON", "已保存的页面或场景捕获 JSON 的绝对路径")),
+        .describe(
+          selectHumanText(
+            "Absolute path to saved page or scenario capture JSON",
+            "已保存的页面或场景捕获 JSON 的绝对路径",
+          ),
+        ),
       outputDirectory: z
         .string()
         .describe(
-          selectHumanText("Absolute absent directory for verified scripts and manifest", "用于保存经校验脚本及清单的全新目录绝对路径"),
+          selectHumanText(
+            "Absolute absent directory for verified scripts and manifest",
+            "用于保存经校验脚本及清单的全新目录绝对路径",
+          ),
         ),
     }),
     run: ({ args }) =>

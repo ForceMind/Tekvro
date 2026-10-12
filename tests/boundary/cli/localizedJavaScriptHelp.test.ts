@@ -65,7 +65,8 @@ const commandCases = [
   },
   {
     command: "list-electron-targets",
-    english: "List local file pages exposed by the selected Electron CDP endpoint",
+    english:
+      "List local file pages exposed by the selected Electron CDP endpoint",
     chinese: "列出 Electron CDP 端点中的本地文件页面",
   },
   {
@@ -87,8 +88,9 @@ const commandCases = [
 ] as const;
 
 const flagsIn = (help: string) =>
-  [...new Set([...help.matchAll(/--[a-z][a-z-]*/gu)].map(([flag]) => flag))]
-    .sort();
+  [
+    ...new Set([...help.matchAll(/--[a-z][a-z-]*/gu)].map(([flag]) => flag)),
+  ].sort();
 
 describe("Tekvro H5 JavaScript and Electron command help", () => {
   it.each(commandCases)(
