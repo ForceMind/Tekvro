@@ -18,7 +18,10 @@ export default defineConfig({
         text: "中文入门",
         items: [
           { text: "快速上手", link: "/zh-CN/quick-start" },
-          { text: "H5 / JavaScript / Electron", link: "/zh-CN/javascript-h5-electron" },
+          {
+            text: "H5 / JavaScript / Electron",
+            link: "/zh-CN/javascript-h5-electron",
+          },
           { text: "项目架构", link: "/zh-CN/architecture" },
           { text: "常见问题", link: "/zh-CN/faq" },
           { text: "安全与授权", link: "/zh-CN/security" },
