@@ -22,6 +22,20 @@ Node.js 版本应满足仓库 `package.json` 的 `engines` 约束。需要中文
 
 不要使用 `npx rea-agents@latest` 代替本仓库；那是原项目的公开 npm 分发。详见[快速开始](quick-start.md)和[独立发行身份](distribution.md)。
 
+### 查看中文命令帮助
+
+现在可对 H5、JavaScript、浏览器和 Electron 调查命令直接查看**简体中文的人类可读帮助**，无需猜测英文选项的用途：
+
+```bash
+TEKVRO_LANG=zh-CN node scripts/rea.mjs analyze-javascript-application --help
+TEKVRO_LANG=zh-CN node scripts/rea.mjs recover-javascript-sources --help
+TEKVRO_LANG=zh-CN node scripts/rea.mjs list-browser-targets --help
+TEKVRO_LANG=zh-CN node scripts/rea.mjs inspect-web-page --help
+TEKVRO_LANG=zh-CN node scripts/rea.mjs list-electron-targets --help
+```
+
+选择 `TEKVRO_LANG=en` 可查看英文原文。**只有命令解释、位置参数说明和部分选项帮助文本被翻译**；命令名、`--` 参数、JSON 字段、MCP 工具身份和原有分析契约均不变。Windows PowerShell 请先设置 `$env:TEKVRO_LANG="zh-CN"`，再执行相同的 `node` 命令。
+
 ## 二、静态分析本地 H5 / JavaScript 目录
 
 先准备**已经获得的、本地可读取的构建目录**，例如包含 `index.html`、打包 JavaScript 和资源文件的 `dist/`，而不是把线上网址直接传给静态目录分析命令。
