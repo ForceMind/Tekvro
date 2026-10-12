@@ -29,7 +29,7 @@ node scripts/rea.mjs capabilities --json
 node scripts/rea.mjs analyze-javascript-application /absolute/path/to/js-app --json
 ```
 
-请将路径换成你拥有分析权限的本地目标，尽量用不含密钥与用户数据的样本。结果包含文件、结构、观察、推断与局限。
+请将路径换成你拥有分析权限的本地目标，尽量用不含密钥与用户数据的样本。结果包含文件、结构、观察、推断与局限。关于本地 H5 游戏、浏览器与 Electron 的完整示例，见 [JavaScript / H5 / Electron 中文分析指南](javascript-h5-electron.md)。
 
 可显式切换 CLI 人类可读帮助的语言（**命令名、选项、JSON 字段及 MCP 协议不变**）：
 
