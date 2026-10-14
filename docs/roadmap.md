@@ -31,6 +31,18 @@
 - 提供可复用的结构化分析报告和多版本差异，验证局限而非宣称可恢复任意源码。
 - 维护受控的 upstream 对照表，评估安全修复后选择性移植，而不是自动覆盖独立工作。
 
+## 专项 U：REA 6.4.0 内核能力迁移（已列入计划）
+
+> **状态：仅规划，代码尚未迁移。** 与 P0–P3 并行管理，不取代现有品牌、中文化、发行身份和产品差异化路线。
+
+- 冻结上游来源为 [REA 6.4.0 tag](https://github.com/morluto/rea/releases/tag/rea-agents-6.4.0)，包含 6.2/6.3 的不兼容变更；Tekvro 当前仍为 REA 6.1.0 引擎基线，绝不能通过修改版本号冒充升级完成。
+- [详细实施方案](zh-CN/rea-6.4.0-upgrade-plan.md) · [GitHub 总跟踪 Issue #21](https://github.com/ForceMind/Tekvro/issues/21)。
+- **P0 优先：** T64-00 基线审计，T64-01～03 Evidence/MCP/捕获/资源契约迁移，T64-04 大型 JS/H5/Electron 分析稳定性、保留证据、按需读取和 RPC 识别。
+- **P1 扩展：** T64-05 Android ADB/Apktool/可选 JEB；T64-06 Ghidra/原生能力；T64-07 Agent 集成与中文化。
+- **最终关口：** T64-08 完整 CI、允许的实机验证、历史证据保留、安全与独立版本审查；第三方引擎不可用时只能写明未验证，不能假称完成。
+- 先协调[已有中文帮助 PR #20](https://github.com/ForceMind/Tekvro/pull/20)，保护 `TEKVRO_LANG`、独立 npm/MCP 身份、受兼容约束的旧 CLI 和发布保护；所有实现走独立 PR，稳定 `main` 不直接覆盖。
+- 本专项**不解除** `package.json` 的 `private: true`、原上游 Release 禁令或安装器预发布拦截；独立 Tekvro 版本发布另行验收。
+
 ### 当前验证声明
 
 本次仅完成基线源码核验、文档与配置重构；跨平台构建和真实逆向工具链验证以 GitHub CI 和实际运行结果为准。
