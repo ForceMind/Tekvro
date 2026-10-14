@@ -1,14 +1,22 @@
 # Tekvro
 
-**Investigate software with evidence.** Tekvro is a locally operated AI-assisted software analysis toolkit with a CLI, MCP server and adapters for JavaScript/Electron, native binaries, web runtime evidence and additional artifact types.
+Tekvro is a locally operated toolkit for investigating software structure and runtime behavior. It brings static analysis, runtime observations, and specialized reverse-engineering tools together through a command-line interface (CLI) and Model Context Protocol (MCP), with traceable evidence at each step.
 
-[简体中文](README.md) · [Documentation](docs/index.md) · [Getting started (中文)](docs/zh-CN/quick-start.md) · [Distribution identity](docs/zh-CN/distribution.md) · [Maintenance](PROJECT_MAINTENANCE.md)
+[简体中文](README.md) · [Documentation](docs/index.md) · [Quick start (Chinese)](docs/zh-CN/quick-start.md) · [Architecture](docs/zh-CN/architecture.md) · [Security](docs/zh-CN/security.md)
 
-> **Development status:** public source under ForceMind, retaining the REA 6.1.0 engine baseline. The source package metadata has been renamed to `tekvro` with an independent MCP Registry manifest, but **neither npm nor MCP Registry distribution has been published**. The inherited `6.1.0` source version does not claim an official Tekvro release.
+## Capabilities
 
-## Build from source
+- **JavaScript and Electron:** inspect packaged applications, module relationships, call paths, source maps, and observable application behavior.
+- **Browsers and networking:** use local Chrome DevTools Protocol (CDP) endpoints to inspect page scripts, network activity, and selected runtime state.
+- **Native binaries:** connect optional analysis engines such as Hopper, Ghidra, and IDA to inspect symbols, instructions, program structure, and decompiler output.
+- **Additional artifact types:** analyze supported Android, .NET, firmware, and archive formats, subject to target coverage and configured tools.
+- **Evidence and comparisons:** retain observations, inferences, unknowns, and limitations to support reproducible investigations and version comparisons.
 
-Node.js `^22.19.0 || ^24.11.0 || >=26.0.0` and npm are required.
+The CLI and MCP server expose the same underlying analysis workflows, for direct use or integration with MCP-compatible AI tools such as Codex and Claude Code.
+
+## Quick start
+
+Requirements: Node.js `^22.19.0 || ^24.11.0 || >=26.0.0`, npm, and Git. Optional native analysis engines are configured separately as needed.
 
 ```bash
 git clone https://github.com/ForceMind/Tekvro.git
@@ -16,24 +24,63 @@ cd Tekvro
 git submodule update --init --recursive
 npm ci
 npm run build:cached
+
+# Discover commands and capabilities
 node scripts/rea.mjs --help
+node scripts/rea.mjs capabilities --json
+
+# Check local readiness
 node scripts/rea.mjs doctor --json
+
+# Analyze a local JavaScript / Electron build directory
 node scripts/rea.mjs analyze-javascript-application /absolute/path/to/app --json
 ```
 
-The source npm manifest is named `tekvro`, while `rea` and `rea-agents` CLI aliases and legacy MCP client registrations remain supported. The existing `rea` MCP configuration key is intentionally kept for compatibility. **Do not run `npx tekvro` until an independent release exists**, or confuse publicly hosted `rea-agents` with this source build.
+Replace the example path with a local target you are authorized to inspect. Static JavaScript analysis does not require Ghidra, Hopper, or IDA.
 
-Configure an agent only after inspecting the plan:
+See the [quick-start guide](docs/zh-CN/quick-start.md) and [JavaScript / H5 / Electron guide](docs/zh-CN/javascript-h5-electron.md) for additional workflows.
+
+## MCP integration
+
+Inspect the current client configuration and review changes before applying them:
 
 ```bash
+node scripts/rea.mjs doctor --client codex --json
 node scripts/rea.mjs setup --client codex --dry-run --json
-TEKVRO_LANG=zh-CN node scripts/rea.mjs setup --client codex
+
+# Apply the reviewed setup
+node scripts/rea.mjs setup --client codex
 ```
 
-## Scope and evidence
+Setup may update local AI client configuration. Review the proposed changes and backups before proceeding. See the [configuration guide](docs/zh-CN/quick-start.md) for platform and client details.
 
-The tool helps investigate actual program artifacts, call graphs, formats and selected runtime behavior. It records observations, inferences, limitations and unknowns. Results do not guarantee recovery of original source code or access to server-side implementation. Use it only on targets you are authorized to inspect.
+## Evidence and limitations
 
-## Attribution
+Results distinguish **observations**, **inferences**, and **unknowns**, together with their provenance and coverage limitations. Static code evidence does not by itself establish runtime behavior; analyzing a client does not reveal unobserved server-side implementation.
 
-Based on upstream [morluto/rea](https://github.com/morluto/rea), source commit `f6fe575094658e99ced78d45f385633fbfaaae32`. Its MIT license and copyright notice remain in [LICENSE](LICENSE); see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Tekvro is not affiliated with the original author.
+Use the toolkit only with software and environments you are authorized to inspect. Runtime access, file operations, and external provider actions remain subject to their respective tool boundaries.
+
+## Repository layout
+
+- `src/`: domain models, analysis workflows, CLI/MCP interfaces, and providers.
+- `bridge/`: integration code for external analysis engines and system tools.
+- `tests/`: unit, integration, contract, and boundary tests.
+- `scripts/`: build, validation, and development tooling.
+- `docs/`: guides, architecture, protocols, and technical references.
+- `skill-src/`: AI agent workflow instructions.
+- `third_party/`: external dependencies and submodules.
+
+For development and testing, see [CONTRIBUTING.md](CONTRIBUTING.md) and the [testing guide](docs/testing.md).
+
+## Distribution status
+
+Tekvro currently runs **from source**. An independent npm package and MCP Registry entry have not yet been published.
+
+- The source package is named `tekvro`. Existing `rea` and `rea-agents` CLI aliases, as well as selected MCP registration keys, remain for compatibility.
+- `scripts/rea.mjs` is the current source entrypoint. The public `rea-agents` npm package is not a Tekvro build; `npx tekvro` is not a supported installation method until an independent release is available.
+- The source version `6.1.0` identifies the inherited engine baseline, not an independently published Tekvro release. See the [roadmap](docs/roadmap.md) and [distribution notes](docs/zh-CN/distribution.md).
+- `install.sh` does not perform an automatic download or installation before the independent release.
+
+## License
+
+The project includes code from [REA](https://github.com/morluto/rea) under the MIT License alongside other third-party components. See [LICENSE](LICENSE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for applicable licenses and copyright notices.
