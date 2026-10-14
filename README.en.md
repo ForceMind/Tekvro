@@ -72,7 +72,7 @@ Use the toolkit only with software and environments you are authorized to inspec
 | `skill-src/` | AI agent workflow instructions |
 | `third_party/` | External dependencies and submodules |
 
-Development information is available in [CONTRIBUTING.md](CONTRIBUTING.md) and [PROJECT_MAINTENANCE.md](PROJECT_MAINTENANCE.md).
+For development and testing, see [CONTRIBUTING.md](CONTRIBUTING.md) and the [testing guide](docs/testing.md).
 
 ## Distribution status
 
