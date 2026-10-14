@@ -62,15 +62,13 @@ TEKVRO_LANG=zh-CN node scripts/rea.mjs setup --client codex
 
 ## 项目结构
 
-| 目录 | 内容 |
-| --- | --- |
-| `src/` | 领域模型、分析工作流、CLI 与 MCP 接口、分析适配器 |
-| `bridge/` | 与外部逆向引擎及系统工具交互的桥接代码 |
-| `tests/` | 单元、集成、契约和边界测试 |
-| `scripts/` | 构建、检查、验证和开发工具 |
-| `docs/` | 使用说明、架构、协议与技术文档 |
-| `skill-src/` | 面向 AI Agent 的操作说明 |
-| `third_party/` | 第三方依赖与子模块 |
+- `src/`：领域模型、分析工作流、CLI/MCP 接口和分析适配器。
+- `bridge/`：外部逆向引擎与系统工具的桥接代码。
+- `tests/`：单元、集成、契约和边界测试。
+- `scripts/`：构建、检查、验证和开发工具。
+- `docs/`：使用说明、架构、协议和技术参考。
+- `skill-src/`：面向 AI Agent 的操作说明。
+- `third_party/`：第三方依赖与子模块。
 
 开发规范与测试方法参见 [CONTRIBUTING.md](CONTRIBUTING.md) 和 [测试文档](docs/testing.md)。
 
