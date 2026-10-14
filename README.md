@@ -72,7 +72,7 @@ TEKVRO_LANG=zh-CN node scripts/rea.mjs setup --client codex
 | `skill-src/` | 面向 AI Agent 的操作说明 |
 | `third_party/` | 第三方依赖与子模块 |
 
-开发与测试说明参见 [CONTRIBUTING.md](CONTRIBUTING.md) 和 [PROJECT_MAINTENANCE.md](PROJECT_MAINTENANCE.md)。
+开发规范与测试方法参见 [CONTRIBUTING.md](CONTRIBUTING.md) 和 [测试文档](docs/testing.md)。
 
 ## 获取与版本状态
 
