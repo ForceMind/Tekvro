@@ -1,0 +1,44 @@
+name: Import REA 6.4.0 source for isolated research
+
+on:
+  push:
+    branches:
+      - research/rea-6.4.0-source-20261014
+    paths:
+      - .github/workflows/research-import-rea-640.yml
+
+permissions:
+  contents: write
+
+jobs:
+  import:
+    if: github.repository == 'ForceMind/Tekvro'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out isolated research branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: true
+      - name: Copy exact tracked REA 6.4.0 source and generate audit
+        shell: bash
+        env:
+          UPSTREAM_GIT_DIR: ${{ runner.temp }}/rea-640-upstream
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch rea-agents-6.4.0 https://github.com/morluto/rea.git "$UPSTREAM_GIT_DIR"
+          resolved="$(git -C "$UPSTREAM_GIT_DIR" rev-parse HEAD)"
+          test "$resolved" = "a56f7bb668ab23fec8d33f7af353ac7ed2fe1895"
+          mkdir -p upstream/rea-6.4.0
+          git -C "$UPSTREAM_GIT_DIR" archive --format=tar HEAD | tar -xf - -C upstream/rea-6.4.0
+          python3 scripts/research/audit_rea_640.py
+          test -f upstream/rea-6.4.0/LICENSE
+          test -f upstream/rea-6.4.0/THIRD_PARTY_NOTICES.md || test -f upstream/rea-6.4.0/package.json
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -f upstream/rea-6.4.0 docs/upstream/rea-6.4.0-source-audit.md
+          git rm -- .github/workflows/research-import-rea-640.yml
+          git commit -m 'chore(research): vendor complete REA 6.4.0 source snapshot'
+          git push origin HEAD:refs/heads/research/rea-6.4.0-source-20261014
+          echo 'Verified REA 6.4.0 source snapshot committed to isolated research branch.'
