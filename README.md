@@ -1,27 +1,22 @@
 # Tekvro · 探核
 
-**用证据理解软件。**  
-AI 辅助的软件结构、二进制文件和运行行为分析工具。
+Tekvro 是面向软件结构与运行行为调查的本地分析工具。通过命令行（CLI）和 Model Context Protocol（MCP），它将静态分析、运行时观察和专业逆向工具连接起来，并以可追溯的证据组织分析结果。
 
-[English](README.en.md) · [中文文档](docs/index.md) · [快速上手](docs/zh-CN/quick-start.md) · [架构](docs/zh-CN/architecture.md) · [安全说明](docs/zh-CN/security.md) · [发行身份](docs/zh-CN/distribution.md) · [开发规范](PROJECT_MAINTENANCE.md)
+[English](README.en.md) · [使用文档](docs/index.md) · [快速开始](docs/zh-CN/quick-start.md) · [H5 / JavaScript / Electron](docs/zh-CN/javascript-h5-electron.md) · [架构](docs/zh-CN/architecture.md) · [安全说明](docs/zh-CN/security.md)
 
-> **项目状态：公开源码、独立 npm/MCP 身份迁移中。** Tekvro 基于原 REA 6.1.0 引擎持续改造；源码包元数据现使用 `tekvro` 与 `io.github.forcemind/tekvro`，但**尚未在 npm 或 MCP Registry 正式发布**。当前 `6.1.0` 是继承的引擎版本基线，并不代表 Tekvro 已对外发布该版本。
+## 功能
 
-## Tekvro 可以做什么？
+- **JavaScript 与 Electron**：分析打包应用、模块关系、调用线索、源码映射以及可观察的应用行为。
+- **浏览器与网络**：结合本地浏览器调试接口（CDP），检查页面脚本、网络活动和部分运行时状态。
+- **原生二进制文件**：通过可选的 Hopper、Ghidra、IDA 等分析引擎，检查程序结构、符号、指令和反编译结果。
+- **其他软件制品**：提供 Android、.NET、固件、归档等类型的分析能力，实际覆盖范围取决于目标格式和已配置的工具。
+- **证据与比较**：记录观察结果、推断依据、未知项及分析局限，为后续追踪和版本比较提供可复核的上下文。
 
-让 Codex、Claude Code 等支持 MCP 的 AI 工具，结合真实分析证据调查软件：
+CLI 和 MCP 使用相同的核心分析能力，可由开发者直接调用，也可供 Codex、Claude Code 等兼容 MCP 的 AI 工具使用。
 
-- **JavaScript / Electron**：打包脚本、模块依赖、调用与部分运行行为；
-- **原生程序**：借助用户配置的 Hopper、Ghidra、IDA 等工具检查二进制结构与反编译结果；
-- **浏览器和应用运行态**：调查网页脚本、网络记录、进程与事件（受运行环境、授权及工具支持限制）；
-- **其他制品**：Android、.NET、固件、归档等已有分析适配；
-- **可复核结论**：区分观察（Observation）、推断（Inference）和未知项（Unknown）。
+## 快速开始
 
-Tekvro **不是**通用的“一键还原源码”工具，也不会自动获得服务器端代码、密钥或受保护的内部逻辑。请仅分析你有权检查的对象。
-
-## 从本仓库本地运行
-
-**需要 Node.js `^22.19.0 || ^24.11.0 || >=26.0.0` 和 npm。** 请从本仓库源码构建，**不要把公开 npm 上的 `rea-agents` 误认作本项目构建**。独立发行前 `install.sh` 会拒绝执行下载，防止误装上游 npm 包。
+运行环境：Node.js `^22.19.0 || ^24.11.0 || >=26.0.0`、npm 和 Git。可选的原生分析引擎按需单独配置。
 
 ```bash
 git clone https://github.com/ForceMind/Tekvro.git
@@ -30,53 +25,64 @@ git submodule update --init --recursive
 npm ci
 npm run build:cached
 
-# 显示当前命令（内部兼容命令仍为 rea）
+# 查看命令与可用能力
 node scripts/rea.mjs --help
+node scripts/rea.mjs capabilities --json
 
-# 只读检查本地环境
+# 检查本机环境
 node scripts/rea.mjs doctor --json
 
-# 示例：静态分析你有权检查的 JS / Electron 解包目录
+# 分析本地 JavaScript / Electron 构建目录
 node scripts/rea.mjs analyze-javascript-application /absolute/path/to/app --json
 ```
 
-> 本地包名已改为 `tekvro`，`tekvro`、`rea`、`rea-agents` CLI 入口暂同时保留；既有 MCP 客户端配置键 `rea` 仍沿用以免破坏用户环境。**不要运行 `npx tekvro` 或将旧公开 `rea-agents` npm 包当成 Tekvro。** 独立发行进度见[发行身份与兼容说明](docs/zh-CN/distribution.md)。
+示例中的路径应替换为实际存在且有权分析的本地目标。静态 JavaScript 分析不要求预先安装 Ghidra、Hopper 或 IDA。
 
-## 为 AI Agent 配置 MCP
+更多操作示例见[快速开始](docs/zh-CN/quick-start.md)和[H5 / JavaScript / Electron 分析指南](docs/zh-CN/javascript-h5-electron.md)。
 
-先检查，再决定是否写入自己的本地配置：
+## MCP 集成
+
+配置前可以先检查客户端状态和预计写入的设置：
 
 ```bash
 node scripts/rea.mjs doctor --client codex --json
 node scripts/rea.mjs setup --client codex --dry-run --json
 
-# 确认配置及文件备份计划后，才执行：
+# 确认变更后执行配置（macOS / Linux）
 TEKVRO_LANG=zh-CN node scripts/rea.mjs setup --client codex
 ```
 
-某些原生分析功能要求预先安装第三方软件；不应无条件在开发机上安装专业逆向工具。更多说明见[中文快速上手](docs/zh-CN/quick-start.md)。
+配置流程可能修改本机的 AI 客户端设置；请核对显示的变更及备份信息。其他客户端和平台的说明见[安装与配置文档](docs/zh-CN/quick-start.md)。
 
-## 代码结构
+## 分析结果与边界
 
-| 目录           | 内容                                   |
-| -------------- | -------------------------------------- |
-| `src/`         | 核心领域模型、分析适配器、CLI/MCP 协议 |
-| `bridge/`      | 第三方逆向引擎的本地桥接               |
-| `tests/`       | 自动化与契约测试                       |
-| `scripts/`     | 构建、检测、验证                       |
-| `docs/`        | 中文入门与详细技术文档                 |
-| `skill-src/`   | 面向 Agent 的工作指引                  |
-| `third_party/` | 子模块与外部依赖                       |
+分析结果区分**观察（Observation）**、**推断（Inference）**和**未知（Unknown）**，并记录数据来源、覆盖范围与限制。静态源码线索不等于已经验证的运行行为；客户端分析也不能证明未观察到的服务器端实现。
 
-## 维护与发布
+工具仅用于用户有权检查的软件和环境。运行时访问、文件操作及专业分析引擎的具体权限由相应工具和工作流约束。
 
-- 独立研发由 ForceMind 维护。功能在分支开发，经 PR 和必要测试后合入。
-- **禁止直接把原项目的 npm/MCP 身份或官网用作 Tekvro 的发布渠道。** 当前 `private: true` 禁止发布；正式发布需单独确认新包名、许可证、域名、发布安全配置。
-- 保留原项目 MIT 协议及第三方组件的必要署名；原始来源与版本详见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
-- 项目尚未完成全部中文化：本次中文化覆盖入门文档、帮助引导和新维护材料，底层工具描述与少量高级文档仍为英文。
+## 项目结构
 
-## 许可证与来源
+| 目录 | 内容 |
+| --- | --- |
+| `src/` | 领域模型、分析工作流、CLI 与 MCP 接口、分析适配器 |
+| `bridge/` | 与外部逆向引擎及系统工具交互的桥接代码 |
+| `tests/` | 单元、集成、契约和边界测试 |
+| `scripts/` | 构建、检查、验证和开发工具 |
+| `docs/` | 使用说明、架构、协议与技术文档 |
+| `skill-src/` | 面向 AI Agent 的操作说明 |
+| `third_party/` | 第三方依赖与子模块 |
 
-此项目基于 [REA（morluto/rea）](https://github.com/morluto/rea)，初始源码对应上游提交 `f6fe575094658e99ced78d45f385633fbfaaae32`。原项目按 MIT License 发布，**原作者版权声明保留于 [LICENSE](LICENSE)**。
+开发与测试说明参见 [CONTRIBUTING.md](CONTRIBUTING.md) 和 [PROJECT_MAINTENANCE.md](PROJECT_MAINTENANCE.md)。
 
-> Tekvro 是独立命名的衍生研发项目，并非原作者的官方产品。
+## 获取与版本状态
+
+目前提供**源码构建方式**，尚未发布独立的 npm 包或 MCP Registry 条目。
+
+- 源码包名为 `tekvro`，现有 `rea`、`rea-agents` 命令别名及部分 MCP 注册键保留用于兼容。
+- `scripts/rea.mjs` 是当前源码构建的命令入口；不要将公共 npm 上的 `rea-agents` 包视为 Tekvro，也不要将 `npx tekvro` 当成已发布的安装方式。
+- 源码中的 `6.1.0` 是继承的引擎版本基线，不代表已发布同版本的 Tekvro 产品。升级计划及独立发行准备情况见[开发路线](docs/roadmap.md)和[分发说明](docs/zh-CN/distribution.md)。
+- 正式发行前，`install.sh` 不提供自动下载安装。
+
+## 许可证
+
+项目包含根据 MIT 许可证使用的 [REA](https://github.com/morluto/rea) 代码及其他第三方组件。许可证、版权声明和第三方告知见 [LICENSE](LICENSE) 与 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
