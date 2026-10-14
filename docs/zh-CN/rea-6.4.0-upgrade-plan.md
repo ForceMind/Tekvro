@@ -20,7 +20,7 @@
 
 **版本规则：** 目标内核与 Tekvro 产品版本分开。升级途中不得仅将 `package.json.version` 改为 `6.4.0` 就宣布升级完成。只有契约与功能验收达到门槛，才在独立版本清单中标记已集成的上游引擎版本。独立 Tekvro 正式版本号、npm/MCP 发行以及更新通道另由 #8 审核，不在本专项中自动开启。
 
-**取舍：** 优先运行安全性、MCP/Evidence 契约和 JS/H5/Electron；然后 Android 和 Ghidra 等可选提供方。独立发行、中文化、既有登录/配置及第三方版权是不可退让的约束。
+**取舍：** 优先保障运行安全性、MCP/Evidence 契约和 JS/H5/Electron；然后 Android 和 Ghidra 等可选提供方。独立发行、中文化、既有客户端注册/配置及第三方版权是不可退让的约束。
 
 ## 二、目标与验收定义
 
@@ -42,7 +42,7 @@
 - 从 `main` 建立 `sync/rea-6.4.0-audit`；保留原始输入 SHA、tag commit SHA、子模块引用、`package-lock.json` 和现有 Tekvro 配置快照。
 - 生成 `docs/upstream/rea-6.4.0-delta.md`（待实现）：每项变更的 upstream PR/commit、依赖文件、契约影响、Tekvro 受影响路径、验证方式和迁移/排除决定。
 - 明确 PR #20 在 `src/cli/*` 和中文指南上的交集；实现分支必须在 #20 合并或明确保留其改动后同步，不得复写已翻译帮助。
-- 建立未升级前 CLI/MCP 的工具清单、示例 Evidence 与已授权的最小 JS/ASAR/浏览器 fixture，记录`npm ci`、`npm run build:cached`、`npm run check:fast`、`npm run test:fast`、`npm run docs:check` 的真实结果。
+- 建立未升级前 CLI/MCP 的工具清单、示例 Evidence 与已授权的最小 JS/ASAR/浏览器 fixture，记录 `npm ci`、`npm run build:cached`、`npm run check:fast`、`npm run test:fast`、`npm run docs:check` 的真实结果。
 - 核对 5 个子模块、许可证/署名、`private: true`、安装器拒装和发布工作流身份保护。
 
 **完成条件：** 提交可追溯的差异清单与基线执行记录；每一项后续任务都有原始上游参考和具体验收入口；审查无秘密信息、未擅自变更发布渠道。
