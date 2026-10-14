@@ -62,15 +62,13 @@ Use the toolkit only with software and environments you are authorized to inspec
 
 ## Repository layout
 
-| Directory | Purpose |
-| --- | --- |
-| `src/` | Domain models, analysis workflows, CLI/MCP interfaces, and providers |
-| `bridge/` | Integration code for external reverse-engineering engines and system tools |
-| `tests/` | Unit, integration, contract, and boundary tests |
-| `scripts/` | Build, validation, and development tooling |
-| `docs/` | Guides, architecture, protocol, and technical references |
-| `skill-src/` | AI agent workflow instructions |
-| `third_party/` | External dependencies and submodules |
+- `src/`: domain models, analysis workflows, CLI/MCP interfaces, and providers.
+- `bridge/`: integration code for external analysis engines and system tools.
+- `tests/`: unit, integration, contract, and boundary tests.
+- `scripts/`: build, validation, and development tooling.
+- `docs/`: guides, architecture, protocols, and technical references.
+- `skill-src/`: AI agent workflow instructions.
+- `third_party/`: external dependencies and submodules.
 
 For development and testing, see [CONTRIBUTING.md](CONTRIBUTING.md) and the [testing guide](docs/testing.md).
 
