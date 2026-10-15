@@ -24,3 +24,7 @@
 - `npm run test:fast`: **失败（exit 1）**，需在后续提交中处理；日志见 GitHub Actions 原始记录
 
 > 未运行的测试不等于成功。本记录只代表实际执行命令结果。
+
+### 后续集成复测（补齐上游 experiments + 调整 Tekvro 兼容测试）
+- `npm run test:fast`: **失败（exit 1）**，日志保留到本次 workflow artifact
+- `npm run test:focused -- tests/boundary/cli/localizedJavaScriptHelp.test.ts`: **失败（exit 1）**，日志保留到本次 workflow artifact
