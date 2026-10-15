@@ -26,6 +26,7 @@ import {
 import { runCliJavaScriptApplicationAnalysis } from "./javascriptApplicationAnalysis.js";
 import type { CliResultOutput } from "./streamedJsonOutput.js";
 import { withCommandCancellation } from "./commandCancellation.js";
+import { selectHumanText } from "./localization.js";
 
 /** Register CLI equivalents of the Electron MCP tools. */
 export const registerElectronCommands = (
@@ -44,12 +45,18 @@ const registerElectronActiveCommand = (
   logger: Logger,
 ): void => {
   cli.command(CLI_COMMANDS.captureElectronScenario, {
-    description: "Run one owned Electron scenario with cancellable actions",
+    description: selectHumanText(
+      "Run one owned Electron scenario with cancellable actions",
+      "对已授权的 Electron 应用执行可取消的场景操作",
+    ),
     args: z.object({
       inputJson: z
         .string()
         .describe(
-          "Inline JSON or a JSON file matching capture_electron_scenario",
+          selectHumanText(
+            "Inline JSON or a JSON file matching capture_electron_scenario",
+            "符合 capture_electron_scenario 契约的内联 JSON 或 JSON 文件",
+          ),
         ),
     }),
     run: ({ args }) =>
@@ -95,13 +102,18 @@ const registerJavaScriptRuntimeReconciliationCommand = (
   logger: Logger,
 ): void => {
   cli.command(CLI_COMMANDS.reconcileJavaScriptRuntime, {
-    description:
+    description: selectHumanText(
       "Reconcile static application and passive runtime Evidence JSON",
+      "关联静态应用证据与被动运行态 Evidence JSON",
+    ),
     args: z.object({
       inputJson: z
         .string()
         .describe(
-          "Inline JSON or a JSON file path matching reconcile_javascript_runtime",
+          selectHumanText(
+            "Inline JSON or a JSON file path matching reconcile_javascript_runtime",
+            "符合 reconcile_javascript_runtime 契约的内联 JSON 或 JSON 文件路径",
+          ),
         ),
     }),
     run: ({ args }) =>
@@ -134,10 +146,19 @@ const registerElectronTargetList = (
   logger: Logger,
 ): void => {
   cli.command(CLI_COMMANDS.listElectronTargets, {
-    description:
+    description: selectHumanText(
       "List local file pages exposed by the selected Electron CDP endpoint",
+      "列出 Electron CDP 端点中的本地文件页面",
+    ),
     args: z.object({
-      endpoint: z.string().describe("Literal-loopback Electron CDP endpoint"),
+      endpoint: z
+        .string()
+        .describe(
+          selectHumanText(
+            "Literal-loopback Electron CDP endpoint",
+            "仅限本机回环地址的 Electron CDP 端点",
+          ),
+        ),
     }),
     run: ({ args }) =>
       logCliCommand(logger, "list-electron-targets", async () => {
@@ -157,10 +178,27 @@ const registerElectronPageInspection = (
   logger: Logger,
 ): void => {
   cli.command(CLI_COMMANDS.inspectElectronPage, {
-    description: "Passively inspect one Electron file page",
+    description: selectHumanText(
+      "Passively inspect one Electron file page",
+      "被动检查指定的 Electron 本地文件页面",
+    ),
     args: z.object({
-      endpoint: z.string().describe("Literal-loopback Electron CDP endpoint"),
-      targetId: z.string().describe("Target ID from list-electron-targets"),
+      endpoint: z
+        .string()
+        .describe(
+          selectHumanText(
+            "Literal-loopback Electron CDP endpoint",
+            "仅限本机回环地址的 Electron CDP 端点",
+          ),
+        ),
+      targetId: z
+        .string()
+        .describe(
+          selectHumanText(
+            "Target ID from list-electron-targets",
+            "从 list-electron-targets 获取的真实目标 ID",
+          ),
+        ),
     }),
     options: electronPageInspectionOptions,
     run: ({ args, options }) =>
@@ -185,10 +223,19 @@ const registerJavaScriptApplicationCommand = (
   resultOutput?: CliResultOutput,
 ): void => {
   cli.command(CLI_COMMANDS.analyzeJavaScriptApplication, {
-    description:
+    description: selectHumanText(
       "Statically reconstruct a local JavaScript/Electron application",
+      "静态分析本地 JavaScript/Electron 应用及其结构证据",
+    ),
     args: z.object({
-      path: z.string().describe("ASAR or extracted application path"),
+      path: z
+        .string()
+        .describe(
+          selectHumanText(
+            "ASAR or extracted application path",
+            "ASAR 文件或已解包的应用目录路径",
+          ),
+        ),
     }),
     options: javascriptApplicationOptions,
     run: ({ args, options, format }) =>
