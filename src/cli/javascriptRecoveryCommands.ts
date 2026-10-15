@@ -1,3 +1,4 @@
+import { selectHumanText } from "./localization.js";
 import { z } from "incur";
 import { JavaScriptRecoveryService } from "../application/javascript/JavaScriptRecoveryService.js";
 import { createJavaScriptRecoveryProvider } from "../composition/javascriptRecovery.js";
@@ -19,7 +20,7 @@ export const registerJavaScriptRecoveryCommands = (
   );
   cli.command(CLI_COMMANDS.recoverJavaScriptSources, {
     description:
-      "Recover readable JavaScript modules with source provenance and verified files",
+      selectHumanText("Recover readable JavaScript modules with source provenance and verified files", "恢复可读 JavaScript 模块并保留来源及文件校验证据", environment),
     args: z.object({
       path: z
         .string()
