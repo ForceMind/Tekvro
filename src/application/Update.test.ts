@@ -121,7 +121,7 @@ describe("REA update", () => {
         "--ignore-scripts",
         "--prefix",
         "/fixture",
-        "rea-agents@3.3.0",
+        "tekvro@3.3.0",
       ],
     });
     expect(host.installedVersions).toEqual(["3.3.0"]);
@@ -134,7 +134,7 @@ describe("REA update", () => {
     host.installationResult = {
       manager: "bun",
       globalDirectory: "/home/user/.bun/install/global",
-      packageRoot: "/home/user/.bun/install/global/node_modules/rea-agents",
+      packageRoot: "/home/user/.bun/install/global/node_modules/tekvro",
     };
     expect(await runUpdate("3.2.1", host, "structured")).toMatchObject({
       status: "updated",
@@ -145,7 +145,7 @@ describe("REA update", () => {
         "add",
         "--global",
         "--ignore-scripts",
-        "rea-agents@3.3.0",
+        "tekvro@3.3.0",
       ],
     });
     expect(host.verifiedInstallation).toEqual(host.installationResult);
@@ -344,14 +344,14 @@ describe("npm installation ownership", () => {
   });
 
   it("identifies the global prefix and package root", async () => {
-    const packageRoot = "/usr/local/lib/node_modules/rea-agents";
+    const packageRoot = "/usr/local/lib/node_modules/tekvro";
     await expect(
       detectNpmInstallation(packageRoot, host("/usr/local/lib/node_modules")),
     ).resolves.toEqual({ manager: "npm", prefix: "/usr/local", packageRoot });
   });
 
   it("retains the curl installer's custom Unix prefix", async () => {
-    const packageRoot = "/home/user/.local/lib/node_modules/rea-agents";
+    const packageRoot = "/home/user/.local/lib/node_modules/tekvro";
     await expect(
       detectNpmInstallation(packageRoot, host("/usr/local/lib/node_modules")),
     ).resolves.toEqual({
@@ -387,7 +387,7 @@ describe("npm installation ownership", () => {
 
 describe("Bun installation ownership", () => {
   const globalDirectory = "/home/user/.bun/install/global";
-  const packageRoot = `${globalDirectory}/node_modules/rea-agents`;
+  const packageRoot = `${globalDirectory}/node_modules/tekvro`;
   // Fixture paths are POSIX; join() may produce Windows separators on Windows hosts.
   const host = (
     manifests: readonly string[] = [`${globalDirectory}/package.json`],
