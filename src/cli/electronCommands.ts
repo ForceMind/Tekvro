@@ -1,3 +1,4 @@
+import { selectHumanText } from "./localization.js";
 import { isAbsolute, resolve, sep } from "node:path";
 
 import { Cli, z } from "incur";
@@ -80,7 +81,7 @@ const registerElectronActiveCommand = (
   environment: Readonly<Record<string, string | undefined>>,
 ): void => {
   cli.command(CLI_COMMANDS.captureElectronScenario, {
-    description: "Run one owned Electron scenario with cancellable actions",
+    description: selectHumanText("Run one owned Electron scenario with cancellable actions", "对已授权的 Electron 应用执行可取消的场景操作"),
     args: z.object({
       inputJson: z
         .string()
@@ -134,7 +135,7 @@ const registerJavaScriptRuntimeReconciliationCommand = (
 ): void => {
   cli.command(CLI_COMMANDS.reconcileJavaScriptRuntime, {
     description:
-      "Reconcile static application and passive runtime Evidence JSON",
+      selectHumanText("Reconcile static application and passive runtime Evidence JSON", "关联静态应用证据与被动运行态 Evidence JSON"),
     args: z.object({
       inputJson: z
         .string()
@@ -175,7 +176,7 @@ const registerElectronTargetList = (
 ): void => {
   cli.command(CLI_COMMANDS.listElectronTargets, {
     description:
-      "List local file pages exposed by the selected Electron CDP endpoint",
+      selectHumanText("List local file pages exposed by the selected Electron CDP endpoint", "列出 Electron CDP 端点中的本地文件页面"),
     args: z.object({
       endpoint: z.string().describe("Literal-loopback Electron CDP endpoint"),
     }),
@@ -199,7 +200,7 @@ const registerElectronPageInspection = (
   logger: Logger,
 ): void => {
   cli.command(CLI_COMMANDS.inspectElectronPage, {
-    description: "Passively inspect one Electron file page",
+    description: selectHumanText("Passively inspect one Electron file page", "被动检查指定的 Electron 本地文件页面"),
     args: z.object({
       endpoint: z.string().describe("Literal-loopback Electron CDP endpoint"),
       targetId: z.string().describe("Target ID from list-electron-targets"),
@@ -229,7 +230,7 @@ const registerJavaScriptApplicationCommand = (
 ): void => {
   cli.command(CLI_COMMANDS.analyzeJavaScriptApplication, {
     description:
-      "Statically reconstruct a local JavaScript/Electron application",
+      selectHumanText("Statically reconstruct a local JavaScript/Electron application", "静态分析本地 JavaScript/Electron 应用及其结构证据"),
     args: z.object({
       path: z.string().describe("ASAR or extracted application path"),
     }),
