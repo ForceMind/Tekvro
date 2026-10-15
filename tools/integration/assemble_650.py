@@ -79,7 +79,7 @@ def main() -> None:
     ]:
         if (upstream / filename).is_file():
             shutil.copy2(upstream / filename, ROOT / filename)
-    for directory in ["licenses"]:
+    for directory in ["licenses", ".agents"]:
         if (upstream / directory).is_dir():
             dst = ROOT / directory
             if dst.exists():
