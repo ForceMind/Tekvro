@@ -10,15 +10,15 @@
 
 本专项 **叠加** 原有 P0–P3 路线，不覆盖独立品牌、本地化、发行身份和差异化研发。目标是把 REA 6.2、6.3、6.4 中对 Tekvro 有价值的功能与必要契约一起引入，而非复制上游的网站、发布身份和历史。
 
-| 对象 | 冻结值与意义 |
-| --- | --- |
-| Tekvro 仓库 | [ForceMind/Tekvro](https://github.com/ForceMind/Tekvro)，`main` |
-| 制定计划时 Tekvro HEAD | `f7831f4110fe5c386f837ac313b6e4a1139ee5fd`；实施启动前必须再次核对 |
-| 原始来源 | REA 6.1.0 源码快照，对应上游 `f6fe575094658e99ced78d45f385633fbfaaae32` |
-| 本轮上游目标 | [`rea-agents-6.4.0`](https://github.com/morluto/rea/releases/tag/rea-agents-6.4.0)，Git tag 指向 `a56f7bb668ab23fec8d33f7af353ac7ed2fe1895` |
-| 原始状态 | `package.json` 名称 `tekvro`，版本 `6.1.0` 为继承引擎来源基线，`private: true`，独立 npm/MCP Registry **未发布** |
-| 上游 Git 关系 | Tekvro 由 ZIP 导入，与上游没有共同 Git 祖先；不能常规快进或直接合并 |
-| 本轮实施 | 文档评审后，按 T64-00 → T64-08 开发，**一个范围一项 PR**，以验证结果决定合并 |
+| 对象                   | 冻结值与意义                                                                                                                                |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tekvro 仓库            | [ForceMind/Tekvro](https://github.com/ForceMind/Tekvro)，`main`                                                                             |
+| 制定计划时 Tekvro HEAD | `f7831f4110fe5c386f837ac313b6e4a1139ee5fd`；实施启动前必须再次核对                                                                          |
+| 原始来源               | REA 6.1.0 源码快照，对应上游 `f6fe575094658e99ced78d45f385633fbfaaae32`                                                                     |
+| 本轮上游目标           | [`rea-agents-6.4.0`](https://github.com/morluto/rea/releases/tag/rea-agents-6.4.0)，Git tag 指向 `a56f7bb668ab23fec8d33f7af353ac7ed2fe1895` |
+| 原始状态               | `package.json` 名称 `tekvro`，版本 `6.1.0` 为继承引擎来源基线，`private: true`，独立 npm/MCP Registry **未发布**                            |
+| 上游 Git 关系          | Tekvro 由 ZIP 导入，与上游没有共同 Git 祖先；不能常规快进或直接合并                                                                         |
+| 本轮实施               | 文档评审后，按 T64-00 → T64-08 开发，**一个范围一项 PR**，以验证结果决定合并                                                                |
 
 **版本规则：** 目标内核与 Tekvro 产品版本分开。升级途中不得仅将 `package.json.version` 改为 `6.4.0` 就宣布升级完成。只有契约与功能验收达到门槛，才在独立版本清单中标记已集成的上游引擎版本。独立 Tekvro 正式版本号、npm/MCP 发行以及更新通道另由 #8 审核，不在本专项中自动开启。
 
@@ -41,6 +41,7 @@
 **范围：** 冻结上游 6.4.0 tag，不追随 `upstream/main`；比对 6.1.0→6.2.0→6.3.0→6.4.0 和 Tekvro 已自定义的文件。按「纯上游新增、已改造文件冲突、不必移植、必须重做迁移」四类登记差异。
 
 **实施：**
+
 - 从 `main` 建立 `sync/rea-6.4.0-audit`；保留原始输入 SHA、tag commit SHA、子模块引用、`package-lock.json` 和现有 Tekvro 配置快照。
 - 生成 `docs/upstream/rea-6.4.0-delta.md`（待实现）：每项变更的 upstream PR/commit、依赖文件、契约影响、Tekvro 受影响路径、验证方式和迁移/排除决定。
 - 明确 PR #20 在 `src/cli/*` 和中文指南上的交集；实现分支必须在 #20 合并或明确保留其改动后同步，不得复写已翻译帮助。
@@ -56,6 +57,7 @@
 **关联路径（最终以 T64-00 清单为准）：** `src/domain/evidence*.ts`、`src/domain/analysisProfile.ts`、`src/domain/analysisSnapshot.ts`、`src/contracts/*`、`src/application/*Evidence*`、`src/server/toolResult*.ts`、`src/cli/*`、`tests/*`。
 
 **完成条件：**
+
 - CLI JSON 与 MCP structured content 均符合更新后的唯一契约；有直接 Evidence 与故障响应 schema 的实际客户端测试。
 - 旧 `{result,evidence_id,evidence}` 包装不再被新协议误当有效；历史记录原样保留并给出需要重分析的明确提示。
 - 处理旧 process capture v3、不确定 property presence、function comparison 枚举和符号链接 `target:null` 等边界；测试覆盖错误与取消路径。
@@ -68,6 +70,7 @@
 **范围：** 真实 producer/transaction identity、Web 访问与存储维度、JSON typed path、WebMCP `input_schema`/`input_schema_sha256`、JavaScript 图的 `evidence_contexts`、source-map 观察关联、provider metadata 必填事实和可空未知值。
 
 **完成条件：**
+
 - 旧的不足够完整的捕获、历史图不被静默修补成新契约；给出显式拒绝、兼容边界或需要重新采集。
 - 图的来源证据定位可追溯，类型化数组/属性路径可往返；未观察的 provider 字段以 nullable/unknown 表示而非默认猜测。
 - 大 JSON 输入/流式输出与测试样本在规定限制内可运行，不混淆「未知」与「不存在」。
@@ -78,6 +81,7 @@
 ### T64-03｜REA 6.4 的内部资源/抓包/语义边界（先于新增功能）
 
 **范围：**
+
 - 将浏览器 WebSocket 输出的 `network.websocket_events` 消费迁移到 `network.websocket_connections`，保留 request ID、URL、帧顺序及未知长度。
 - 为直接资源 API 引入调用方拥有的 `ArtifactResourceScope` 生命周期；文件、ASAR reader、导出目录及 provider workers 在完成与失败时均有单一清理责任。
 - artifact graph 从指定 `occurrence_id` 读取子制品身份和路径；更新 semantic node/edge ID、`event_name`、`endpoint`、`properties.value` 的使用。
@@ -118,6 +122,7 @@
 **范围：** 导入语言/编译器显式选择；函数、代码、标签 seeds；PE DLL/MIPS ELF 分析路径、必要的 PE 资源观察、只读 NativeAOT 解析与函数名字批处理（按宿主/权限边界启用）。
 
 **完成条件：**
+
 - 语言/seed 未设置时保持默认行为；显式设置时验证环境变量、digest、handshake、导入依据与失败原因。
 - Linux/macOS 真正的 Ghidra session 通过相关流程；Windows P0 保持只读；不能用单元测试冒充 Windows NativeAOT/Ghidra 实机兼容。
 - 对错误 architecture、非支持宿主、越权 mutation、超时与取消都给出明确结果；不会改写目标可执行文件。
@@ -138,6 +143,7 @@
 在 **T64-01～T64-04 完成且通过所有核心门槛** 后，可把稳定内核验收成下一独立产品预发布候选；T64-05/06 中尚未实机验证的可选能力必须明确不纳入该版本的支持声明。任何新的正式 npm/MCP Registry 发布仍需通过 #8 的独立审核。
 
 **发布前必须：**
+
 - 对所有已移植功能跑完整 deterministic tests、MCP 端到端协议/工具清单及严格 schema 验证。
 - Linux、macOS、Windows 的可用 CI/打包路径过关；原生引擎真实验证结果另附设备/版本/环境证据。
 - 重新检查源包名、lockfile、生成元数据、五个子模块、许可证、第三方来源，核对敏感信息/环境变量/安装行为。
@@ -150,24 +156,24 @@
 
 **建议分支/PR 标识：** `sync/rea-6.4.0-audit`、`feat/tekvro-evidence-6.2`、`feat/tekvro-evidence-6.3`、`refactor/tekvro-resource-scope-6.4`、`feat/tekvro-js-worker-views`、`feat/tekvro-android-adb`、`feat/tekvro-android-apktool`、`feat/tekvro-jeb`、`feat/tekvro-ghidra-6.4`、`feat/tekvro-agents-compat`。名称为规划而非已创建的开发分支；如有并行冲突，按实际改动继续拆分。
 
-| Gate | 进入条件 | 退出凭据 |
-| --- | --- | --- |
-| G0 基线冻结 | T64-00 完成 | 两侧 SHA、文件映射、当前测试结果、品牌/许可证/发布保护快照 |
-| G1 契约兼容 | T64-01/02/03 完成 | MCP/CLI 金样、历史证据拒绝/重采集案例、资源生命周期负向测试均通过 |
-| G2 核心可用 | T64-04 完成 | 大 JS 不拖垮服务；摘要可取回；H5/Electron/RPC 真实 fixture 通过 |
+| Gate        | 进入条件                        | 退出凭据                                                                   |
+| ----------- | ------------------------------- | -------------------------------------------------------------------------- |
+| G0 基线冻结 | T64-00 完成                     | 两侧 SHA、文件映射、当前测试结果、品牌/许可证/发布保护快照                 |
+| G1 契约兼容 | T64-01/02/03 完成               | MCP/CLI 金样、历史证据拒绝/重采集案例、资源生命周期负向测试均通过          |
+| G2 核心可用 | T64-04 完成                     | 大 JS 不拖垮服务；摘要可取回；H5/Electron/RPC 真实 fixture 通过            |
 | G3 扩展能力 | T64-05/06/07 完成或划定延期范围 | Android/原生已执行的实机记录，其他能力明确列入未验证清单；中英配置回归通过 |
-| G4 发行评审 | T64-08 完成 | CI/安全/署名/差异及回滚报告，独立版本候选；**不得自动发布** |
+| G4 发行评审 | T64-08 完成                     | CI/安全/署名/差异及回滚报告，独立版本候选；**不得自动发布**                |
 
 ## 五、测试与质量保证矩阵
 
-| 变化 | 最低自动化要求 | 真实环境验收 |
-| --- | --- | --- |
-| Evidence / MCP | canonical Evidence、直接结果、 schema dialect、JSON 输出、错误/取消/cleanup、旧数据拒绝 | CLI + MCP 客户端构建/调用 |
-| JS/Graph/SourceMap | 小样本金样、生成大数据压力 fixture、timeout/OOM/cancel、摘要检索与 parent ID | 授权 H5 目录和 Electron ASAR |
-| 浏览器与 WebSocket | request/connection/frame 顺序、size unknown、CDP 断连/清理、缺失 coverage | 本机隔离 CDP + WebSocket 测试页 |
-| Android | ADB 固定参数/身份/只读变更权限、split APK 哈希、Apktool XML/locale | 模拟器或授权设备；JEB 有许可时单独实测 |
-| Ghidra / Binary | import seed/digest/handshake、目标拒绝、错误和生命周期 | 支持平台上的真实 Ghidra；Windows 特性按边界单测/实测标注 |
-| 中文 / 身份 / 安装 | 中英文 help 等价、配置备份、私有源码安装拒装、release 防越权 | 可用 CI 平台与实际客户端检查 |
+| 变化               | 最低自动化要求                                                                          | 真实环境验收                                             |
+| ------------------ | --------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| Evidence / MCP     | canonical Evidence、直接结果、 schema dialect、JSON 输出、错误/取消/cleanup、旧数据拒绝 | CLI + MCP 客户端构建/调用                                |
+| JS/Graph/SourceMap | 小样本金样、生成大数据压力 fixture、timeout/OOM/cancel、摘要检索与 parent ID            | 授权 H5 目录和 Electron ASAR                             |
+| 浏览器与 WebSocket | request/connection/frame 顺序、size unknown、CDP 断连/清理、缺失 coverage               | 本机隔离 CDP + WebSocket 测试页                          |
+| Android            | ADB 固定参数/身份/只读变更权限、split APK 哈希、Apktool XML/locale                      | 模拟器或授权设备；JEB 有许可时单独实测                   |
+| Ghidra / Binary    | import seed/digest/handshake、目标拒绝、错误和生命周期                                  | 支持平台上的真实 Ghidra；Windows 特性按边界单测/实测标注 |
+| 中文 / 身份 / 安装 | 中英文 help 等价、配置备份、私有源码安装拒装、release 防越权                            | 可用 CI 平台与实际客户端检查                             |
 
 每个 PR 在适当环境执行：`npm ci`、`npm run build:cached`、`npm run check:fast`、`npm run test:fast`、`npm run docs:check`；大范围契约 PR 再跑 `npm run check:pr` 与相关 `npm run verify:*`。上游新增的 `verify:adb` / `verify:apktool` / `verify:jeb` 等命令只在移植后且 `package.json` 实际定义时使用，未存在前不得报告已通过。最终 CI 以同一 commit 的真实检查结果为准，明确记录未执行、跳过及不满足硬件条件的项目。
 
