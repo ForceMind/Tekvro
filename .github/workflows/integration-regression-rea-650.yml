@@ -1,0 +1,72 @@
+name: Verify Tekvro 6.5.0 engine and Chinese CLI compatibility
+
+on:
+  push:
+    branches:
+      - integration/rea-6.5.0-engine-prototype-20261015
+    paths:
+      - .github/workflows/integration-regression-rea-650.yml
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    if: github.repository == 'ForceMind/Tekvro'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      HUSKY: '0'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+      - name: Build and run migrated engine and localized CLI tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install -g npm@11.16.0
+          npm ci
+          npx oxfmt src/application/Update.ts src/application/Update.test.ts src/cli/setupCommands.ts src/cli/javascriptRecoveryCommands.ts src/cli/browserCommands.ts src/cli/webScriptCommands.ts src/cli/electronCommands.ts tests/conformance/readmeConsistency.test.ts tests/conformance/releaseConfiguration.test.ts tests/conformance/providers/ghidra/realGhidraWindowsWorkflow.test.ts
+          logs="$RUNNER_TEMP/rea650-final-checks"
+          mkdir -p "$logs"
+          report='docs/upstream/rea-6.5.0-integration-prototype.md'
+          echo '' >> "$report"
+          echo '### 合并前迭代 3：新版引擎与 Tekvro 中文帮助' >> "$report"
+          failures=0
+          check() {
+            local name="$1"; shift
+            local slug="${name//[^[:alnum:]]/_}"
+            local rc=0
+            "$@" >"$logs/$slug.log" 2>&1 || rc=$?
+            if [ "$rc" -eq 0 ]; then echo "- \`$name\`: **通过**" >> "$report"; else
+              echo "- \`$name\`: **失败（exit $rc）**，本次日志随 Actions 附件保留" >> "$report"
+              failures=1
+              echo "--- $name: failures ---"
+              grep -E '(^ FAIL| Test Files | Tests )' "$logs/$slug.log" | tail -n 50 || tail -n 50 "$logs/$slug.log" || true
+            fi
+          }
+          check 'npm run build:cached' npm run build:cached
+          check 'npm run check:fast' npm run check:fast
+          check 'npm run test:fast' npm run test:fast
+          check 'npm run test:focused -- tests/boundary/cli/localizedJavaScriptHelp.test.ts' npm run test:focused -- tests/boundary/cli/localizedJavaScriptHelp.test.ts
+          check 'npm run format:check' npm run format:check
+          check 'node scripts/rea.mjs update --json' node scripts/rea.mjs update --json
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A src tests docs/upstream/rea-6.5.0-integration-prototype.md
+          git rm -- .github/workflows/integration-regression-rea-650.yml
+          git commit -m 'test(engine): verify 6.5.0 core and restore localized CLI help'
+          git push origin HEAD:refs/heads/integration/rea-6.5.0-engine-prototype-20261015
+          if [ "$failures" -ne 0 ]; then exit 1; fi
+      - name: Upload regression logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tekvro-rea650-final-checks
+          path: ${{ runner.temp }}/rea650-final-checks/*.log
+          if-no-files-found: ignore
