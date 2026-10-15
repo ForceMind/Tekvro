@@ -41,4 +41,4 @@ node scripts/rea.mjs --help
 
 当前源码包名已更新为 `tekvro`，但**尚未发布 Tekvro npm/MCP Registry 包**。旧 REA 命令和 MCP 客户端注册键仍用于兼容；请从本仓库源码构建，不要误用公开 `rea-agents` 包。详见[发行身份与兼容策略](zh-CN/distribution.md)。
 
-继续阅读 [中文快速上手](./zh-CN/quick-start.md)、[H5/JavaScript/Electron 分析](./zh-CN/javascript-h5-electron.md)、[架构](./zh-CN/architecture.md)、[REA 6.4.0 内核升级实施方案](./zh-CN/rea-6.4.0-upgrade-plan.md)与[安全](./zh-CN/security.md)。
+继续阅读 [中文快速上手](./zh-CN/quick-start.md)、[H5/JavaScript/Electron 分析](./zh-CN/javascript-h5-electron.md)、[架构](./zh-CN/architecture.md)、[REA 6.4 → 6.5 内核升级方案](./zh-CN/rea-6.5.0-upgrade-addendum.md)与[安全](./zh-CN/security.md)。
