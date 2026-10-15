@@ -1,83 +1,83 @@
-import { readFile, readdir } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 import { PRODUCT_IDENTITY } from "../../src/identity.js";
 
-const jsonExamples = (content: string): unknown[] =>
-  [...content.matchAll(/```json\s*([\s\S]*?)```/gu)].map((match): unknown =>
-    JSON.parse(match[1] ?? ""),
-  );
+const file = (path: string): Promise<string> => readFile(resolve(path), "utf8");
 
-const shellExamples = (content: string): string[] =>
-  [...content.matchAll(/```bash\s*([\s\S]*?)```/gu)].map((match) =>
-    (match[1] ?? "").trim(),
-  );
-
-describe("onboarding documentation product facts", () => {
-  it.each([
-    ["docs/native-investigation.md", "raw-binary.md#nmos-6502"],
-    ["docs/ghidra-riscv.md", "raw-binary.md"],
-  ])(
-    "routes raw admission guidance in %s to the owning guide",
-    async (path, target) => {
-      const content = await readFile(resolve(path), "utf8");
-      const links = [...content.matchAll(/\]\(([^)\s]+)\)/gu)].map(
-        (match) => match[1],
-      );
-      expect(links, path).toContain(target);
-    },
-  );
-
-  it("keeps the installation MCP example aligned with the package registration command", async () => {
-    const content = await readFile(resolve("docs/installation.md"), "utf8");
-    expect(jsonExamples(content)).toContainEqual(
-      expect.objectContaining({
-        mcpServers: expect.objectContaining({
-          rea: expect.objectContaining({
-            command: "npx",
-            args: ["-y", PRODUCT_IDENTITY.registrationPackageSpecifier, "mcp"],
-          }),
-        }),
-      }),
-    );
-  });
-
-  it("keeps translated onboarding commands aligned with the English examples", async () => {
-    const inventory = JSON.parse(
-      await readFile(resolve("website/locales/languages.json"), "utf8"),
-    ) as { code: string; readme: string }[];
-    const translatedReadmes = inventory
-      .filter((language) => language.code !== "en")
-      .map((language) => language.readme);
-    expect(translatedReadmes).toContain("docs/readme/README_it.md");
-    expect(translatedReadmes).toContain("docs/readme/README_el.md");
-    const editions = (await readdir(resolve("docs/readme")))
-      .filter((name) => /^README_[A-Za-z0-9-]+\.md$/u.test(name))
-      .map((name) => `docs/readme/${name}`);
-    expect([...translatedReadmes].sort()).toEqual(editions.sort());
-    const english = shellExamples(await readFile(resolve("README.md"), "utf8"));
-    for (const path of translatedReadmes)
-      expect(
-        shellExamples(await readFile(resolve(path), "utf8")),
-        path,
-      ).toEqual(english);
-  });
-
-  it("preserves Persian joiners in links to GitHub-rendered headings", async () => {
-    const persian = await readFile(resolve("docs/readme/README_fa.md"), "utf8");
-    // Confirmed against GitHub's rendered README, which retains U+200C.
-    for (const heading of [
-      "REA چگونه کار می‌کند",
-      "چه چیزهایی را می‌توان تحلیل کرد",
-      "نمونه‌های عملی",
-      "پرسش‌های متداول",
-      "به‌روزرسانی REA",
-    ]) {
-      expect(persian).toContain(`## ${heading}`);
-      expect(persian).toContain(
-        `](#${heading.toLowerCase().replaceAll(" ", "-")})`,
-      );
+describe("Tekvro source-build documentation and distribution boundaries", () => {
+  it("documents the actual CLI entrypoint in both primary readmes", async () => {
+    const [chinese, english] = await Promise.all([
+      file("README.md"),
+      file("README.en.md"),
+    ]);
+    for (const text of [chinese, english]) {
+      expect(text).toContain("git clone https://github.com/ForceMind/Tekvro.git");
+      expect(text).toContain("npm run build:cached");
+      expect(text).toContain("node scripts/rea.mjs doctor --json");
+      expect(text).toContain("docs/zh-CN/quick-start.md");
+      expect(text).toContain("THIRD_PARTY_NOTICES.md");
+      expect(text).not.toMatch(/ForceMind 维护|maintained by ForceMind/iu);
     }
+  });
+
+  it("does not present an unpublished Tekvro npm package as installable", async () => {
+    const [readme, guide, manifest] = await Promise.all([
+      file("README.md"),
+      file("docs/zh-CN/quick-start.md"),
+      file("package.json"),
+    ]);
+    const pkg = JSON.parse(manifest) as {
+      name: string;
+      private: boolean;
+      mcpName: string;
+    };
+    expect(pkg).toMatchObject({
+      name: "tekvro",
+      private: true,
+      mcpName: "io.github.forcemind/tekvro",
+    });
+    expect(readme).toContain("尚未发布");
+    expect(guide).toContain("private");
+    expect(guide).toContain("scripts/rea.mjs");
+  });
+
+  it("keeps product metadata and source distribution instructions aligned", async () => {
+    const metadata = JSON.parse(await file("server.json")) as {
+      name: string;
+      packages: Array<{ identifier: string }>;
+    };
+    expect(metadata.name).toBe("io.github.forcemind/tekvro");
+    expect(metadata.packages[0]?.identifier).toBe(PRODUCT_IDENTITY.packageName);
+    expect(PRODUCT_IDENTITY.displayName).toBe("Tekvro");
+    expect(PRODUCT_IDENTITY.privateSourceBuild).toBe(true);
+    expect(PRODUCT_IDENTITY.legacyPackageName).toBe("rea-agents");
+  });
+
+  it("links to the standalone usage and safety documentation", async () => {
+    const readme = await file("README.md");
+    const links = [
+      "docs/zh-CN/quick-start.md",
+      "docs/zh-CN/architecture.md",
+      "docs/zh-CN/security.md",
+      "docs/zh-CN/javascript-h5-electron.md",
+    ];
+    for (const path of links) {
+      expect(readme).toContain("](" + path + ")");
+      expect((await file(path)).length).toBeGreaterThan(100);
+    }
+  });
+
+  it("preserves actual source licenses rather than rewriting authorship", async () => {
+    const [license, notices, readme] = await Promise.all([
+      file("LICENSE"),
+      file("THIRD_PARTY_NOTICES.md"),
+      file("README.md"),
+    ]);
+    expect(license).toContain("MIT License");
+    expect(notices).toContain("REA");
+    expect(readme).toContain("[LICENSE](LICENSE)");
+    expect(readme).toContain("[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)");
   });
 });
