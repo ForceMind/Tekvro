@@ -144,15 +144,6 @@ export const runUpdate = async (
   host: UpdateHost,
   output: UpdateOutput = "human",
 ): Promise<UpdateResult> => {
-  if (PRODUCT_IDENTITY.privateSourceBuild)
-    return {
-      status: "failed",
-      currentVersion,
-      latestVersion: null,
-      reason: "unknown-install-method",
-      remediation:
-        "Tekvro is a local source build. Update your reviewed Git checkout and rebuild; public npm packages are not Tekvro.",
-    };
   let result: UpdateResult | undefined;
   let primaryFailure: unknown;
   let failed = false;
