@@ -26,6 +26,7 @@
 - 移植 `source_paths` / `--source-path` 选择范围；未分析脚本不能被标记为不存在或已解析，保留整个应用的原始哈希与文件清单。
 - 移植 `recover_javascript_sources` 的 `additional_paths` / `--additional-path`，保留各输入文件来源与跨 chunk 引用。注意上游相关实机验证主要限 Linux x64 + Wakaru 1.14.0。
 - 在 H5 游戏／Electron 打包目录上测试入口路径、异步 chunk、非法路径、资源上限、取消和部分证据；与现有中文命令帮助对应，不能悄悄删除已有参数。
+- 上游多输入恢复的已验证实现最多接受 16 个附加路径，合计输入上限 64 MiB；支持平台与版本应以实际移植后的验证为准。
 
 **验收：** source scope 与 Evidence 覆盖可追溯，多份构建脚本之间真实已观察的关系可回读；不把静态恢复称为完整原始源码。
 
