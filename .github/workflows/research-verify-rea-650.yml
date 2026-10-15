@@ -1,0 +1,74 @@
+name: Verify pinned REA 6.5.0 source baseline
+
+on:
+  push:
+    branches:
+      - research/rea-6.5.0-source-20261015
+    paths:
+      - .github/workflows/research-verify-rea-650.yml
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    if: github.repository == 'ForceMind/Tekvro'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout research branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: true
+      - name: Install Node 24.18.0
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+      - name: Verify the original 6.5.0 source, build, CLI and fast tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch rea-agents-6.5.0 https://github.com/morluto/rea.git /tmp/rea-upstream-650
+          test "$(git -C /tmp/rea-upstream-650 rev-parse HEAD)" = '3b79af28e80785afce9f5998d8f03289402a1847'
+          git -C /tmp/rea-upstream-650 submodule update --init --recursive --depth 1
+          mkdir -p docs/upstream
+          cd /tmp/rea-upstream-650
+          npm install --global npm@11.16.0
+          node --version; npm --version
+          npm ci
+          npm run build:cached
+          npm run check:fast
+          npm run test:fast
+          node scripts/rea.mjs --help >/tmp/rea-650-help.txt
+          node scripts/rea.mjs capabilities --json >/tmp/rea-650-capabilities.json
+          cd "$GITHUB_WORKSPACE"
+          cat >docs/upstream/rea-6.5.0-baseline-check.md <<'EOF'
+          # REA 6.5.0 原版源码基线构建与测试
+
+          - 固定 tag：`rea-agents-6.5.0`
+          - 上游 commit：`3b79af28e80785afce9f5998d8f03289402a1847`
+          - 环境：GitHub Actions `ubuntu-24.04` / Node 24.18.0 / npm 11.16.0
+          - 上游 Git submodule：`git submodule update --init --recursive --depth 1` 成功
+          - `npm ci`：通过
+          - `npm run build:cached`：通过
+          - `npm run check:fast`：通过
+          - `npm run test:fast`：通过
+          - `node scripts/rea.mjs --help`、`capabilities --json`：通过
+          - 该结果仅验证**上游原版 6.5.0**，不是 Tekvro 代码集成与跨平台/真实引擎验证。
+          EOF
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/upstream/rea-6.5.0-baseline-check.md
+          git rm -- .github/workflows/research-verify-rea-650.yml
+          git commit -m 'test(research): record verified upstream 6.5.0 build and fast tests'
+          git push origin HEAD:refs/heads/research/rea-6.5.0-source-20261015
+      - name: Upload baseline CLI evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rea-650-cli-baseline
+          path: |
+            /tmp/rea-650-help.txt
+            /tmp/rea-650-capabilities.json
+          if-no-files-found: ignore
