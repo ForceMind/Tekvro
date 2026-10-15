@@ -67,6 +67,7 @@ jobs:
             tsconfig.json tsconfig.build.json vitest.config.ts turbo.json \
             knip.json .jscpd.json .oxlintrc.json .oxfmtrc.json tools/integration docs/upstream
           if [ -d licenses ]; then git add -A licenses; fi
+          if [ -d .agents ]; then git add -A .agents; fi
           if [ -f .gitattributes ]; then git add -A .gitattributes; fi
           git rm -- .github/workflows/integration-bootstrap-rea-650.yml
           git commit -m 'feat(engine): prototype REA 6.5.0 core with Tekvro identity isolation'
