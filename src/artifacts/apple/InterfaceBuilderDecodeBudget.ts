@@ -1,4 +1,5 @@
 import { decodeXmlPlistText } from "../../domain/propertyListXmlText.js";
+import { hasBinaryPlistSignature } from "../../domain/apple/appleArchiveFormat.js";
 
 /** Reason reported when an archive would exceed the shared decoding budget. */
 export type InterfaceBuilderBudgetReason = "aggregate_decode_budget_exhausted";
@@ -89,21 +90,23 @@ export class InterfaceBuilderDecodeBudget {
 }
 
 /** Preflight the representation created by the pinned plist decoder. */
-export const estimatePropertyListDecodeBytes = (
+export const preflightPropertyListDecode = (
   bytes: Buffer,
   maxBytes: number,
   xmlText?: string,
-): number => {
-  const estimate =
-    bytes.subarray(0, 8).toString("ascii") === "bplist00"
-      ? estimateBinaryPlistExpansion(bytes, maxBytes)
-      : estimateXmlPlistExpansion(bytes, maxBytes, xmlText);
-  if (estimate > maxBytes)
+): PlistDecodePreflight => {
+  const expansion = hasBinaryPlistSignature(bytes)
+    ? estimateBinaryPlistExpansion(bytes, maxBytes)
+    : {
+        estimatedBytes: estimateXmlPlistExpansion(bytes, maxBytes, xmlText),
+        binaryPrototypeKeyObserved: false,
+      };
+  if (expansion.estimatedBytes > maxBytes)
     throw new InterfaceBuilderDecodeBudgetExceeded(
       "aggregate_decode_budget_exhausted",
       "plist representation exceeds the aggregate Interface Builder decode budget",
     );
-  return estimate;
+  return expansion;
 };
 
 const estimateXmlPlistExpansion = (
@@ -112,28 +115,23 @@ const estimateXmlPlistExpansion = (
   xmlText?: string,
 ): number => {
   const xml = xmlText ?? decodeXmlPlistText(bytes);
-  if (/<!DOCTYPE\b[^>]*\[/iu.test(xml))
-    throw new InterfaceBuilderDecodeBudgetExceeded(
-      "aggregate_decode_budget_exhausted",
-      "XML plist internal entity expansion exceeds the aggregate Interface Builder decode budget",
-    );
-  const elementPattern =
-    /<!--[^]*?-->|<!\[CDATA\[[^]*?\]\]>|<!DOCTYPE[^>]*>|<\?[^]*?\?>|<\/?[A-Za-z][^>]*>/giu;
   const decodedSourceBytes = xml.length * 2;
   let elementCount = 0;
   let xmlDepth = 0;
-  for (const match of xml.matchAll(elementPattern)) {
-    const token = match[0] ?? "";
-    if (
-      token.startsWith("<!--") ||
-      token.startsWith("<![CDATA[") ||
-      token.startsWith("<!DOCTYPE") ||
-      token.startsWith("<?")
-    )
+  for (const token of xmlPreflightTokens(xml)) {
+    if (token.doctype) {
+      // Only a declaration outside opaque text can introduce an internal
+      // subset. Brackets in quoted external identifiers are literal text.
+      if (token.internalSubset)
+        throw new InterfaceBuilderDecodeBudgetExceeded(
+          "aggregate_decode_budget_exhausted",
+          "XML plist internal entity expansion exceeds the aggregate Interface Builder decode budget",
+        );
       continue;
+    }
     elementCount += 1;
-    if (token.startsWith("</")) xmlDepth -= 1;
-    else if (!token.endsWith("/>")) {
+    if (token.closing) xmlDepth -= 1;
+    else if (!token.selfClosing) {
       xmlDepth += 1;
       if (xmlDepth > 128)
         throw new InterfaceBuilderDecodeBudgetExceeded(
@@ -147,11 +145,98 @@ const estimateXmlPlistExpansion = (
   return decodedSourceBytes * 2 + elementCount * 128;
 };
 
-/** Count every expanded binary-plist reference before calling plist.parseBinary. */
-const estimateBinaryPlistExpansion = (
+/** Consume each XML span once; malformed tokens cannot restart suffix scans. */
+function* xmlPreflightTokens(xml: string) {
+  let cursor = 0;
+  while (cursor < xml.length) {
+    const start = xml.indexOf("<", cursor);
+    if (start < 0) return;
+    const opaqueEnd = xml.startsWith("<!--", start)
+      ? "-->"
+      : xml.startsWith("<![CDATA[", start)
+        ? "]]>"
+        : xml.startsWith("<?", start)
+          ? "?>"
+          : undefined;
+    if (opaqueEnd !== undefined) {
+      const end = xml.indexOf(opaqueEnd, start + 2);
+      if (end < 0) return;
+      cursor = end + opaqueEnd.length;
+      continue;
+    }
+    const doctype = /^<!DOCTYPE\b/iu.test(xml.slice(start, start + 10));
+    const element = /^<\/?[A-Za-z]/u.test(xml.slice(start, start + 4));
+    let quote: string | undefined;
+    let internalSubset = false;
+    let end = start + 1;
+    for (; end < xml.length; end += 1) {
+      const character = xml[end];
+      if (quote !== undefined) {
+        if (character === quote) quote = undefined;
+      } else if (character === '"' || character === "'") quote = character;
+      else if (character === ">") break;
+      else if (doctype && character === "[") internalSubset = true;
+    }
+    if (end === xml.length) return;
+    cursor = end + 1;
+    if (doctype || element)
+      yield {
+        doctype,
+        internalSubset,
+        closing: xml[start + 1] === "/",
+        selfClosing: xml[end - 1] === "/",
+      };
+  }
+}
+
+/** Resource a binary plist preflight found over its budget, or a malformed reference cycle. */
+export type BinaryPlistExpansionFailure = "cycle" | "depth" | "expansion";
+
+const interfaceBuilderBudgetFailure = (
+  _kind: BinaryPlistExpansionFailure,
+  message: string,
+): Error =>
+  new InterfaceBuilderDecodeBudgetExceeded(
+    "aggregate_decode_budget_exhausted",
+    message,
+  );
+
+/** How a caller names and reports binary plist expansion failures. */
+export interface BinaryPlistExpansionOptions {
+  /** Budget named in failure messages. */
+  readonly budget?: string;
+  /** Error for budget, depth, and reference-cycle failures. */
+  readonly fail?: (kind: BinaryPlistExpansionFailure, message: string) => Error;
+  /**
+   * Structural bounds: "strict" keeps objects and the offset table before the
+   * trailer; "decoder" follows the decoder's object-table boundary policy
+   * while still rejecting structures whose coercion would lose plist facts.
+   */
+  readonly bounds?: "strict" | "decoder";
+}
+
+/** Preflight size and binary-key observations; XML keys are inspected by decode. */
+export interface PlistDecodePreflight {
+  readonly estimatedBytes: number;
+  readonly binaryPrototypeKeyObserved: boolean;
+}
+
+const PROTOTYPE_KEY = "__proto__";
+
+/**
+ * Count every expanded binary-plist reference before calling plist.parseBinary,
+ * which recurses on each reference and copies shared containers. Malformed
+ * structure throws TypeError; budget, depth, and cycle failures use `fail`.
+ */
+export const estimateBinaryPlistExpansion = (
   bytes: Buffer,
   maxBytes: number,
-): number => {
+  {
+    budget = "the aggregate Interface Builder decode budget",
+    fail = interfaceBuilderBudgetFailure,
+    bounds = "strict",
+  }: BinaryPlistExpansionOptions = {},
+): PlistDecodePreflight => {
   if (bytes.length < 40)
     throw new TypeError("binary plist trailer is truncated");
   const trailer = bytes.length - 32;
@@ -172,25 +257,28 @@ const estimateBinaryPlistExpansion = (
   const objectCount = readInteger(trailer + 8, 8);
   const topObject = readInteger(trailer + 16, 8);
   const offsetTable = readInteger(trailer + 24, 8);
+  const tableEnd = bounds === "strict" ? trailer : bytes.length;
+  const objectsEnd = bounds === "strict" ? offsetTable : bytes.length;
   if (
     objectCount < 1 ||
     topObject < 0 ||
     topObject >= objectCount ||
     offsetTable < 8 ||
-    offsetTable + objectCount * offsetSize > trailer
+    offsetTable + objectCount * offsetSize > tableEnd
   )
     throw new TypeError("binary plist trailer or object table is invalid");
   let estimate = bytes.length * 2 + objectCount * 16;
+  let binaryPrototypeKeyObserved = false;
   if (estimate > maxBytes)
-    throw new InterfaceBuilderDecodeBudgetExceeded(
-      "aggregate_decode_budget_exhausted",
-      "binary plist object table exceeds the aggregate Interface Builder decode budget",
-    );
+    throw fail("expansion", `binary plist object table exceeds ${budget}`);
 
   const active = new Set<number>();
-  const pending: Array<{ object: number; depth: number; exit: boolean }> = [
-    { object: topObject, depth: 0, exit: false },
-  ];
+  const pending: Array<{
+    object: number;
+    depth: number;
+    exit: boolean;
+    dictionaryKey: boolean;
+  }> = [{ object: topObject, depth: 0, exit: false, dictionaryKey: false }];
   let pendingObjectCount = 1;
   while (pending.length > 0) {
     const entry = pending.pop();
@@ -201,29 +289,25 @@ const estimateBinaryPlistExpansion = (
     }
     pendingObjectCount -= 1;
     if (entry.depth > 128)
-      throw new InterfaceBuilderDecodeBudgetExceeded(
-        "aggregate_decode_budget_exhausted",
-        "binary plist nesting exceeds the aggregate Interface Builder decode budget",
-      );
+      throw fail("depth", `binary plist nesting exceeds ${budget}`);
     if (active.has(entry.object))
-      throw new InterfaceBuilderDecodeBudgetExceeded(
-        "aggregate_decode_budget_exhausted",
-        "binary plist reference cycle exceeds the aggregate Interface Builder decode budget",
-      );
+      throw fail("cycle", `binary plist reference cycle exceeds ${budget}`);
     estimate += 96;
     if (estimate > maxBytes)
-      throw new InterfaceBuilderDecodeBudgetExceeded(
-        "aggregate_decode_budget_exhausted",
-        "binary plist reference expansion exceeds the aggregate Interface Builder decode budget",
+      throw fail(
+        "expansion",
+        `binary plist reference expansion exceeds ${budget}`,
       );
     const offset = readInteger(
       offsetTable + entry.object * offsetSize,
       offsetSize,
     );
-    if (offset < 8 || offset >= offsetTable)
+    if (offset < 8 || offset >= objectsEnd)
       throw new TypeError("binary plist object offset is invalid");
     const marker = bytes[offset] ?? 0;
     const type = marker >> 4;
+    if (entry.dictionaryKey && type !== 5 && type !== 6)
+      throw new TypeError("binary plist dictionary key is not a string");
     let size = marker & 0x0f;
     let cursor = offset + 1;
     if (size === 0x0f && type !== 0 && type !== 8) {
@@ -234,34 +318,59 @@ const estimateBinaryPlistExpansion = (
       const integerSize = 1 << (extMarker & 0x0f);
       size = readInteger(cursor, integerSize);
       cursor += integerSize;
-      if (size < 0 || cursor > offsetTable)
+      if (size < 0 || cursor > objectsEnd)
         throw new TypeError("binary plist extended object size is invalid");
     }
     if (type === 4 || type === 5 || type === 6) {
       const byteLength = type === 6 ? size * 2 : size;
-      if (cursor + byteLength > offsetTable)
+      if (cursor + byteLength > objectsEnd)
         throw new TypeError("binary plist scalar object is truncated");
+      if (
+        !binaryPrototypeKeyObserved &&
+        entry.dictionaryKey &&
+        (type === 5 || type === 6) &&
+        size === PROTOTYPE_KEY.length
+      ) {
+        let matches = true;
+        for (let index = 0; index < PROTOTYPE_KEY.length; index += 1) {
+          const codeUnit =
+            type === 5
+              ? (bytes[cursor + index] ?? 0)
+              : ((bytes[cursor + index * 2] ?? 0) << 8) |
+                (bytes[cursor + index * 2 + 1] ?? 0);
+          if (codeUnit !== PROTOTYPE_KEY.charCodeAt(index)) {
+            matches = false;
+            break;
+          }
+        }
+        if (matches) binaryPrototypeKeyObserved = true;
+      }
       estimate += type === 4 ? size + 4 * Math.ceil(size / 3) : byteLength * 2;
       if (estimate > maxBytes)
-        throw new InterfaceBuilderDecodeBudgetExceeded(
-          "aggregate_decode_budget_exhausted",
-          "binary plist scalar expansion exceeds the aggregate Interface Builder decode budget",
+        throw fail(
+          "expansion",
+          `binary plist scalar expansion exceeds ${budget}`,
         );
       continue;
     }
     if (type !== 10 && type !== 13) continue;
     const childCount = type === 13 ? size * 2 : size;
     const refsEnd = cursor + childCount * referenceSize;
-    if (!Number.isSafeInteger(refsEnd) || refsEnd > offsetTable)
+    if (!Number.isSafeInteger(refsEnd) || refsEnd > objectsEnd)
       throw new TypeError("binary plist reference table is truncated");
     const availableNodes = Math.floor((maxBytes - estimate) / 96);
     if (childCount > availableNodes - pendingObjectCount)
-      throw new InterfaceBuilderDecodeBudgetExceeded(
-        "aggregate_decode_budget_exhausted",
-        "binary plist reference expansion exceeds the aggregate Interface Builder decode budget",
+      throw fail(
+        "expansion",
+        `binary plist reference expansion exceeds ${budget}`,
       );
     active.add(entry.object);
-    pending.push({ object: entry.object, depth: entry.depth, exit: true });
+    pending.push({
+      object: entry.object,
+      depth: entry.depth,
+      exit: true,
+      dictionaryKey: false,
+    });
     for (let index = childCount - 1; index >= 0; index -= 1) {
       const reference = readInteger(
         cursor + index * referenceSize,
@@ -269,9 +378,14 @@ const estimateBinaryPlistExpansion = (
       );
       if (reference < 0 || reference >= objectCount)
         throw new TypeError("binary plist reference is invalid");
-      pending.push({ object: reference, depth: entry.depth + 1, exit: false });
+      pending.push({
+        object: reference,
+        depth: entry.depth + 1,
+        exit: false,
+        dictionaryKey: type === 13 && index < size,
+      });
     }
     pendingObjectCount += childCount;
   }
-  return estimate;
+  return { estimatedBytes: estimate, binaryPrototypeKeyObserved };
 };

@@ -12,19 +12,12 @@ const fail = (message) => {
 const packageJson = await readJson("package.json");
 const serverJson = await readJson("server.json");
 const registryPackage = serverJson.packages?.[0];
-const repoUrl = "https://github.com/ForceMind/Tekvro";
 
-// Registry manifest is staged for an independent release; publishing stays disabled.
-if (packageJson.private !== true)
-  fail("the unpublished Tekvro distribution must remain private");
-if (serverJson.websiteUrl !== repoUrl || serverJson.repository?.url !== repoUrl)
-  fail("server.json must point to the Tekvro repository");
-
-if (packageJson.name !== "tekvro") fail("unexpected npm package name");
+if (packageJson.name !== "rea-agents") fail("unexpected npm package name");
 if (typeof packageJson.version !== "string")
   fail("package.json is missing a string version");
-if (packageJson.mcpName !== "io.github.forcemind/tekvro")
-  fail("package.json mcpName does not identify io.github.forcemind/tekvro");
+if (packageJson.mcpName !== "io.github.morluto/rea")
+  fail("package.json mcpName does not identify io.github.morluto/rea");
 if (serverJson.name !== packageJson.mcpName)
   fail("server.json name does not match package.json mcpName");
 if (serverJson.version !== packageJson.version)

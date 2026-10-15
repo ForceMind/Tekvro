@@ -2,18 +2,58 @@ import {
   REA_WORKFLOW_PROVIDER,
   workflowAnalysisProfile,
 } from "./InvestigationProviders.js";
-import type { AnalysisOperation } from "./AnalysisProvider.js";
+import type {
+  AnalysisOperation,
+  AnalysisOperationPort,
+} from "./AnalysisProvider.js";
+import type { AnalysisError } from "../domain/analysisErrorBase.js";
+import { ok, type Result } from "../domain/result.js";
 import type { AnalysisProfileCommitment } from "../domain/analysisProfile.js";
 import type { WorkflowSnapshotRecordInput } from "./binary/BinarySessionRecords.js";
 import {
   analysisProfileSchema,
   committedProviderSchema,
 } from "../domain/analysisProfile.js";
-import type { BinaryTarget } from "../domain/binaryTarget.js";
-import { createEvidence, type Evidence } from "../domain/evidence.js";
+import type { BinaryTarget } from "../domain/binaryTargetTypes.js";
+import {
+  createEvidence,
+  type Evidence,
+  type EvidenceLocation,
+} from "../domain/evidence.js";
 import type { JsonValue } from "../domain/jsonValue.js";
 import type { UnknownRegistryPort } from "./investigation/InvestigationRecordPort.js";
 import { UnknownRegistryError } from "../domain/unknownRegistryError.js";
+import { compareUnicodeCodePoints } from "../domain/unicodeCodePointOrder.js";
+
+/** Retain the limits of exactly the observations used by one composed call. */
+export const executeComposedWorkflow = async (
+  analysis: AnalysisOperationPort,
+  execute: (
+    observed: AnalysisOperationPort,
+  ) => Promise<Result<JsonValue, AnalysisError>>,
+): Promise<
+  Result<
+    { readonly result: JsonValue; readonly limitations: readonly string[] },
+    AnalysisError
+  >
+> => {
+  const limitations = new Set<string>();
+  const result = await execute({
+    execute: async (operation, parameters, options) => {
+      const execution = await analysis.execute(operation, parameters, options);
+      if (execution.ok)
+        execution.value.limitations.forEach((limitation) =>
+          limitations.add(limitation),
+        );
+      return execution;
+    },
+  });
+  if (!result.ok) return result;
+  return ok({
+    result: result.value,
+    limitations: [...limitations].sort(compareUnicodeCodePoints),
+  });
+};
 
 /** Build the shared Evidence record for a successful composed binary workflow. */
 export const createWorkflowEvidence = (input: {
@@ -22,6 +62,7 @@ export const createWorkflowEvidence = (input: {
   readonly parameters: Readonly<Record<string, JsonValue>>;
   readonly result: JsonValue;
   readonly upstreamProfile: AnalysisProfileCommitment | undefined;
+  readonly upstreamLimitations: readonly string[];
 }): Evidence =>
   createEvidence(input.target, REA_WORKFLOW_PROVIDER, {
     operation: input.operation,
@@ -36,15 +77,46 @@ export const createWorkflowEvidence = (input: {
           ),
         }),
     confidence: "derived",
-    limitations: ["Derived by an REA composed workflow."],
+    limitations: [
+      "Derived by an REA composed workflow.",
+      ...input.upstreamLimitations,
+    ],
+    ...(input.operation === "batch_decompile"
+      ? { locations: batchProcedureLocations(input.result) }
+      : {}),
   });
+
+const batchProcedureLocations = (result: JsonValue): EvidenceLocation[] => {
+  if (
+    result === null ||
+    typeof result !== "object" ||
+    Array.isArray(result) ||
+    !Array.isArray(result.items)
+  )
+    return [];
+  const addresses = new Set<string>();
+  for (const item of result.items) {
+    if (item === null || typeof item !== "object" || Array.isArray(item))
+      continue;
+    const procedure = item.procedure;
+    if (
+      procedure !== null &&
+      typeof procedure === "object" &&
+      !Array.isArray(procedure) &&
+      procedure.status === "resolved" &&
+      typeof procedure.address === "string"
+    )
+      addresses.add(procedure.address);
+  }
+  return [...addresses].map((address) => ({ kind: "address", address }));
+};
 
 /** Convert workflow Evidence into its exact replay binding, when it has a profile. */
 export const workflowSnapshotRecord = (
   evidence: Evidence,
   operation: AnalysisOperation,
 ): WorkflowSnapshotRecordInput | undefined => {
-  if (!("analysis_profile" in evidence)) return undefined;
+  if (evidence.analysis_profile === null) return undefined;
   return {
     operation,
     parameters: evidence.parameters,

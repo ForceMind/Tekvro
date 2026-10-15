@@ -1,10 +1,10 @@
 import {
   execFile,
-  type ExecFileOptionsWithStringEncoding,
+  type ExecFileOptionsWithBufferEncoding,
 } from "node:child_process";
 
 type ExecFileOutputOptions = Omit<
-  ExecFileOptionsWithStringEncoding,
+  ExecFileOptionsWithBufferEncoding,
   "encoding" | "maxBuffer"
 > & {
   readonly maxBuffer?: number;
@@ -76,6 +76,9 @@ export interface ExecFileOutputFailure {
   readonly signal: string | null;
   readonly killed: boolean;
   readonly outputTruncated: boolean;
+  readonly stdoutBytes?: number;
+  readonly stderrBytes?: number;
+  readonly collectionFailure?: boolean;
 }
 
 /** Read captured output metadata from a failed execFileOutput invocation. */
@@ -88,24 +91,40 @@ export const execFileOutputFailure = (
   const code = Reflect.get(cause, "code");
   const signal = Reflect.get(cause, "signal");
   const killed = Reflect.get(cause, "killed");
+  const outputTruncated = Reflect.get(cause, "outputTruncated");
+  const stdoutBytes = Reflect.get(cause, "stdoutBytes");
+  const stderrBytes = Reflect.get(cause, "stderrBytes");
+  const collectionFailure = Reflect.get(cause, "collectionFailure");
   if (typeof stdout !== "string" || typeof stderr !== "string")
     return undefined;
   return {
     stdout,
     stderr,
+    ...(typeof stdoutBytes === "number" &&
+    Number.isSafeInteger(stdoutBytes) &&
+    stdoutBytes >= 0
+      ? { stdoutBytes }
+      : {}),
+    ...(typeof stderrBytes === "number" &&
+    Number.isSafeInteger(stderrBytes) &&
+    stderrBytes >= 0
+      ? { stderrBytes }
+      : {}),
     code: typeof code === "string" || typeof code === "number" ? code : null,
     signal: typeof signal === "string" ? signal : null,
     killed: killed === true,
-    outputTruncated: code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER",
+    outputTruncated:
+      outputTruncated === true || code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER",
+    ...(collectionFailure === true ? { collectionFailure: true } : {}),
   };
 };
 
-/** Run a shell-free command while capturing its complete UTF-8 output. */
-export const execFileOutput = (
+/** Run a shell-free command while capturing its complete output bytes. */
+export const execFileBytes = (
   command: string,
   arguments_: readonly string[],
   options: ExecFileOutputOptions = {},
-): Promise<{ readonly stdout: string; readonly stderr: string }> =>
+): Promise<{ readonly stdout: Buffer; readonly stderr: Buffer }> =>
   new Promise((resolve, reject) => {
     const { stopSignal, signal, timeout, ...execOptions } = options;
     const invalid = timeout === undefined ? undefined : invalidTimeout(timeout);
@@ -134,7 +153,7 @@ export const execFileOutput = (
               ...(timeout === undefined ? {} : { timeout }),
             }
           : { killSignal: stopSignal }),
-        encoding: "utf8",
+        encoding: "buffer",
         maxBuffer: options.maxBuffer ?? Number.POSITIVE_INFINITY,
       },
       (error, stdout, stderr) => {
@@ -148,8 +167,10 @@ export const execFileOutput = (
               ? timeoutError(command, timeout, error)
               : error;
         if (failure !== null) {
-          Reflect.set(failure, "stdout", stdout);
-          Reflect.set(failure, "stderr", stderr);
+          Reflect.set(failure, "stdout", stdout.toString("utf8"));
+          Reflect.set(failure, "stderr", stderr.toString("utf8"));
+          Reflect.set(failure, "stdoutBytes", stdout.byteLength);
+          Reflect.set(failure, "stderrBytes", stderr.byteLength);
           reject(failure);
           return;
         }
@@ -173,3 +194,21 @@ export const execFileOutput = (
         stop("timeout");
       }, timeout);
   });
+
+/** Run a shell-free command while capturing its complete UTF-8 output. */
+export const execFileOutput = (
+  command: string,
+  arguments_: readonly string[],
+  options: ExecFileOutputOptions = {},
+): Promise<{
+  readonly stdout: string;
+  readonly stderr: string;
+  readonly stdoutBytes: number;
+  readonly stderrBytes: number;
+}> =>
+  execFileBytes(command, arguments_, options).then(({ stdout, stderr }) => ({
+    stdout: stdout.toString("utf8"),
+    stderr: stderr.toString("utf8"),
+    stdoutBytes: stdout.byteLength,
+    stderrBytes: stderr.byteLength,
+  }));

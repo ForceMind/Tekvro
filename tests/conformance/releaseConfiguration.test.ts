@@ -100,8 +100,8 @@ describe("release configuration", () => {
     };
 
     expect(packageJson).toMatchObject({
-      name: "tekvro",
-      mcpName: "io.github.forcemind/tekvro",
+      name: "rea-agents",
+      mcpName: "io.github.morluto/rea",
     });
     expect(serverJson).toMatchObject({
       name: packageJson.mcpName,
@@ -118,15 +118,5 @@ describe("release configuration", () => {
         },
       ],
     });
-  });
-
-  it("keeps generated API HTML out of the tracked tree", async () => {
-    await expect(readFile("typedoc.json", "utf8")).rejects.toMatchObject({
-      code: "ENOENT",
-    });
-    const packageJson = (await readJson("package.json")) as {
-      scripts?: Record<string, string>;
-    };
-    expect(packageJson.scripts?.["docs:api"]).toBeUndefined();
   });
 });

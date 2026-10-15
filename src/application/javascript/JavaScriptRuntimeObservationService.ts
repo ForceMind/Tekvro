@@ -6,7 +6,7 @@ import {
   AnalysisCancelledError,
   AnalysisCapabilityUnavailableError,
 } from "../../domain/analysisErrorCore.js";
-import { type AnalysisError } from "../../domain/analysisErrorBase.js";
+import type { AnalysisError } from "../../domain/analysisErrorBase.js";
 import type {
   ListJavaScriptRuntimeTargetsInput,
   ObserveJavaScriptRuntimeInput,
@@ -22,6 +22,8 @@ export const listJavaScriptRuntimeTargets = async (
   const ready = requireProvider(provider, "list_javascript_runtime_targets");
   if (!ready.ok) return ready;
   const result = await ready.value.listTargets(input, options);
+  if (result.ok && options.signal?.aborted === true)
+    return err(new AnalysisCancelledError("list_javascript_runtime_targets"));
   return result.ok
     ? ok(
         createJavaScriptRuntimeObservationEvidence(
@@ -43,18 +45,17 @@ export const observeJavaScriptRuntime = async (
   const ready = requireProvider(provider, "observe_javascript_runtime");
   if (!ready.ok) return ready;
   const result = await ready.value.observe(input, options);
+  if (!result.ok) return result;
   if (options.signal?.aborted === true)
     return err(new AnalysisCancelledError("observe_javascript_runtime"));
-  return result.ok
-    ? ok(
-        createJavaScriptRuntimeObservationEvidence(
-          "observe_javascript_runtime",
-          input,
-          result.value,
-          ready.value.identity(),
-        ),
-      )
-    : result;
+  return ok(
+    createJavaScriptRuntimeObservationEvidence(
+      "observe_javascript_runtime",
+      input,
+      result.value,
+      ready.value.identity(),
+    ),
+  );
 };
 
 const requireProvider = (

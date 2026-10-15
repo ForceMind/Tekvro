@@ -2,8 +2,21 @@ import type { JsonValue } from "./jsonValue.js";
 import type { AddressedName } from "./hopperValues.js";
 import {
   classifySwiftSymbol,
+  isSwiftMangledSymbolName,
   type SwiftTypeCategory,
 } from "./swiftSymbolClassification.js";
+
+/** Objective-C class definition markers emitted by modern Apple clang. */
+const OBJC_CLASS_MARKER = "OBJC_CLASS_$_" as const;
+
+/** Local class records emitted by Apple's fragile Objective-C ABI. */
+const LEGACY_OBJC_CLASS_PREFIX = "l_OBJC_CLASS_" as const;
+
+/**
+ * Objective-C protocol declaration marker. `PROTOCOL_REFERENCE` slots
+ * share the substring but are uses, not definitions.
+ */
+const OBJC_PROTOCOL_MARKER = "OBJC_PROTOCOL_$_" as const;
 
 /** Select and deduplicate Objective-C class labels. */
 export const discoverObjcClasses = (
@@ -12,8 +25,12 @@ export const discoverObjcClasses = (
 ): JsonValue => {
   const classes = uniqueByName(
     names
-      .filter(({ name }) =>
-        ["OBJC_CLASS", "OBJC_$_CLASS"].some((marker) => name.includes(marker)),
+      .filter(
+        ({ name }) =>
+          name.includes(OBJC_CLASS_MARKER) ||
+          (name.startsWith(LEGACY_OBJC_CLASS_PREFIX) &&
+            name.length > LEGACY_OBJC_CLASS_PREFIX.length &&
+            !/^l_OBJC_CLASS_NAME_(?:\.\d+)?$/u.test(name)),
       )
       .filter(({ name }) => pattern.length === 0 || name.includes(pattern)),
   );
@@ -29,7 +46,11 @@ export const discoverObjcProtocols = (
 ): JsonValue => {
   const protocols = uniqueByName(
     names.filter(
-      ({ name }) => name.includes("OBJC_PROTOCOL") || name.includes("_TtP"),
+      ({ name }) =>
+        name.includes(OBJC_PROTOCOL_MARKER) ||
+        name.includes("_TtP") ||
+        (name.endsWith("Mp") &&
+          classifySwiftSymbol(name)?.category === "protocols"),
     ),
   );
   return {
@@ -37,6 +58,16 @@ export const discoverObjcProtocols = (
     protocols: protocols.map(toJsonEntry),
   };
 };
+
+/**
+ * A Swift symbol carries either a demangler mangling or a name the category
+ * decoder already accepts, including visible runtime class names (`_Tt…`) and
+ * the optional leading underscore of legacy encodings (`__T0…`). Whether the
+ * nominal category can be decoded is a separate question, so it must not decide
+ * whether the symbol is Swift at all.
+ */
+const isSwiftSymbolName = (name: string): boolean =>
+  isSwiftMangledSymbolName(name) || classifySwiftSymbol(name) !== undefined;
 
 /** Categorize procedure names using Swift manglings at their exact addresses. */
 export const categorizeSwiftTypes = (
@@ -74,7 +105,7 @@ export const categorizeSwiftTypes = (
     if (seen.has(entry.name)) continue;
     const mangledNames = [
       ...new Set([
-        ...(classifySwiftSymbol(entry.name) === undefined ? [] : [entry.name]),
+        ...(isSwiftSymbolName(entry.name) ? [entry.name] : []),
         ...(aliases.get(entry.address) ?? []),
       ]),
     ];
@@ -84,8 +115,12 @@ export const categorizeSwiftTypes = (
       ![entry.name, ...mangledNames].some((name) => name.includes(pattern))
     )
       continue;
+    // Only decoded names vote. Unresolved aliases remain evidence without
+    // erasing category evidence from a name the decoder did recognize.
     const kinds = new Set(
-      mangledNames.map((name) => classifySwiftSymbol(name)?.category ?? null),
+      mangledNames
+        .filter((name) => classifySwiftSymbol(name) !== undefined)
+        .map((name) => classifySwiftSymbol(name)?.category ?? null),
     );
     const category = kinds.size === 1 ? ([...kinds][0] ?? null) : null;
     const item = {
@@ -134,7 +169,7 @@ export const categorizeSwiftTypes = (
 const swiftAliasesByAddress = (symbols: readonly AddressedName[]) => {
   const aliases = new Map<string, string[]>();
   for (const { address, name } of symbols) {
-    if (classifySwiftSymbol(name) === undefined) continue;
+    if (!isSwiftSymbolName(name)) continue;
     const existing = aliases.get(address);
     if (existing === undefined) aliases.set(address, [name]);
     else existing.push(name);

@@ -1,7 +1,13 @@
 import type { FixupCommands } from "./AppleMachoFixups.js";
 import {
+  MACHO_ARCHITECTURE_POLICIES,
+  machoSubtypeRank,
+} from "./MachoArchitectureSelection.js";
+import { machoCpuSubtypeBase } from "../domain/apple/machoCpuIdentity.js";
+import {
   readFatSliceDeclarations,
   validateFatSlice,
+  type FatSliceDeclaration,
 } from "../domain/apple/machoContainer.js";
 
 /** One mapped Mach-O segment with file-backed VA range. */
@@ -90,33 +96,56 @@ export const selectMachoSlice = (
   const headerEnd = 8 + count * stride;
   if (count > 128 || headerEnd > bytes.length)
     throw malformed("Malformed FAT architecture table");
-  const cpu = architecture === "arm64" ? 0x0100000c : 0x01000007;
+  const policy = MACHO_ARCHITECTURE_POLICIES[architecture];
+  if (policy === undefined)
+    throw invalid("Requested FAT architecture is absent");
   const declarations = readFatSliceDeclarations(bytes.subarray(8, headerEnd), {
     count,
     wide: fat64,
     littleEndian,
   });
   if (declarations.status !== "parsed") throw malformed(declarations.reason);
-  let selected: MachoSlice | undefined;
+  let best: FatSliceDeclaration | undefined;
+  let bestRank = Number.POSITIVE_INFINITY;
+  let ambiguous = false;
   for (const declaration of declarations.slices) {
     const issue = validateFatSlice(declaration, bytes.length, headerEnd);
     if (issue !== null) throw malformed(issue);
-    if (declaration.cpuType !== cpu) continue;
-    if (selected !== undefined)
-      throw invalid("Ambiguous FAT architecture slice");
-    selected = {
-      slice: declaration.offset,
-      sliceEnd: declaration.offset + declaration.size,
-      fatDeclaration: {
-        ...declaration,
-        tableEnd: headerEnd,
-      },
-    };
+    if (declaration.cpuType !== policy.cpuType) continue;
+    const rank = machoSubtypeRank(policy, declaration.cpuSubtype);
+    if (best !== undefined && rank >= bestRank) {
+      // Equal ranks keep FAT table order unless the slices share a subtype.
+      if (
+        rank === bestRank &&
+        machoCpuSubtypeBase(declaration.cpuSubtype) ===
+          machoCpuSubtypeBase(best.cpuSubtype)
+      )
+        ambiguous = true;
+      continue;
+    }
+    best = declaration;
+    bestRank = rank;
+    ambiguous = false;
   }
-  if (selected === undefined)
-    throw invalid("Requested FAT architecture is absent");
+  if (best === undefined) throw invalid("Requested FAT architecture is absent");
+  if (ambiguous) throw invalid("Ambiguous FAT architecture slice");
+  const selected: MachoSlice = {
+    slice: best.offset,
+    sliceEnd: best.offset + best.size,
+    fatDeclaration: { ...best, tableEnd: headerEnd },
+  };
+  if (selected.slice + 4 > bytes.length)
+    throw malformed("Truncated Mach-O header");
+  const sliceMagic = bytes.readUInt32LE(selected.slice);
+  if (sliceMagic === MH_MAGIC || sliceMagic === MH_CIGAM)
+    throw invalid(
+      `Unsupported 32-bit Mach-O metadata for requested CPU type ${architecture}`,
+    );
   return selected;
 };
+
+const MH_MAGIC = 0xfeedface;
+const MH_CIGAM = 0xcefaedfe;
 
 /** Parse segments/sections for a little-endian 64-bit Mach-O architecture slice. */
 export const parseMachoLayout = (
@@ -151,6 +180,7 @@ export const parseMachoLayout = (
     sections: [],
     dylibs: [],
     binds: [],
+    rebases: [],
     chained: null,
     baseAddress: undefined,
   };
@@ -168,7 +198,7 @@ export const parseMachoLayout = (
     else collectFixupCommand(bytes, command, state);
     cursor += command.size;
   }
-  const { segments, sections, chained, binds, dylibs } = state;
+  const { segments, sections, chained, binds, rebases, dylibs } = state;
   const offset = (address: bigint, size = 1): number => {
     const matches = segments.filter(
       (segment) =>
@@ -187,7 +217,7 @@ export const parseMachoLayout = (
     segments,
     sections,
     offset,
-    fixups: { chained, binds, dylibs },
+    fixups: { chained, binds, rebases, dylibs },
     baseAddress: state.baseAddress ?? 0n,
   };
 };
@@ -200,6 +230,7 @@ interface LayoutState {
   readonly sections: Section[];
   readonly dylibs: string[];
   readonly binds: FixupCommands["binds"][number][];
+  readonly rebases: FixupCommands["rebases"][number][];
   chained: FixupCommands["chained"];
   baseAddress: bigint | undefined;
 }
@@ -240,7 +271,8 @@ const collectSegment = (
     state.sections.push({
       name: bytes
         .subarray(position, position + 16)
-        .toString("ascii")
+        // ASCII decoding masks high bits and can fabricate known metadata names.
+        .toString("latin1")
         .replace(/\0.*$/u, ""),
       address: bytes.readBigUInt64LE(position + 32),
       size: Number(sectionSize),
@@ -268,9 +300,13 @@ const collectFixupCommand = (
       throw new RangeError("Fixup data exceeds the Mach-O slice");
     return { offset, size: length };
   };
-  if (kind === LC_DYLD_CHAINED_FIXUPS && size >= 16)
+  if (kind === LC_DYLD_CHAINED_FIXUPS) {
+    if (size < 16) throw new RangeError("Truncated chained-fixups command");
     state.chained = range(cursor + 8);
-  else if ((kind === LC_DYLD_INFO || kind === LC_DYLD_INFO_ONLY) && size >= 48)
+  } else if (kind === LC_DYLD_INFO || kind === LC_DYLD_INFO_ONLY) {
+    if (size < 48) throw new RangeError("Truncated dyld-info command");
+    const rebase = range(cursor + 8);
+    if (rebase.size > 0) state.rebases.push(rebase);
     for (const [at, stream] of [
       [cursor + 16, "bind"],
       [cursor + 24, "weak"],
@@ -279,13 +315,14 @@ const collectFixupCommand = (
       const bound = range(at);
       if (bound.size > 0) state.binds.push({ ...bound, stream });
     }
-  else if (DYLIB_COMMANDS.includes(kind) && size >= 24) {
+  } else if (DYLIB_COMMANDS.includes(kind)) {
+    if (size < 24) throw new RangeError("Truncated dylib command");
     const nameOffset = bytes.readUInt32LE(cursor + 8);
+    if (nameOffset < 24 || nameOffset >= size)
+      throw new RangeError("Dylib install name is outside its load command");
     const end = bytes.indexOf(0, cursor + nameOffset);
-    state.dylibs.push(
-      nameOffset >= size || end < 0 || end > cursor + size
-        ? ""
-        : bytes.toString("utf8", cursor + nameOffset, end),
-    );
+    if (end < 0 || end >= cursor + size)
+      throw new RangeError("Unterminated dylib install name");
+    state.dylibs.push(bytes.toString("utf8", cursor + nameOffset, end));
   }
 };

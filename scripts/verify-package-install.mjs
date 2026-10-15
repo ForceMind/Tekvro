@@ -13,22 +13,26 @@ export async function verifyPackageInstall({
 }) {
   await exec(
     "npm",
-    ["install", "--global", "--ignore-scripts", "--prefix", prefix, tarball],
+    [
+      "install",
+      "--global",
+      "--ignore-scripts",
+      "--omit=dev",
+      "--install-strategy=nested",
+      "--prefix",
+      prefix,
+      tarball,
+    ],
     { env: environment },
   );
-  const cli = join(prefix, "bin", "tekvro");
-  const legacyCli = join(prefix, "bin", "rea");
+  const cli = join(prefix, "bin", "rea");
   const packageRunnerCli = join(prefix, "bin", "rea-agents");
-  for (const legacy of [legacyCli, packageRunnerCli]) {
-    if (!(await run(legacy, ["--help"], environment)).includes("setup"))
-      throw new Error(
-        `packaged compatibility alias did not expose setup: ${legacy}`,
-      );
-  }
+  if (!(await run(packageRunnerCli, ["--help"], environment)).includes("setup"))
+    throw new Error("packaged rea-agents alias did not expose setup");
   const processCaptureCapabilityUrl = pathToFileURL(
     join(
       prefix,
-      "lib/node_modules/tekvro/dist/process/capture/ProcessCaptureCapability.js",
+      "lib/node_modules/rea-agents/dist/process/capture/ProcessCaptureCapability.js",
     ),
   ).href;
   const processCaptureCapability = json(
@@ -62,11 +66,11 @@ export async function verifyPackageInstall({
     ],
     { env: environment },
   );
-  const noOptionalCli = join(noOptionalPrefix, "bin", "tekvro");
+  const noOptionalCli = join(noOptionalPrefix, "bin", "rea");
   await rm(
     join(
       noOptionalPrefix,
-      "lib/node_modules/tekvro/node_modules/@lydell",
+      "lib/node_modules/rea-agents/node_modules/@lydell",
       `node-pty-${process.platform}-${process.arch}`,
     ),
     { recursive: true, force: true },
@@ -74,7 +78,7 @@ export async function verifyPackageInstall({
   const noOptionalCapabilityUrl = pathToFileURL(
     join(
       noOptionalPrefix,
-      "lib/node_modules/tekvro/dist/process/capture/ProcessCaptureCapability.js",
+      "lib/node_modules/rea-agents/dist/process/capture/ProcessCaptureCapability.js",
     ),
   ).href;
   const noOptionalCapability = json(
@@ -102,7 +106,7 @@ export async function verifyPackageInstall({
 }
 
 const verifyInstalledPackageCanRepack = async (prefix, environment) => {
-  const installedPackageRoot = join(prefix, "lib/node_modules/tekvro");
+  const installedPackageRoot = join(prefix, "lib/node_modules/rea-agents");
   const repackedTarball = (
     await exec("npm", ["pack", "--silent"], {
       cwd: installedPackageRoot,

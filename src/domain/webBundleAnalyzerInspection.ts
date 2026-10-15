@@ -1,11 +1,17 @@
-import { parse } from "@babel/parser";
 import * as t from "@babel/types";
 
 import { sanitizeEndpointCandidate } from "./browserObservation.js";
-import type { WebPageInspection } from "./browserObservation.js";
+import { compositeKey } from "./unicodeCodePointOrder.js";
+import type { WebPageInspection } from "./browserObservationSchemas.js";
 import type { WebBundleAnalysis } from "./webBundleAnalysis.js";
-import { traverseJavaScriptAst } from "./javascript/javascriptSemanticTraversal.js";
-import { classifyParsedJavaScriptOpenReceivers } from "./javascript/javascriptSemanticAnalysis.js";
+import {
+  completeSemanticSteps,
+  traverseJavaScriptAst,
+} from "./javascript/javascriptSemanticTraversal.js";
+import {
+  classifyParsedJavaScriptOpenReceivers,
+  classifyParsedJavaScriptRpcClientRootsSteps,
+} from "./javascript/javascriptSemanticAnalysis.js";
 import type { JavaScriptOpenReceiverFact } from "./javascript/javascriptSemanticAnalysis.js";
 import { semanticStaticPropertyName } from "./javascript/javascriptAstValues.js";
 import {
@@ -21,6 +27,8 @@ import {
   resolveSpecifier,
   isUrlLikeModuleSpecifier,
 } from "./webBundleAnalyzerAst.js";
+import { createJavaScriptRpcScan } from "./javascript/javascriptRpcEndpoints.js";
+import { parseJavaScriptSource } from "./javascript/javascriptSourceParser.js";
 
 type BundleObservations = WebBundleAnalysis["observations"];
 type ChunkEdge = BundleObservations["chunks"]["edges"][number];
@@ -42,33 +50,42 @@ export interface AnalysisAccumulator {
   readonly seen: Set<string>;
   visitedNodes: number;
   parsedScripts: number;
-  parseFailures: number;
+  readonly failedScripts: string[];
+  readonly recoveredScripts: string[];
 }
 
 export const analyzeScript = (
   script: IncludedScript,
   accumulator: AnalysisAccumulator,
 ): void => {
-  let file: ReturnType<typeof parse>;
-  try {
-    file = parse(script.source.artifact.text, {
-      sourceType: "unambiguous",
-      errorRecovery: true,
-      plugins: ["jsx", "typescript"],
-    });
-  } catch (cause: unknown) {
-    // Unparseable scripts are counted; the failure needs no extra detail.
-    void cause;
-    accumulator.parseFailures += 1;
+  const file = parseJavaScriptSource(script.source.artifact.text);
+  if (file === null) {
+    accumulator.failedScripts.push(script.script_key);
     return;
   }
   accumulator.parsedScripts += 1;
+  if ((file.errors?.length ?? 0) > 0)
+    accumulator.recoveredScripts.push(script.script_key);
   detectVendorFingerprints(script, accumulator);
   const openReceiverFacts = classifyParsedJavaScriptOpenReceivers(file);
+  const rpc = createJavaScriptRpcScan(
+    script.source.artifact.text,
+    completeSemanticSteps(classifyParsedJavaScriptRpcClientRootsSteps(file)),
+  );
   traverseJavaScriptAst(file, {
     enter: (node) => {
       accumulator.visitedNodes += 1;
       inspectNode(script, node, accumulator, openReceiverFacts);
+      const endpoint = rpc.inspect(node);
+      if (endpoint !== undefined)
+        addFinding({
+          collection: accumulator.endpoints,
+          script,
+          rawValue: endpoint.value,
+          mechanism: endpoint.mechanism,
+          node,
+          accumulator,
+        });
     },
   });
 };
@@ -98,14 +115,17 @@ const inspectNode = (
       node,
       accumulator,
     });
-  else if (t.isImportExpression(node) && t.isStringLiteral(node.source))
-    addEdge({
-      script,
-      specifier: node.source.value,
-      kind: "dynamic_import",
-      node,
-      accumulator,
-    });
+  else if (t.isImportExpression(node)) {
+    const specifier = stringValue(node.source);
+    if (specifier !== undefined)
+      addEdge({
+        script,
+        specifier,
+        kind: "dynamic_import",
+        node,
+        accumulator,
+      });
+  }
   if (t.isObjectProperty(node)) inspectRouteProperty(script, node, accumulator);
   if (
     t.isCallExpression(node) ||
@@ -164,19 +184,20 @@ const inspectCall = (
     node.callee,
     openReceiverFacts.get(node.start ?? -1),
   );
-  if (endpoint !== undefined)
+  if (endpoint?.kind === "candidate")
+    addEndpointCandidate(script, node, name, endpoint.value, accumulator);
+  else if (endpoint !== undefined)
     addFinding({
       collection: accumulator.endpoints,
       script,
-      rawValue: endpoint,
+      rawValue: endpoint.value,
       mechanism: `call:${name}`,
       node,
       accumulator,
     });
   if (
-    (t.isCallExpression(node) || t.isNewExpression(node)) &&
-    (name.endsWith("modelContext.registerTool") ||
-      name === "modelContext.registerTool")
+    name.endsWith("modelContext.registerTool") ||
+    name === "modelContext.registerTool"
   )
     addWebMcpDeclaration(script, node, accumulator);
 };
@@ -187,11 +208,12 @@ const inspectRouteProperty = (
   accumulator: AnalysisAccumulator,
 ): void => {
   const key = semanticStaticPropertyName(node.key, node.computed);
-  if ((key === "path" || key === "route") && t.isStringLiteral(node.value))
+  const route = stringValue(node.value);
+  if ((key === "path" || key === "route") && route !== undefined)
     addFinding({
       collection: accumulator.routes,
       script,
-      rawValue: node.value.value,
+      rawValue: route,
       mechanism: `property:${key}`,
       node,
       accumulator,
@@ -232,6 +254,33 @@ interface AddFindingContext {
   readonly accumulator: AnalysisAccumulator;
 }
 
+const addEndpointCandidate = (
+  script: IncludedScript,
+  node: t.Node,
+  name: string,
+  rawValue: string,
+  accumulator: AnalysisAccumulator,
+): void => {
+  const value = sanitizeEndpointCandidate(rawValue);
+  const detector = `call:${name}:unverified-network-receiver`;
+  const key = compositeKey([
+    "endpoint-candidate",
+    script.script_key,
+    value,
+    detector,
+  ]);
+  // This is a per-script candidate inventory, not a callsite list. Keep the
+  // first representative source position without multiplying inline records.
+  addUnique(accumulator, key, () =>
+    accumulator.inferences.push({
+      kind: "endpoint_candidate",
+      value,
+      confidence: "low",
+      basis: [{ ...basis(script, detector), ...locationFields(node) }],
+    }),
+  );
+};
+
 const addFinding = (context: AddFindingContext): void => {
   const value = sanitizeEndpointCandidate(context.rawValue);
   const key = `finding\0${context.mechanism}\0${context.script.script_key}\0${value}`;
@@ -246,7 +295,7 @@ const addFinding = (context: AddFindingContext): void => {
 
 const addWebMcpDeclaration = (
   script: IncludedScript,
-  node: t.CallExpression | t.NewExpression,
+  node: t.CallExpression | t.OptionalCallExpression | t.NewExpression,
   accumulator: AnalysisAccumulator,
 ): void => {
   const declaration = node.arguments[0];
@@ -271,12 +320,18 @@ const addWebMcpDeclaration = (
           : [],
       )
     : [];
-  const key = `webmcp\0${script.script_key}\0${name ?? ""}\0${schemaPropertyNames.join("\0")}`;
+  const metadata = {
+    name: name ?? null,
+    description: description ?? null,
+    schema_property_names: [...new Set(schemaPropertyNames)].sort(),
+  };
+  // Deduplicate the metadata we return, preserving omission and descriptions.
+  // Property names are a variable-length source-derived list: NUL-joins
+  // would collapse ["a\0b"] with ["a", "b"] and drop a declaration.
+  const key = compositeKey(["webmcp", script.script_key, metadata]);
   addUnique(accumulator, key, () =>
     accumulator.webMcp.push({
-      name: name ?? null,
-      description: description ?? null,
-      schema_property_names: [...new Set(schemaPropertyNames)].sort(),
+      ...metadata,
       trust: "page-declared-untrusted",
       location: location(script.script_key, node),
     }),
@@ -358,7 +413,8 @@ export const emptyAccumulator = (): AnalysisAccumulator => ({
   seen: new Set(),
   visitedNodes: 0,
   parsedScripts: 0,
-  parseFailures: 0,
+  failedScripts: [],
+  recoveredScripts: [],
 });
 
 export const isIncludedScript = (

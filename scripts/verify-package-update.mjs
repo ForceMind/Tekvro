@@ -33,7 +33,7 @@ export async function verifyPackageUpdate({
   let registry;
   async function serveRegistry(request, response) {
     const pathname = new URL(request.url, registry).pathname;
-    if (pathname === `/${metadata.name}`) {
+    if (pathname === "/rea-agents") {
       response.setHeader("Content-Type", "application/json");
       response.end(
         JSON.stringify({
@@ -98,11 +98,16 @@ export async function verifyPackageUpdate({
       HOME: home,
       USERPROFILE: home,
       APPDATA: join(home, "AppData", "Roaming"),
+      LOCALAPPDATA: join(home, "AppData", "Local"),
       CLAUDE_CONFIG_DIR: home,
       CODEX_HOME: join(home, ".codex"),
       COPILOT_HOME: join(home, ".copilot"),
       GROK_HOME: join(home, ".grok"),
       SAND_DATA_ROOT: join(home, ".grokbot"),
+      OMP_PROFILE: undefined,
+      PI_CODING_AGENT_DIR: undefined,
+      PI_CONFIG_DIR: undefined,
+      PI_PROFILE: undefined,
       XDG_CONFIG_HOME: join(home, ".config"),
       OPENCODE_CONFIG: join(home, ".config", "opencode", "opencode.json"),
       npm_config_prefix: prefix,

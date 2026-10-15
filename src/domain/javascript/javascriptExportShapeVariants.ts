@@ -7,7 +7,8 @@ import type {
   JavaScriptExportShapeComparisonResult,
   JavaScriptExportShapePropertyInventory,
 } from "./javascriptExportShapeComparisonSchemas.js";
-import { compareCodePoints, uniqueSorted } from "../canonicalOrdering.js";
+import { uniqueSorted } from "../canonicalOrdering.js";
+import { compareUnicodeCodePoints } from "../unicodeCodePointOrder.js";
 import type {
   SelectedJavaScriptExport,
   RetainedJavaScriptExportShapes,
@@ -97,7 +98,7 @@ export const buildJavaScriptExportShapeChanges = (
     input.rightSelection.selection.status !== "selected"
   )
     return [selectionUnknownChange(input)];
-  if (input.leftShapes.length === 0 || input.rightShapes.length === 0)
+  if (input.leftShapes.length === 0 && input.rightShapes.length === 0)
     return [emptyShapeUnknownChange(input)];
   const paired = input.pairing.pairs.flatMap((pair) => {
     const left = input.leftShapes[pair.leftIndex];
@@ -252,7 +253,7 @@ const compareDiscriminants = (
   left: Discriminant,
   right: Discriminant,
 ): number =>
-  compareCodePoints(
+  compareUnicodeCodePoints(
     canonicalExportShapeValue(left),
     canonicalExportShapeValue(right),
   );

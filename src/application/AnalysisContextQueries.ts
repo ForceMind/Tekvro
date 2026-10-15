@@ -3,8 +3,8 @@ import type {
   AnalysisOperation,
   AnalysisOperationPort,
 } from "./AnalysisProvider.js";
+import type { AnalysisError } from "../domain/analysisErrorBase.js";
 import { AnalysisOutputError } from "../domain/analysisErrorCore.js";
-import { type AnalysisError } from "../domain/analysisErrorBase.js";
 import type { JsonValue } from "../domain/jsonValue.js";
 import { analysisBookmarkSchema } from "../domain/hopperValues.js";
 import { resolveAnalysisDocument } from "./AnalysisDocument.js";
@@ -43,8 +43,14 @@ export const getNavigationContext = async (
   if (typeof document !== "string" && !document.ok) return document;
   const documentName =
     typeof document === "string" ? document : document.value.result;
-  const documentArgs =
-    typeof documentName === "string" ? parameters(documentName) : {};
+  if (typeof documentName !== "string")
+    return err(
+      new AnalysisOutputError(
+        "current_document",
+        "expected a document identity string",
+      ),
+    );
+  const documentArgs = parameters(documentName);
   const address = await analysis.execute(
     "current_address",
     documentArgs,
@@ -52,17 +58,12 @@ export const getNavigationContext = async (
   );
   if (!address.ok) return address;
   if (typeof address.value.result !== "string")
-    return ok({
-      document: documentName,
-      address: address.value.result,
-      procedure: null,
-    });
+    return err(
+      new AnalysisOutputError("current_address", "expected an address string"),
+    );
   const procedure = await analysis.execute(
     "resolve_containing_procedure",
-    parameters(
-      typeof documentName === "string" ? documentName : undefined,
-      address.value.result,
-    ),
+    parameters(documentName, address.value.result),
     executionOptions(signal),
   );
   if (!procedure.ok) {

@@ -1,12 +1,8 @@
-import { STDIO_DEFAULT_MAX_BUFFER_SIZE } from "@modelcontextprotocol/server";
 import { constants as bufferConstants } from "node:buffer";
 
 import type { JsonValue } from "../domain/jsonValue.js";
 import { bufferedJsonParts, jsonParts } from "../domain/jsonSerialization.js";
 
-// Leave room for the SDK's JSON-RPC envelope and protocol metadata. This budget
-// follows the pinned client's actual default framing limit, not a result-row cap.
-export const MCP_RESULT_BUDGET_BYTES = STDIO_DEFAULT_MAX_BUFFER_SIZE - 1024;
 export const MCP_RESULT_STRING_LIMIT = bufferConstants.MAX_STRING_LENGTH - 1024;
 
 const RESULT_ENVELOPE_BYTES =
@@ -16,6 +12,46 @@ const RESULT_ENVELOPE_BYTES =
       structuredContent: null,
     }),
   ) - 4;
+
+const ERROR_RESULT_ENVELOPE_BYTES = Buffer.byteLength(
+  JSON.stringify({ content: [{ type: "text", text: "" }], isError: true }),
+);
+
+/**
+ * Result metadata marking content that originates from the analysis target.
+ * Hosts and hooks can read it to treat the result as untrusted data.
+ */
+export const TARGET_CONTENT_RESULT_META = Object.freeze({
+  provenance: Object.freeze({
+    untrusted_content: true,
+    source: "analysis_target",
+  }),
+});
+
+/** Whether a delivered tool result already carries the untrusted target-content marker. */
+export const carriesTargetContentMarker = (result: {
+  readonly _meta?: unknown;
+}): boolean => {
+  const meta = result._meta;
+  if (typeof meta !== "object" || meta === null) return false;
+  const provenance: unknown = Reflect.get(meta, "provenance");
+  return (
+    typeof provenance === "object" &&
+    provenance !== null &&
+    Reflect.get(provenance, "untrusted_content") === true
+  );
+};
+
+// `,"_meta":{...}` added to the delivered result object.
+const TARGET_CONTENT_META_BYTES =
+  Buffer.byteLength(JSON.stringify({ _meta: TARGET_CONTENT_RESULT_META })) - 1;
+
+/**
+ * MCP representations a result carries on the wire. Successful results repeat
+ * the JSON as structured content and escaped text; error results carry text
+ * only, plus their `isError` flag.
+ */
+export type ToolResultRepresentations = "structured-and-text" | "error-text";
 
 /** Result of encoding the complete repeated MCP representations within a wire budget. */
 export type ToolResultEncoding =
@@ -27,18 +63,46 @@ export type ToolResultEncoding =
       readonly constraint: "receive-buffer" | "string-length";
     };
 
-/** Account for structured JSON and escaped text before allocating the complete text. */
+/** Measure an already-formed MCP result object without allocating its JSON text. */
+export const measureMcpResultWithinBudget = (
+  value: unknown,
+  budgetBytes: number,
+):
+  | { readonly ok: true; readonly bytes: number }
+  | {
+      readonly ok: false;
+      readonly bytesAtLeast: number;
+      readonly constraint: "receive-buffer";
+    } => {
+  let bytes = 0;
+  for (const part of bufferedJsonParts(jsonParts(value))) {
+    bytes += Buffer.byteLength(part);
+    if (bytes > budgetBytes)
+      return { ok: false, bytesAtLeast: bytes, constraint: "receive-buffer" };
+  }
+  return { ok: true, bytes };
+};
+
+/** Account for the delivered JSON representations before allocating the complete text. */
 export const encodeToolResult = (
   value: JsonValue,
-  budgetBytes = MCP_RESULT_BUDGET_BYTES,
+  budgetBytes: number,
+  representations: ToolResultRepresentations = "structured-and-text",
+  targetContent = false,
 ): ToolResultEncoding => {
+  const structured = representations === "structured-and-text";
   const parts: string[] = [];
-  let bytes = RESULT_ENVELOPE_BYTES;
-  let codeUnits = RESULT_ENVELOPE_BYTES;
+  let bytes =
+    (structured ? RESULT_ENVELOPE_BYTES : ERROR_RESULT_ENVELOPE_BYTES) +
+    (targetContent ? TARGET_CONTENT_META_BYTES : 0);
+  let codeUnits = bytes;
   for (const part of bufferedJsonParts(jsonParts(value))) {
     const escapedPart = JSON.stringify(part);
-    bytes += Buffer.byteLength(part) + Buffer.byteLength(escapedPart) - 2;
-    codeUnits += part.length + escapedPart.length - 2;
+    bytes +=
+      (structured ? Buffer.byteLength(part) : 0) +
+      Buffer.byteLength(escapedPart) -
+      2;
+    codeUnits += (structured ? part.length : 0) + escapedPart.length - 2;
     if (bytes > budgetBytes || codeUnits > MCP_RESULT_STRING_LIMIT)
       return {
         ok: false,

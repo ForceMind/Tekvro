@@ -1,12 +1,13 @@
 import { createHash } from "node:crypto";
-import { chmod, lstat, mkdir, realpath, rm, rmdir } from "node:fs/promises";
+import { chmod, mkdir, open, realpath, rm, rmdir } from "node:fs/promises";
+import { constants as fsConstants } from "node:fs";
 import {
   createConnection,
   createServer,
   type Server,
   type Socket,
 } from "node:net";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { HopperStartError } from "../domain/hopperErrors.js";
 import { safeParseJson } from "../domain/safeJson.js";
 
@@ -37,16 +38,17 @@ export const acquireHopperTargetLease = async (input: {
   readonly runId: string;
   readonly directory?: string;
 }): Promise<HopperTargetLeaseAcquisition> => {
-  // The canonical path only derives the lease key; it never authorizes access.
-  // Common expected `realpath` failures include a missing target or path
-  // component (ENOENT, ENOTDIR), an unreadable component (EACCES), or a
-  // symlink loop (ELOOP). This catch also falls back for every other error,
-  // which may hide a real filesystem problem. The lexical `resolve` fallback
-  // still yields a deterministic key, but aliases may take separate leases
-  // whenever `realpath` cannot resolve them.
-  const targetPath = await realpath(input.targetPath).catch(() =>
-    resolve(input.targetPath),
-  );
+  // Canonicalization is required for lease identity. A lexical fallback could
+  // let two aliases reserve independent sockets for the same Hopper document.
+  let targetPath: string;
+  try {
+    targetPath = await realpath(input.targetPath);
+  } catch (cause: unknown) {
+    throw new HopperStartError({
+      cause,
+      userMessage: `REA could not resolve Hopper target ${JSON.stringify(input.targetPath)} to a canonical path before reserving the document. Confirm that the target exists and its path is accessible.`,
+    });
+  }
   return acquireLease({
     ...input,
     identity: {
@@ -131,6 +133,10 @@ const tryAcquireLease = async (
   owner: HopperTargetLeaseOwner,
 ): Promise<HopperTargetLeaseAcquisition | "missing" | "stale"> => {
   const server = createServer((socket) => sendOwner(socket, owner));
+  // The lease lives exactly as long as its owning process. A lease retained
+  // after unconfirmed cleanup must not keep a completed one-shot command
+  // alive; process exit leaves a stale socket that later acquirers recover.
+  server.unref();
   if (!(await bind(server, socketPath))) {
     const existingOwner = await readOwner(socketPath);
     return typeof existingOwner === "string"
@@ -149,37 +155,79 @@ const tryAcquireLease = async (
     lease: {
       release: async () => {
         if (released) return;
-        released = true;
         // Node removes a bound Unix socket on close. A second unlink here
         // could remove a new owner's socket bound after that close.
         await closeServer(server);
+        released = true;
       },
     },
   };
 };
 
 const ensureLeaseDirectory = async (directory: string): Promise<void> => {
-  let directoryStat: Awaited<ReturnType<typeof lstat>>;
   try {
     await mkdir(directory, { recursive: true, mode: 0o700 });
-    directoryStat = await lstat(directory);
   } catch (cause: unknown) {
     throw new HopperStartError({
       cause,
-      userMessage:
-        "REA could not create or inspect its private Hopper lease directory.",
+      userMessage: "REA could not create its private Hopper lease directory.",
     });
   }
-  if (
-    directoryStat.isSymbolicLink() ||
-    directoryStat.isDirectory() === false ||
-    (process.getuid !== undefined && directoryStat.uid !== process.getuid())
-  )
+  // Use O_DIRECTORY|O_NOFOLLOW to open the directory without following symlinks,
+  // then inspect and secure that descriptor. Later socket operations still use
+  // the path and are not made atomic by this directory validation.
+  let handle;
+  try {
+    handle = await open(
+      directory,
+      fsConstants.O_RDONLY |
+        (fsConstants.O_DIRECTORY ?? 0) |
+        (fsConstants.O_NOFOLLOW ?? 0),
+    );
+    const directoryStat = await handle.stat();
+    if (
+      directoryStat.isSymbolicLink() ||
+      directoryStat.isDirectory() === false ||
+      (process.getuid !== undefined && directoryStat.uid !== process.getuid())
+    )
+      throw new HopperStartError({
+        userMessage:
+          "REA's Hopper lease directory is not a private directory owned by this user.",
+      });
+    // POSIX permission hardening: chmod on the already-opened descriptor avoids
+    // a second TOCTOU window where the directory could be swapped between check
+    // and permission fix. Windows DACL-based security is handled separately.
+    const posixPermissionsApply = process.getuid !== undefined;
+    if (posixPermissionsApply && (directoryStat.mode & 0o077) !== 0) {
+      await handle.chmod(0o700);
+      // Re-verify permissions on the same opened directory.
+      const afterChmod = await handle.stat();
+      if (
+        afterChmod.isSymbolicLink() ||
+        afterChmod.isDirectory() === false ||
+        (afterChmod.mode & 0o077) !== 0
+      )
+        throw new HopperStartError({
+          userMessage:
+            "REA's Hopper lease directory permissions could not be secured.",
+        });
+    }
+  } catch (cause: unknown) {
+    if (cause instanceof HopperStartError) throw cause;
+    const accessDenied =
+      process.getuid !== undefined &&
+      cause instanceof Error &&
+      "code" in cause &&
+      cause.code === "EACCES";
     throw new HopperStartError({
-      userMessage:
-        "REA's Hopper lease directory is not a private directory owned by this user.",
+      cause,
+      userMessage: accessDenied
+        ? `REA could not access its Hopper lease directory at ${JSON.stringify(directory)}. Check its ownership and parent-directory access. For a directory you own, restore owner-only read, write, and search permissions (0700), then retry.`
+        : "REA could not inspect its private Hopper lease directory.",
     });
-  if ((directoryStat.mode & 0o077) !== 0) await chmod(directory, 0o700);
+  } finally {
+    await handle?.close();
+  }
 };
 
 const bind = (server: Server, socketPath: string): Promise<boolean> =>

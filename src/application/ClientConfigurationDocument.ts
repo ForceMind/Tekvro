@@ -1,5 +1,17 @@
 import { parse as parseToml, stringify as stringifyToml } from "smol-toml";
 import { isDeepStrictEqual } from "node:util";
+
+import {
+  parseDshCordisDocument,
+  serializeDshDocument,
+  editDshDocument,
+  dshClientRegistrationEntry,
+} from "./DshCordisPatch.js";
+import {
+  editHermesConfigurationYaml,
+  parseHermesConfigurationYaml,
+  stringifyHermesConfigurationYaml,
+} from "./HermesConfigurationYaml.js";
 import {
   applyEdits,
   findNodeAtLocation,
@@ -13,6 +25,7 @@ import { z } from "zod";
 
 import { PRODUCT_IDENTITY } from "../identity.js";
 import type { SetupClient } from "./SupportedClients.js";
+import { compareUnicodeCodePoints } from "../domain/unicodeCodePointOrder.js";
 
 export type ClientConfigurationFormat = NonNullable<SetupClient["format"]>;
 export type ClientServersKey = "mcp_servers" | "mcpServers" | "mcp" | "servers";
@@ -58,7 +71,7 @@ const normalizeConfigurationValue = (value: unknown): unknown => {
     return value;
   return Object.fromEntries(
     Object.entries(value)
-      .sort(([left], [right]) => left.localeCompare(right))
+      .sort(([left], [right]) => compareUnicodeCodePoints(left, right))
       .map(([key, nested]) => [key, normalizeConfigurationValue(nested)]),
   );
 };
@@ -70,8 +83,10 @@ export const clientConfigurationServersKey = (
   switch (format) {
     case "toml":
     case "grok":
+    case "hermes":
       return "mcp_servers";
     case "opencode":
+    case "zcode":
       return "mcp";
     case "vscode":
       return "servers";
@@ -92,10 +107,27 @@ const parseDocument = (
   format: ClientConfigurationFormat,
 ): Record<string, unknown> => {
   if (format === "toml" || format === "grok")
-    return objectSchema.parse(parseToml(text));
+    return requireObject(parseToml(text), "The configuration root");
+  // Pi loads `mcp.json` with a strict `JSON.parse` and no BOM tolerance, so
+  // comments, trailing commas, a BOM, or an empty existing file must be
+  // rejected instead of registering into a document the client cannot load.
+  // Kimi also reads mcp.json with JSON.parse and an empty-file fallback.
+  if (format === "pi" || format === "kimi") {
+    if (format === "kimi" && text.trim().length === 0) return {};
+    return requireObject(JSON.parse(text), "The configuration root");
+  }
   // An empty file, which some clients create before any server is added,
   // holds no settings to preserve.
   if (isEmptyClientConfigurationText(text)) return {};
+  // Hermes stores MCP servers in `mcp_servers` inside a YAML document.
+  if (format === "hermes")
+    return requireObject(
+      parseHermesConfigurationYaml(text),
+      "The configuration root",
+    );
+  // ZCode loads nonempty native files with strict JSON.parse.
+  if (format === "zcode")
+    return requireObject(JSON.parse(text), "The configuration root");
   const errors: ParseError[] = [];
   // Accept a UTF-8 BOM without shifting diagnostics or editing the original text.
   const jsonText = text.startsWith("\uFEFF") ? ` ${text.slice(1)}` : text;
@@ -105,7 +137,39 @@ const parseDocument = (
     throw new SyntaxError(
       `Invalid JSON/JSONC at offset ${firstError.offset}: ${printParseErrorCode(firstError.error)}`,
     );
-  return objectSchema.parse(document);
+  return requireObject(document, "The configuration root");
+};
+
+/** A parsed configuration whose structure, not its syntax, cannot hold MCP servers. */
+export class ClientConfigurationShapeError extends TypeError {}
+
+/** Validate and copy own properties, excluding non-record YAML values and parser-injected prototypes. */
+const requireObject = (
+  value: unknown,
+  description: string,
+): Record<string, unknown> => {
+  const parsed = objectSchema.safeParse(value);
+  if (parsed.success) return parsed.data;
+  throw new ClientConfigurationShapeError(`${description} must be an object`, {
+    cause: parsed.error,
+  });
+};
+
+/** ZCode reads the same-scope fallback as strict JSON with a mcpServers table. */
+export const parseZcodeFallbackConfiguration = (
+  text: string,
+): ClientConfigurationDocument => {
+  const document = requireObject(JSON.parse(text), "ZCode fallback root");
+  return {
+    document,
+    servers:
+      document.mcpServers === undefined
+        ? {}
+        : requireObject(document.mcpServers, "ZCode fallback mcpServers"),
+    serversPath: ["mcpServers"],
+    dialect: "zcode_fallback",
+    legacyServers: {},
+  };
 };
 
 /** Members of OpenCode V2's `mcp` object that are not server names. */
@@ -118,10 +182,29 @@ export const parseClientConfiguration = (
 ): ClientConfigurationDocument => {
   if (format === undefined || format === "unsupported")
     throw new TypeError("client does not have a supported MCP config format");
+  // DeepSeek Harness stores a Cordis patch list, not a server table.
+  if (format === "zcode_fallback") return parseZcodeFallbackConfiguration(text);
+  if (format === "dsh") return parseDshCordisDocument(text);
   const document = parseDocument(text, format);
   const serversKey = clientConfigurationServersKey(format);
   const value = document[serversKey];
-  const servers = value === undefined ? {} : objectSchema.parse(value);
+  const servers =
+    value === undefined ? {} : requireObject(value, `"${serversKey}"`);
+  // ZCode reads stdio servers from the nested `mcp.servers` table of
+  // `~/.zcode/cli/config.json`; entries carry `command`, `args`, and `env`.
+  if (format === "zcode") {
+    const nested = servers.servers;
+    return {
+      document,
+      servers:
+        nested === undefined
+          ? {}
+          : requireObject(nested, `"${serversKey}.servers"`),
+      serversPath: [serversKey, "servers"],
+      dialect: format,
+      legacyServers: {},
+    };
+  }
   const native = servers.servers;
   // A V1 server named `servers` has a string `type` discriminator; the V2
   // table may instead hold a server object named `type`.
@@ -142,7 +225,7 @@ export const parseClientConfiguration = (
     };
   return {
     document,
-    servers: objectSchema.parse(native),
+    servers: requireObject(native, `"${serversKey}.servers"`),
     serversPath: [serversKey, "servers"],
     dialect: "opencode_v2",
     legacyServers: Object.fromEntries(
@@ -171,10 +254,26 @@ export const withClientServers = (
   servers: Record<string, unknown>,
   removeLegacy?: string,
 ): Record<string, unknown> => {
+  // The Harness patch list upserts or removes by entry id, not by table.
+  if (parsed.dialect === "dsh")
+    return Object.hasOwn(servers, PRODUCT_IDENTITY.mcpServerKey)
+      ? editDshDocument(
+          parsed,
+          objectSchema.parse(servers[PRODUCT_IDENTITY.mcpServerKey]),
+        )
+      : editDshDocument(parsed);
   const [key = "", nested] = parsed.serversPath;
   if (nested === undefined) return { ...parsed.document, [key]: servers };
-  const outer = { ...objectSchema.parse(parsed.document[key]) };
-  if (removeLegacy !== undefined && !OPENCODE_V2_MCP_SETTINGS.has(removeLegacy))
+  // A fresh document may not hold the outer table yet (for example a new
+  // ZCode `config.json` without an `mcp` object), so treat absence as empty.
+  const outerValue = parsed.document[key];
+  const outer =
+    outerValue === undefined ? {} : { ...objectSchema.parse(outerValue) };
+  if (
+    parsed.dialect === "opencode_v2" &&
+    removeLegacy !== undefined &&
+    !OPENCODE_V2_MCP_SETTINGS.has(removeLegacy)
+  )
     delete outer[removeLegacy];
   return { ...parsed.document, [key]: { ...outer, [nested]: servers } };
 };
@@ -1037,6 +1136,47 @@ export const grokServerListedDisabled = (
   Array.isArray(document.disabled_mcp_servers) &&
   document.disabled_mcp_servers.includes(serverKey);
 
+/**
+ * OMP's user `disabledServers` denylist hides a server by name regardless of
+ * its entry, so a listed REA registration is not loaded.
+ */
+export const OMP_DISABLED_SERVERS_KEY = "disabledServers";
+
+/** Whether OMP's root `disabledServers` denylist names `serverKey`. */
+export const ompServerListedDisabled = (
+  document: Record<string, unknown>,
+  serverKey: string,
+): boolean => {
+  const listed = document[OMP_DISABLED_SERVERS_KEY];
+  return Array.isArray(listed) && listed.includes(serverKey);
+};
+
+/** OMP's user `enabledServers` allowlist overrides an entry's `enabled: false`. */
+const OMP_ENABLED_SERVERS_KEY = "enabledServers";
+
+/**
+ * Whether OMP's allowlist forces `serverKey` on despite its entry's
+ * `enabled: false`. The `disabledServers` denylist still wins over it.
+ */
+export const clientServerForcedEnabled = (
+  parsed: ClientConfigurationDocument,
+  serverKey: string,
+): boolean => {
+  if (parsed.dialect !== "omp") return false;
+  const listed = parsed.document[OMP_ENABLED_SERVERS_KEY];
+  return Array.isArray(listed) && listed.includes(serverKey);
+};
+
+/** Whether a client's own disable list suppresses `serverKey`. */
+export const clientServerListedDisabled = (
+  parsed: ClientConfigurationDocument,
+  serverKey: string,
+): boolean =>
+  (parsed.dialect === "grok" &&
+    grokServerListedDisabled(parsed.document, serverKey)) ||
+  (parsed.dialect === "omp" &&
+    ompServerListedDisabled(parsed.document, serverKey));
+
 /** Keep an existing Grok document intact aside from the REA server tables. */
 const serializeGrokConfiguration = (
   document: Record<string, unknown>,
@@ -1224,6 +1364,9 @@ export const serializeClientConfiguration = (
     return serializeCodexConfiguration(document, originalText);
   if (format === "grok")
     return serializeGrokConfiguration(document, originalText);
+  if (format === "hermes")
+    return serializeHermesConfiguration(document, originalText);
+  if (format === "dsh") return serializeDshDocument(document);
   // An empty original holds no comments or settings to preserve. Writing a
   // fresh document also keeps a lone BOM from shifting past the closing brace.
   if (
@@ -1262,6 +1405,34 @@ export const legacyClientServerPath = (
     ? [parsed.serversPath[0] ?? "mcp", name]
     : undefined;
 
+/**
+ * Keep an existing Hermes `config.yaml` intact aside from the REA server entry.
+ * Hermes config files carry user comments and unrelated settings, so the rea
+ * entry is upserted into the parsed YAML document (which retains formatting and
+ * comments) rather than re-serializing the whole object.
+ */
+const serializeHermesConfiguration = (
+  document: Record<string, unknown>,
+  originalText: string | undefined,
+): string => {
+  if (
+    originalText === undefined ||
+    isEmptyClientConfigurationText(originalText)
+  )
+    return stringifyHermesConfigurationYaml(document);
+  const serversKey = clientConfigurationServersKey("hermes");
+  const servers = document[serversKey];
+  const entry =
+    typeof servers === "object" && servers !== null
+      ? (servers as Record<string, unknown>)[PRODUCT_IDENTITY.mcpServerKey]
+      : undefined;
+  return editHermesConfigurationYaml(
+    originalText,
+    [serversKey, PRODUCT_IDENTITY.mcpServerKey],
+    entry,
+  );
+};
+
 /** Build the stdio entry shape expected by one client's configuration dialect. */
 export const clientRegistrationEntry = (
   format: ClientRegistrationDialect,
@@ -1279,6 +1450,13 @@ export const clientRegistrationEntry = (
           ? {}
           : { environment: { ...environment } }),
       };
+    case "kimi":
+      // Kimi infers stdio from command; it uses `transport`, not `type`.
+      return {
+        command: executable,
+        args,
+        ...(Object.keys(environment).length === 0 ? {} : { env: environment }),
+      };
     case "opencode_v2":
       // V2 connects servers unless `disabled` is true.
       return {
@@ -1289,6 +1467,8 @@ export const clientRegistrationEntry = (
           : { environment: { ...environment } }),
       };
     case "vscode":
+    case "omp":
+    case "pi":
       return {
         type: "stdio",
         command: executable,
@@ -1311,6 +1491,17 @@ export const clientRegistrationEntry = (
         args,
         ...(Object.keys(environment).length === 0 ? {} : { env: environment }),
       };
+    case "dsh":
+      return dshClientRegistrationEntry(command, environment);
+    case "hermes":
+      // Hermes reads stdio servers from `mcp_servers.<name>` and connects them
+      // unless `enabled` is false, so the entry states it explicitly.
+      return {
+        command: executable,
+        args,
+        ...(Object.keys(environment).length === 0 ? {} : { env: environment }),
+        enabled: true,
+      };
     default:
       return {
         command: executable,
@@ -1318,4 +1509,57 @@ export const clientRegistrationEntry = (
         ...(Object.keys(environment).length === 0 ? {} : { env: environment }),
       };
   }
+};
+
+/** Parse one Gemini policy at its source boundary before consolidating scopes. */
+export const parseGeminiMcpPolicy = (parsed: ClientConfigurationDocument) =>
+  z
+    .object({
+      allowed: z.array(z.string()).optional(),
+      excluded: z.array(z.string()).optional(),
+    })
+    .passthrough()
+    .parse(parsed.document.mcp ?? {});
+
+/** One server-name comparison for the exclusion, intersection and membership rules below. */
+const normalizeGeminiServerName = (name: string): string =>
+  name.toLowerCase().trim();
+
+/** Gemini consolidates excludes by union and allowlists by normalized intersection. */
+export const geminiServerPolicyBlock = (
+  policies: readonly ReturnType<typeof parseGeminiMcpPolicy>[],
+  serverKey: string,
+): string | undefined => {
+  // Hand-authored settings cannot be assumed to spell the product key exactly,
+  // so every rule compares normalized names. Testing the consolidated list
+  // against the raw key instead would make the outcome depend on which policy
+  // supplied the spelling that survived the intersection.
+  const key = normalizeGeminiServerName(serverKey);
+  if (
+    policies.some(({ excluded }) =>
+      excluded?.some((name) => normalizeGeminiServerName(name) === key),
+    )
+  )
+    return `Gemini mcp.excluded blocks ${serverKey}. Review the selected settings policies before rerunning setup.`;
+  const allowlists = policies.flatMap(({ allowed }) =>
+    allowed === undefined ? [] : [allowed],
+  );
+  const allowed = allowlists.reduce<string[] | undefined>(
+    (previous, current) => {
+      if (previous === undefined) return current;
+      const normalized = new Set(current.map(normalizeGeminiServerName));
+      return previous.filter((name) =>
+        normalized.has(normalizeGeminiServerName(name)),
+      );
+    },
+    undefined,
+  );
+  // Gemini's manager applies the consolidated allowlist only when nonempty.
+  if (
+    allowed !== undefined &&
+    allowed.length > 0 &&
+    !allowed.some((name) => normalizeGeminiServerName(name) === key)
+  )
+    return `Gemini mcp.allowed does not include ${serverKey}. Review the selected settings policies before rerunning setup.`;
+  return undefined;
 };

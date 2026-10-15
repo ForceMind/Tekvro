@@ -16,7 +16,9 @@ export const buildComparisonCoverage = ({
   const leftStatus = sideCoverageStatus(left);
   const rightStatus = sideCoverageStatus(right);
   const unknownInput =
-    left.coverage.state !== "complete" || right.coverage.state !== "complete";
+    left.coverage.state !== "complete" ||
+    right.coverage.state !== "complete" ||
+    !sameSelection(left, right);
   return {
     status:
       !unknownInput && leftStatus === "complete" && rightStatus === "complete"
@@ -25,6 +27,20 @@ export const buildComparisonCoverage = ({
     left_status: leftStatus,
     right_status: rightStatus,
   };
+};
+
+/** Whether both observations inspected the same declaring types. */
+const sameSelection = (
+  left: ManagedMemberInspection,
+  right: ManagedMemberInspection,
+): boolean => {
+  if (left.selection === null || right.selection === null)
+    return left.selection === right.selection;
+  const rightNames = new Set(right.selection.type_names);
+  return (
+    rightNames.size === new Set(left.selection.type_names).size &&
+    left.selection.type_names.every((name) => rightNames.has(name))
+  );
 };
 
 const sideCoverageStatus = (
@@ -91,10 +107,32 @@ export const comparisonLimitations = (
 ): string[] => {
   const limitations: string[] = [
     "Metadata tokens are build-local coordinates; matched pairs are remaps, not persistent identities.",
-    "Methods pair by exact CIL/signature, then declared type, name, and signature, then structural shape; names alone are never a matching basis.",
-    "Fields pair by exact signature, then declared type, name, and signature; an undecoded signature is compared only by its raw bytes, and an unmatched member with one stays unknown.",
+    "Methods pair within one declared type and name by exact CIL/signature, then signature, then structural shape; only then may exact CIL/signature or structural shape alone remap across declared types or names, never taking a member whose own declared type and name remain unpaired on the other side or whose declaring type is unresolved. Names alone are never a matching basis.",
+    "Fields pair by declared type, name, and signature, then remap by exact decoded signature alone under the same rule; an undecoded signature is compared only by its raw bytes, and an unmatched member with one stays unknown.",
   ];
   if (left.coverage.state !== "complete" || right.coverage.state !== "complete")
     limitations.push("At least one managed member observation is partial.");
+  if (!sameSelection(left, right))
+    limitations.push(
+      "The observations select different declaring types; a member outside the other side's selection is unknown, not added or removed.",
+    );
+  else if (left.selection !== null)
+    limitations.push(
+      `Both observations cover only the selected declaring types (${left.selection.type_names.join(", ")}); member totals and statuses describe those types, not the whole assembly.`,
+    );
+  if (left.exported_types === null || right.exported_types === null)
+    limitations.push(
+      "At least one managed member observation predates ExportedType inspection; its exported and forwarded types are unknown.",
+    );
+  if (
+    (left.exported_types?.length ?? 0) > 0 ||
+    (right.exported_types?.length ?? 0) > 0
+  )
+    limitations.push(
+      "ExportedType rows, including type forwarders, are observed but not compared; an unchanged comparison does not establish an unchanged exported or forwarded type set.",
+    );
+  limitations.push(
+    "ldstr literals are not compared; normalized CIL keeps #US tokens rather than decoded text, so an unchanged method does not establish unchanged string literals.",
+  );
   return limitations;
 };

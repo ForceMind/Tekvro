@@ -1,29 +1,25 @@
 import { z } from "zod";
 
 import type { JsonValue } from "../jsonValue.js";
-import type { ProcessCapture } from "./processCapture.js";
+import type { ProcessCapture } from "./processCaptureParsing.js";
+import { processSourceTruncated } from "./processCaptureCoverage.js";
 import {
+  comparableProcessObservationPayload,
   processObservationLocationSchema,
   projectProcessObservation,
   type ProcessObservationLocation,
+  type ProcessObservationSource,
 } from "./processObservation.js";
 import {
   canonicalTraceJson,
-  comparableTracePayload,
   processTraceCardinalityBounds,
-  type ProcessTraceSource,
+  processTraceIdentifierSchema,
   type ProcessTraceSpecification,
 } from "./processTraceSpecification.js";
 
-const identifierSchema = z.string().regex(/^[A-Za-z][A-Za-z0-9._\x2d]{0,63}$/u);
-
-export type ProcessTraceLocation = ProcessObservationLocation;
-
-const locationSchema = processObservationLocationSchema;
-
 const matchedEventSchema = z.strictObject({
-  event_id: identifierSchema,
-  location: locationSchema,
+  event_id: processTraceIdentifierSchema,
+  location: processObservationLocationSchema,
 });
 
 const sideResultShape = {
@@ -35,7 +31,7 @@ const sideResultSchema = z.union([
   z.strictObject({
     ...sideResultShape,
     status: z.literal("pass"),
-    matched_variant: identifierSchema.nullable(),
+    matched_variant: processTraceIdentifierSchema.nullable(),
   }),
   z.strictObject({
     ...sideResultShape,
@@ -56,8 +52,8 @@ const diagnosticSchema = z.strictObject({
   ]),
   side: z.enum(["left", "right"]),
   message: z.string(),
-  event_ids: z.array(identifierSchema),
-  locations: z.array(locationSchema),
+  event_ids: z.array(processTraceIdentifierSchema),
+  locations: z.array(processObservationLocationSchema),
 });
 
 /** Structured verdict for one declared process trace language. */
@@ -72,13 +68,13 @@ export type ProcessTraceComparisonResult = z.infer<
 >;
 
 type TraceRecord = {
-  readonly source: ProcessTraceSource;
+  readonly source: ProcessObservationSource;
   readonly payload: JsonValue;
-  readonly location: ProcessTraceLocation;
+  readonly location: ProcessObservationLocation;
 };
 
 const scopesFor = (
-  sources: ReadonlySet<ProcessTraceSource>,
+  sources: ReadonlySet<ProcessObservationSource>,
 ): ReadonlySet<string> =>
   new Set(
     [...sources].map((source) => {
@@ -90,11 +86,13 @@ const scopesFor = (
     }),
   );
 
-const unknownSide = (): z.infer<typeof sideResultSchema> => ({
+const unknownSide = (
+  rawTrace: z.infer<typeof matchedEventSchema>[] = [],
+): z.infer<typeof sideResultSchema> => ({
   status: "unknown",
   matched_variant: null,
   satisfied_constraints: [],
-  raw_trace: [],
+  raw_trace: rawTrace,
 });
 
 export type EvaluatedSide = {
@@ -106,7 +104,7 @@ type FailureInput = {
   readonly kind: z.infer<typeof diagnosticSchema>["kind"];
   readonly message: string;
   readonly eventIds: readonly string[];
-  readonly locations: readonly ProcessTraceLocation[];
+  readonly locations: readonly ProcessObservationLocation[];
   readonly rawTrace: z.infer<typeof matchedEventSchema>[];
 };
 
@@ -152,15 +150,15 @@ const evaluateFiniteTrace = (
 
 type MatchedTrace = {
   readonly rawTrace: z.infer<typeof matchedEventSchema>[];
-  readonly locationsById: ReadonlyMap<string, ProcessTraceLocation[]>;
+  readonly locationsById: ReadonlyMap<string, ProcessObservationLocation[]>;
 };
 
 const collectRecords = (
   capture: ProcessCapture,
-  sources: ReadonlySet<ProcessTraceSource>,
+  sources: ReadonlySet<ProcessObservationSource>,
 ): readonly TraceRecord[] => {
   const records: TraceRecord[] = [];
-  for (const location of capture.event_journal ?? []) {
+  for (const location of capture.event_journal) {
     const record = projectProcessObservation(capture, location);
     if (record !== null && sources.has(record.source))
       records.push({
@@ -177,9 +175,9 @@ const matchRecords = (
   specification: ProcessTraceSpecification,
 ): MatchedTrace | EvaluatedSide => {
   const rawTrace: z.infer<typeof matchedEventSchema>[] = [];
-  const locationsById = new Map<string, ProcessTraceLocation[]>();
+  const locationsById = new Map<string, ProcessObservationLocation[]>();
   const ignoredFieldsBySource = new Map<
-    ProcessTraceSource,
+    ProcessObservationSource,
     readonly string[]
   >();
   const eventsByKey = new Map<
@@ -191,7 +189,7 @@ const matchRecords = (
     ignoredFieldsBySource.set(event.source, ignoredFields);
     eventsByKey.set(
       `${event.source}\0${canonicalTraceJson(
-        comparableTracePayload(event.exact, ignoredFields),
+        comparableProcessObservationPayload(event.exact, ignoredFields),
       )}`,
       event,
     );
@@ -199,7 +197,7 @@ const matchRecords = (
   for (const record of records) {
     const match = eventsByKey.get(
       `${record.source}\0${canonicalTraceJson(
-        comparableTracePayload(
+        comparableProcessObservationPayload(
           record.payload,
           ignoredFieldsBySource.get(record.source),
         ),
@@ -250,38 +248,33 @@ const evaluateOrderingConstraints = (
   language: PartialOrderLanguage,
 ): { readonly failure: EvaluatedSide | null; readonly satisfied: string[] } => {
   const satisfied: string[] = [];
+  const failures: FailureInput[] = [];
   for (const edge of language.happens_before) {
     const before = trace.locationsById.get(edge.before) ?? [];
     const after = trace.locationsById.get(edge.after) ?? [];
     const lastBefore = before.at(-1);
     const firstAfter = after[0];
     if (lastBefore === undefined && firstAfter !== undefined)
-      return {
-        failure: failure({
-          kind: "edge",
-          message: `${edge.before} is required when ${edge.after} occurs.`,
-          eventIds: [edge.before, edge.after],
-          locations: [firstAfter],
-          rawTrace: trace.rawTrace,
-        }),
-        satisfied,
-      };
-    if (
+      failures.push({
+        kind: "edge",
+        message: `${edge.before} is required when ${edge.after} occurs.`,
+        eventIds: [edge.before, edge.after],
+        locations: [firstAfter],
+        rawTrace: trace.rawTrace,
+      });
+    else if (
       lastBefore !== undefined &&
       firstAfter !== undefined &&
       lastBefore.capture_order >= firstAfter.capture_order
     )
-      return {
-        failure: failure({
-          kind: "edge",
-          message: `${edge.before} must happen before ${edge.after}.`,
-          eventIds: [edge.before, edge.after],
-          locations: [lastBefore, firstAfter],
-          rawTrace: trace.rawTrace,
-        }),
-        satisfied,
-      };
-    satisfied.push(`happens_before:${edge.before}:${edge.after}`);
+      failures.push({
+        kind: "edge",
+        message: `${edge.before} must happen before ${edge.after}.`,
+        eventIds: [edge.before, edge.after],
+        locations: [lastBefore, firstAfter],
+        rawTrace: trace.rawTrace,
+      });
+    else satisfied.push(`happens_before:${edge.before}:${edge.after}`);
   }
   for (const constraint of language.not_before) {
     const events = trace.locationsById.get(constraint.event) ?? [];
@@ -289,34 +282,47 @@ const evaluateOrderingConstraints = (
     const firstEvent = events[0];
     const firstAnchor = anchors[0];
     if (firstEvent !== undefined && firstAnchor === undefined)
-      return {
-        failure: failure({
-          kind: "edge",
-          message: `${constraint.anchor} is required when ${constraint.event} occurs.`,
-          eventIds: [constraint.event, constraint.anchor],
-          locations: [firstEvent],
-          rawTrace: trace.rawTrace,
-        }),
-        satisfied,
-      };
-    if (
+      failures.push({
+        kind: "edge",
+        message: `${constraint.anchor} is required when ${constraint.event} occurs.`,
+        eventIds: [constraint.event, constraint.anchor],
+        locations: [firstEvent],
+        rawTrace: trace.rawTrace,
+      });
+    else if (
       firstEvent !== undefined &&
       firstAnchor !== undefined &&
       firstEvent.capture_order < firstAnchor.capture_order
     )
-      return {
-        failure: failure({
-          kind: "edge",
-          message: `${constraint.event} must not occur before ${constraint.anchor}.`,
-          eventIds: [constraint.event, constraint.anchor],
-          locations: [firstEvent, firstAnchor],
-          rawTrace: trace.rawTrace,
-        }),
-        satisfied,
-      };
-    satisfied.push(`not_before:${constraint.event}:${constraint.anchor}`);
+      failures.push({
+        kind: "edge",
+        message: `${constraint.event} must not occur before ${constraint.anchor}.`,
+        eventIds: [constraint.event, constraint.anchor],
+        locations: [firstEvent, firstAnchor],
+        rawTrace: trace.rawTrace,
+      });
+    else satisfied.push(`not_before:${constraint.event}:${constraint.anchor}`);
   }
-  return { failure: null, satisfied };
+  if (failures.length === 0) return { failure: null, satisfied };
+  const unique = <T>(values: readonly T[], key: (value: T) => string): T[] => [
+    ...new Map(values.map((value) => [key(value), value])).values(),
+  ];
+  return {
+    failure: failure({
+      kind: "edge",
+      message: failures.map(({ message }) => message).join(" "),
+      eventIds: unique(
+        failures.flatMap(({ eventIds }) => eventIds),
+        String,
+      ),
+      locations: unique(
+        failures.flatMap(({ locations }) => locations),
+        ({ collection, index }) => `${collection}:${String(index)}`,
+      ),
+      rawTrace: trace.rawTrace,
+    }),
+    satisfied,
+  };
 };
 
 const boundaryFailure = (
@@ -411,12 +417,10 @@ export const evaluateProcessTraceSide = (
 ): EvaluatedSide => {
   const sources = new Set(specification.events.map(({ source }) => source));
   const relevantScopes = scopesFor(sources);
-  if (
-    capture.truncated ||
-    capture.residual_unknowns.some(({ scope }) => relevantScopes.has(scope))
-  )
-    return { result: unknownSide(), diagnostic: null };
-  if ((capture.event_journal ?? []).length === 0)
+  const incomplete =
+    [...sources].some((source) => processSourceTruncated(capture, source)) ||
+    capture.residual_unknowns.some(({ scope }) => relevantScopes.has(scope));
+  if (capture.event_journal.length === 0)
     return {
       result: unknownSide(),
       diagnostic: {
@@ -427,6 +431,13 @@ export const evaluateProcessTraceSide = (
       },
     };
   const matched = matchRecords(collectRecords(capture, sources), specification);
+  if (incomplete)
+    return {
+      result: unknownSide(
+        "rawTrace" in matched ? matched.rawTrace : matched.result.raw_trace,
+      ),
+      diagnostic: null,
+    };
   return "rawTrace" in matched
     ? evaluateMatchedTrace(matched, specification)
     : matched;

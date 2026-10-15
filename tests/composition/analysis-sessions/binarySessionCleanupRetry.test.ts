@@ -33,13 +33,9 @@ const retryFixture = async (
   });
   const client: AnalysisClient = {
     execute,
-    close: async () => {
-      if (!allowed) throw cleanupError;
-      await rm(runtime, { recursive: true, force: true });
-    },
-    closeWithOutcome: async (options) => {
+    close: async (options) => {
       if (!allowed) return err(cleanupError);
-      await client.close();
+      await rm(runtime, { recursive: true, force: true });
       if (options?.retainDocument !== true) await rm(document, { force: true });
       return resultOk(null);
     },
@@ -50,7 +46,7 @@ const retryFixture = async (
       ? client
       : {
           execute: () => Promise.resolve(ok(null)),
-          close: () => Promise.resolve(),
+          close: () => Promise.resolve(resultOk(null)),
         };
   });
   onTestFinished(async () => {
@@ -197,12 +193,13 @@ it("keeps failed restoration resources available for a close retry", async () =>
       execute: () =>
         Promise.resolve(index === 1 ? ok(null) : err(new HopperStartError())),
       close: async () => {
-        if (index !== 3) return;
+        if (index !== 3) return resultOk(null);
         if (!allowed)
           throw new ProviderCleanupError("fixture", [runtime], {
             reason: "restoration cleanup denied",
           });
         await rm(runtime, { recursive: true, force: true });
+        return resultOk(null);
       },
     };
   });
@@ -235,7 +232,7 @@ it("does not start a replacement cancelled while pending cleanup completes", asy
     const index = ++created;
     return {
       execute: () => Promise.resolve(ok(null)),
-      closeWithOutcome: async () => {
+      close: async () => {
         if (index !== 1) return resultOk(null);
         if (!allowed)
           return err(
@@ -248,7 +245,6 @@ it("does not start a replacement cancelled while pending cleanup completes", asy
         await rm(runtime, { recursive: true, force: true });
         return resultOk(null);
       },
-      close: () => Promise.resolve(),
     };
   });
   onTestFinished(async () => {

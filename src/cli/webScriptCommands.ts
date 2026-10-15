@@ -1,11 +1,14 @@
 import { Cli, z } from "incur";
-import { selectHumanText } from "./localization.js";
 
 import { exportWebScripts } from "../application/WebScriptExportService.js";
+import { ArtifactReaderFailure } from "../artifacts/ArtifactReader.js";
+import { ArtifactResourceScope } from "../artifacts/ArtifactResourceScope.js";
 import { CLI_COMMANDS } from "../cliCommandNames.js";
 import { logCliCommand } from "../cliLogging.js";
+import { analysisErrorWithCleanupFailure } from "../domain/analysisErrorCleanup.js";
 import { projectAnalysisError } from "../domain/analysisErrorProjection.js";
-import type { Logger } from "../logger.js";
+import { ProviderCleanupError } from "../domain/providerCleanupError.js";
+import type { Logger } from "pino";
 
 /** Register the local captured-script export CLI workflow. */
 export const registerWebScriptCommands = (
@@ -13,34 +16,53 @@ export const registerWebScriptCommands = (
   logger: Logger,
 ): void => {
   cli.command(CLI_COMMANDS.exportWebScripts, {
-    description: selectHumanText(
+    description:
       "Export retained website scripts into an absent directory for static JavaScript analysis",
-      "将已保留的网页脚本导出到新目录，供 JavaScript 静态分析",
-    ),
     args: z.object({
       capturePath: z
         .string()
-        .describe(
-          selectHumanText(
-            "Absolute path to saved page or scenario capture JSON",
-            "已保存的页面或场景捕获 JSON 的绝对路径",
-          ),
-        ),
+        .describe("Absolute path to saved page or scenario capture JSON"),
       outputDirectory: z
         .string()
         .describe(
-          selectHumanText(
-            "Absolute absent directory for verified scripts and manifest",
-            "用于保存经校验脚本及清单的全新目录绝对路径",
-          ),
+          "Absolute absent directory for verified scripts and manifest",
         ),
     }),
     run: ({ args }) =>
       logCliCommand(logger, CLI_COMMANDS.exportWebScripts, async () => {
-        const result = await exportWebScripts({
-          capture_path: args.capturePath,
-          output_directory: args.outputDirectory,
-        });
+        const resources = new ArtifactResourceScope();
+        const result = await exportWebScripts(
+          {
+            capture_path: args.capturePath,
+            output_directory: args.outputDirectory,
+          },
+          resources,
+        );
+        try {
+          await resources.close();
+        } catch (cause: unknown) {
+          const cleanup = ArtifactReaderFailure.cleanupObservation(
+            cause,
+            "Web script export resources",
+          );
+          const failure = new ProviderCleanupError(
+            "web-script-export",
+            cleanup.resources,
+            { reason: cleanup.reason },
+            { cause, operation: "export_web_scripts" },
+          );
+          const error = result.ok
+            ? failure
+            : analysisErrorWithCleanupFailure(
+                result.error,
+                failure,
+                "export_web_scripts",
+              );
+          return {
+            error: "Script export failed",
+            ...projectAnalysisError(error),
+          };
+        }
         return result.ok
           ? result.value
           : {

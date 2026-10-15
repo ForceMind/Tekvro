@@ -1,9 +1,11 @@
 import { z } from "zod";
+import { isAbsolute } from "node:path";
 
 import { IDENTIFIER_PATTERN } from "./stringPatterns.js";
 
-import { isAbsoluteLocalPath, localPathStringSchema } from "./localPath.js";
+import { localPathStringSchema } from "./localPath.js";
 import { browserNetworkContentSelectionSchema } from "./browserNetworkEvidence.js";
+import { browserScenarioEventFamilySchema } from "./browserScenarioCaptureValues.js";
 
 import {
   browserEndpointSchema,
@@ -12,13 +14,10 @@ import {
 
 export const scenarioIdentifierSchema = z.string().regex(IDENTIFIER_PATTERN);
 
-const browserExecutablePathSchema = localPathStringSchema.refine(
-  isAbsoluteLocalPath,
-  {
-    message:
-      "executable_path must be an absolute local filesystem path (for example /opt/chromium/chrome or C:\\chromium\\chrome.exe)",
-  },
-);
+const browserExecutablePathSchema = localPathStringSchema.refine(isAbsolute, {
+  message:
+    "executable_path must be an absolute local filesystem path (for example /opt/chromium/chrome or C:\\chromium\\chrome.exe)",
+});
 
 const browserScenarioBaseUrlSchema = z
   .string()
@@ -291,20 +290,7 @@ export const browserScenarioCaptureSchema = z
   .strictObject({
     after_each_step: z.array(snapshotKindSchema).default([]),
     at_end: z.array(snapshotKindSchema).default(["url"]),
-    events: z
-      .array(
-        z.enum([
-          "console",
-          "page-errors",
-          "network",
-          "websockets",
-          "frames",
-          "workers",
-          "popups",
-          "downloads",
-        ]),
-      )
-      .default([]),
+    events: z.array(browserScenarioEventFamilySchema).default([]),
     network: browserNetworkContentSelectionSchema,
   })
   .default({

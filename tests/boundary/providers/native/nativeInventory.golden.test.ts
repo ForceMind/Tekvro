@@ -21,6 +21,7 @@ import {
   nativeFixture as fixture,
   nativeMachoTarget as machoTarget,
   nativeMachoTargetForFile,
+  withOtoolMachHeader,
 } from "../../../fixtures/nativeCommands.js";
 import { createTestTempDirectory } from "../../../fixtures/temporaryDirectory.js";
 
@@ -46,6 +47,7 @@ const signatureTarget = async (
 it("distinguishes a codesign execution failure from an observed unsigned artifact", async () => {
   for (const kind of ["missing", "unsigned"] as const) {
     const client = new NativeMacOSProvider(
+      {},
       new FixtureRunner(
         {
           codesign: await fixture(`dyld-inventory/codesign-${kind}.txt`),
@@ -78,6 +80,7 @@ it("reports unsigned slices when a universal Mach-O has mixed signatures", async
       `Format=Mach-O universal (x86_64 ${signedArchitecture})`,
     );
     const client = new NativeMacOSProvider(
+      {},
       signatureRunner({ signed, unsigned, entitlements }),
       "darwin",
     ).createClient(await signatureTarget(signedArchitecture));
@@ -120,6 +123,7 @@ it("rejects nonzero supplemental codesign output that is not an unsigned observa
   const signed = await fixture("codesign.txt");
   const entitlements = await fixture("entitlements.xml");
   const client = new NativeMacOSProvider(
+    {},
     signatureRunner({
       signed,
       unsigned: "/private/fixture: invalid or unsupported format\n",
@@ -138,12 +142,14 @@ it("rejects nonzero supplemental codesign output that is not an unsigned observa
 
 it("retains native inventory facts from captured Apple tool output", async () => {
   const outputs: Record<string, string> = {};
-  for (const tool of ["file", "lipo", "otool", "nm", "dwarfdump", "vtool"])
+  for (const tool of ["lipo", "otool", "nm", "dwarfdump", "vtool"])
     outputs[tool] = await fixture(`dyld-inventory/${tool}.txt`);
+  outputs.otool = withOtoolMachHeader(outputs.otool ?? "");
   outputs["dyld_info:-imports"] = await fixture("dyld-inventory/imports.txt");
   const exportsOutput = await fixture("dyld-inventory/exports.txt");
   outputs["dyld_info:-exports"] = exportsOutput;
   const client = new NativeMacOSProvider(
+    {},
     new FixtureRunner(outputs),
     "darwin",
   ).createClient(machoTarget("/private/fixture"));
@@ -219,6 +225,79 @@ it("retains native inventory facts from captured Apple tool output", async () =>
   });
 });
 
+it("reports a renamed re-export once under its exported name", async () => {
+  const client = new NativeMacOSProvider(
+    {},
+    new FixtureRunner({
+      "dyld_info:-exports": await fixture(
+        "dyld-inventory/renamed-reexports.txt",
+      ),
+      nm: "_foo_renamed\n_own\n",
+    }),
+    "darwin",
+  ).createClient(machoTarget("/private/fixture"));
+  const execution = await client.execute("inspect_macho", {});
+  if (!execution.ok) throw execution.error;
+  expect(execution.value.result).toMatchObject({
+    exports: {
+      items: [
+        {
+          name: "_foo_renamed",
+          address: null,
+          weak: null,
+          reexport: true,
+          source: "libfoo",
+        },
+        { name: "_own", reexport: false, source: null },
+      ],
+      limitations: [
+        "Merged nm/dyld_info results may be incomplete for stripped binaries.",
+        "Renamed re-exports are listed under their exported name; the source library's symbol name is not reported.",
+      ],
+    },
+  });
+});
+
+it("splits re-export rows at the source library", () => {
+  // dyld_info -exports rows for synthetic dylibs: a source symbol named
+  // `operator()`, and a library whose install name contains ` from `.
+  expect(
+    parseDyldSymbols(
+      [
+        "[re-export] _call_renamed (operator() from libfoo)",
+        "[re-export] _g (from lib from foo)",
+        "[re-export] _nested (from lib (from foo))",
+      ].join("\n"),
+      "exports",
+      null,
+      new Set(["_call_renamed", "_g", "_nested"]),
+    ),
+  ).toEqual([
+    {
+      name: "_call_renamed",
+      address: null,
+      weak: null,
+      reexport: true,
+      source: "libfoo",
+      sourceSymbol: "operator()",
+    },
+    {
+      name: "_g",
+      address: null,
+      weak: null,
+      reexport: true,
+      source: "lib from foo",
+    },
+    {
+      name: "_nested",
+      address: null,
+      weak: null,
+      reexport: true,
+      source: "lib (from foo)",
+    },
+  ]);
+});
+
 it("retains symbol names containing spaces in dyld inventory rows", () => {
   expect(
     parseDyldSymbols("  0x0000  _entry with space  (from fixture)", "imports"),
@@ -271,7 +350,8 @@ it("retains symbol names containing spaces in dyld inventory rows", () => {
 });
 
 it("preserves numeric-looking segment and section identifiers from otool", () => {
-  const parsed = parseOtoolLoadCommands(`Load command 1
+  const parsed = parseOtoolLoadCommands(
+    withOtoolMachHeader(`Load command 0
       cmd LC_SEGMENT_64
   cmdsize 152
   segname 0001
@@ -295,7 +375,8 @@ Section
      flags 0x00000000
  reserved1 0
  reserved2 0
-`);
+`),
+  );
   expect(parsed.segments[0]).toMatchObject({
     name: "0001",
     file_offset: 16384,
@@ -363,7 +444,8 @@ it.each([
 ])(
   "keeps load-command-looking text inside native install names: %s",
   (installName) => {
-    const parsed = parseOtoolLoadCommands(`Load command 0
+    const parsed = parseOtoolLoadCommands(
+      withOtoolMachHeader(`Load command 0
           cmd LC_ID_DYLIB
       cmdsize 80
          name ${installName} (offset 24)
@@ -374,7 +456,8 @@ Load command 1
           cmd LC_UUID
       cmdsize 24
          uuid 01234567-89AB-CDEF-0123-456789ABCDEF
-`);
+`),
+    );
     expect(parsed.commands.map(({ index, kind }) => ({ index, kind }))).toEqual(
       [
         { index: 0, kind: "LC_ID_DYLIB" },
@@ -439,6 +522,25 @@ it("leaves an ambiguous short and literal name to the caller's nm inventory", ()
   ).toEqual([]);
 });
 
+it("retains unmatched re-export rows when the known export inventory is incomplete", () => {
+  expect(
+    parseDyldSymbols(
+      "[re-export] _g (from libfoo)",
+      "exports",
+      null,
+      new Set(["_own"]),
+    ),
+  ).toEqual([
+    {
+      name: "_g",
+      address: null,
+      weak: null,
+      reexport: true,
+      source: "libfoo",
+    },
+  ]);
+});
+
 it("retains annotation parsing without nm name evidence", () => {
   expect(parseDyldSymbols("0x120 _weak [weak-def]", "exports")).toEqual([
     {
@@ -448,5 +550,93 @@ it("retains annotation parsing without nm name evidence", () => {
       reexport: false,
       source: null,
     },
+  ]);
+});
+
+/** Replay fixtures, answering nm by whether its dyld-info pass is disabled. */
+const symbolTableRunner = (
+  outputs: Readonly<Record<string, string>>,
+  nm: { readonly symbolTable: string; readonly withDyldInfo: string },
+) => {
+  const nmArguments: (readonly string[])[] = [];
+  const replay = (output: string) =>
+    new FixtureRunner({ ...outputs, nm: output });
+  const runner: NativeCommandRunner = {
+    run: (tool, arguments_) => {
+      if (tool !== "nm") return replay("").run(tool, arguments_);
+      nmArguments.push(arguments_);
+      return replay(
+        arguments_.includes("--no-dyldinfo") ? nm.symbolTable : nm.withDyldInfo,
+      ).run(tool, arguments_);
+    },
+  };
+  return { runner, nmArguments };
+};
+
+/** nm arguments in provenance, which records the artifact operand as a placeholder. */
+const nmCommands = (result: unknown) =>
+  (result as { provenance: { tool: string; command: string[] }[] }).provenance
+    .filter(({ tool }) => tool === "nm")
+    .map(({ command }) => [...command.slice(1, -1), "/private/fixture"]);
+
+it("reads exports from the symbol table without llvm-nm's dyld-info pass", async () => {
+  const names = await fixture("dyld-inventory/nm.txt");
+  const { runner, nmArguments } = symbolTableRunner(
+    { "dyld_info:-exports": await fixture("dyld-inventory/exports.txt") },
+    { symbolTable: names, withDyldInfo: names },
+  );
+  const execution = await new NativeMacOSProvider({}, runner, "darwin")
+    .createClient(machoTarget("/private/fixture"))
+    .execute("inspect_macho", {});
+  if (!execution.ok) throw execution.error;
+  expect(nmArguments).toEqual([
+    ["-gjU", "--no-dyldinfo", "-arch", "arm64", "/private/fixture"],
+  ]);
+  expect(nmCommands(execution.value.result)).toEqual(nmArguments);
+});
+
+it("reruns nm with its dyld-info pass when a stripped symbol table omits trie exports", async () => {
+  const trieNames = await fixture("dyld-inventory/stripped-swift-nm.txt");
+  const { runner, nmArguments } = symbolTableRunner(
+    {
+      "dyld_info:-exports": await fixture(
+        "dyld-inventory/stripped-swift-exports.txt",
+      ),
+    },
+    { symbolTable: "", withDyldInfo: trieNames },
+  );
+  const execution = await new NativeMacOSProvider({}, runner, "darwin")
+    .createClient(machoTarget("/private/fixture"))
+    .execute("inspect_macho", {});
+  if (!execution.ok) throw execution.error;
+  const rerun = ["-gjU", "-arch", "arm64", "/private/fixture"];
+  expect(nmArguments).toEqual([
+    ["-gjU", "--no-dyldinfo", "-arch", "arm64", "/private/fixture"],
+    rerun,
+  ]);
+  // Provenance names the nm run whose output the exports came from.
+  expect(nmCommands(execution.value.result)).toEqual([rerun]);
+  const exported = (
+    execution.value.result as { exports: { items: { name: string }[] } }
+  ).exports.items.map(({ name }) => name);
+  expect(exported).toEqual(trieNames.trim().split("\n").sort());
+});
+
+it("reruns nm with its dyld-info pass when a dyld_info export row is unreadable", async () => {
+  const names = await fixture("dyld-inventory/nm.txt");
+  const exportsOutput = await fixture("dyld-inventory/exports.txt");
+  const { runner, nmArguments } = symbolTableRunner(
+    {
+      "dyld_info:-exports": `${exportsOutput.trimEnd()}\n        <unrecognized export row>\n`,
+    },
+    { symbolTable: names, withDyldInfo: names },
+  );
+  const execution = await new NativeMacOSProvider({}, runner, "darwin")
+    .createClient(machoTarget("/private/fixture"))
+    .execute("inspect_macho", {});
+  if (!execution.ok) throw execution.error;
+  expect(nmArguments.map((arguments_) => arguments_.slice(0, 2))).toEqual([
+    ["-gjU", "--no-dyldinfo"],
+    ["-gjU", "-arch"],
   ]);
 });

@@ -52,8 +52,10 @@ try {
     "bridge/ghidra/ReaGhidraBridge.java",
     "native/windows/build/manifest.json",
     "native/windows/build/rea-windows-x64.node",
+    "dist/android/JadxWorkspaceRoot.js",
     "dist/main.js",
     "dist/cli.js",
+    "scripts/rea-android-workspace-guardian.mjs",
     "scripts/rea.mjs",
   ])
     if (!packagedPaths.has(required))
@@ -65,7 +67,13 @@ try {
     ["install", "--no-package-lock", "--no-save", "--prefix", prefix, tarball],
     workspace,
   );
-  const entry = join(prefix, "node_modules", "tekvro", "scripts", "rea.mjs");
+  const entry = join(
+    prefix,
+    "node_modules",
+    "rea-agents",
+    "scripts",
+    "rea.mjs",
+  );
   const environment = {
     ...process.env,
     REA_ANALYSIS_PROVIDER: "auto",
@@ -102,6 +110,7 @@ try {
     HOME: home,
     USERPROFILE: home,
     APPDATA: join(home, "AppData", "Roaming"),
+    LOCALAPPDATA: join(home, "AppData", "Local"),
     CLAUDE_CONFIG_DIR: home,
     CODEX_HOME: join(home, ".codex"),
     XDG_CONFIG_HOME: join(home, ".config"),
@@ -109,6 +118,10 @@ try {
     COPILOT_HOME: join(home, ".copilot"),
     GROK_HOME: join(home, ".grok"),
     SAND_DATA_ROOT: join(home, ".grokbot"),
+    OMP_PROFILE: undefined,
+    PI_CODING_AGENT_DIR: undefined,
+    PI_CONFIG_DIR: undefined,
+    PI_PROFILE: undefined,
   };
   await mkdir(join(home, ".config", "opencode"), { recursive: true });
   await writeFile(
@@ -204,8 +217,8 @@ try {
     prefix,
     packageRoot:
       process.platform === "win32"
-        ? join(prefix, "node_modules", "tekvro")
-        : join(prefix, "lib", "node_modules", "tekvro"),
+        ? join(prefix, "node_modules", "rea-agents")
+        : join(prefix, "lib", "node_modules", "rea-agents"),
     tarball,
     workspace,
     environment,

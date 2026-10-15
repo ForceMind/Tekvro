@@ -1,71 +1,83 @@
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
+import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
+import { PRODUCT_IDENTITY } from "../../src/identity.js";
 
-const read = (path: string) => readFile(path, "utf8");
+const jsonExamples = (content: string): unknown[] =>
+  [...content.matchAll(/```json\s*([\s\S]*?)```/gu)].map((match): unknown =>
+    JSON.parse(match[1] ?? ""),
+  );
 
-describe("Tekvro independent onboarding", () => {
-  it("uses a Chinese-first landing page and independent project URL", async () => {
-    const [cn, en] = await Promise.all([
-      read("README.md"),
-      read("README.en.md"),
-    ]);
-    expect(cn).toContain("# Tekvro · 探核");
-    expect(cn).toContain("TEKVRO_LANG=zh-CN");
-    expect(en).toContain("# Tekvro");
-    for (const content of [cn, en]) {
-      expect(content).toContain("https://github.com/ForceMind/Tekvro");
-      expect(content).toContain("https://github.com/morluto/rea");
-      expect(content).toContain("LICENSE");
-      expect(content).not.toContain("https://rea.tools/");
-      expect(content).not.toContain("discord.gg");
-      expect(content).not.toMatch(/\bnpx\s+(?:-y\s+)?rea-agents@latest/u);
-    }
-  });
+const shellExamples = (content: string): string[] =>
+  [...content.matchAll(/```bash\s*([\s\S]*?)```/gu)].map((match) =>
+    (match[1] ?? "").trim(),
+  );
 
-  it("retains attribution and fences public publishing until migration", async () => {
-    const [pkg, license, notice] = await Promise.all([
-      read("package.json"),
-      read("LICENSE"),
-      read("THIRD_PARTY_NOTICES.md"),
-    ]);
-    const config = JSON.parse(pkg) as {
-      name: string;
-      private: boolean;
-      repository: { url: string };
-      bin: Record<string, string>;
-    };
-    expect(config.private).toBe(true);
-    expect(config.name).toBe("tekvro");
-    expect(config.repository.url).toBe(
-      "git+https://github.com/ForceMind/Tekvro.git",
+describe("onboarding documentation product facts", () => {
+  it.each([
+    ["docs/native-investigation.md", "raw-binary.md#nmos-6502"],
+    ["docs/ghidra-riscv.md", "raw-binary.md"],
+  ])(
+    "routes raw admission guidance in %s to the owning guide",
+    async (path, target) => {
+      const content = await readFile(resolve(path), "utf8");
+      const links = [...content.matchAll(/\]\(([^)\s]+)\)/gu)].map(
+        (match) => match[1],
+      );
+      expect(links, path).toContain(target);
+    },
+  );
+
+  it("keeps the installation MCP example aligned with the package registration command", async () => {
+    const content = await readFile(resolve("docs/installation.md"), "utf8");
+    expect(jsonExamples(content)).toContainEqual(
+      expect.objectContaining({
+        mcpServers: expect.objectContaining({
+          rea: expect.objectContaining({
+            command: "npx",
+            args: ["-y", PRODUCT_IDENTITY.registrationPackageSpecifier, "mcp"],
+          }),
+        }),
+      }),
     );
-    expect(config.bin.tekvro).toBe("scripts/rea.mjs");
-    expect(config.bin["rea-agents"]).toBe("scripts/rea.mjs");
-    expect(config.bin.rea).toBe("scripts/rea.mjs");
-    expect(license).toContain("Copyright (c) 2026 morluto");
-    expect(notice).toContain("f6fe575094658e99ced78d45f385633fbfaaae32");
   });
 
-  it("makes the documentation portal Chinese-first without falsifying translated coverage", async () => {
-    const [config, home, guide] = await Promise.all([
-      read("docs/.vitepress/config.ts"),
-      read("docs/index.md"),
-      read("docs/zh-CN/quick-start.md"),
-    ]);
-    expect(config).toContain('lang: "zh-CN"');
-    expect(config).toContain("https://github.com/ForceMind/Tekvro");
-    expect(config).not.toContain("https://github.com/morluto/rea");
-    expect(home).toContain("用证据看懂软件");
-    expect(guide).toContain("npm ci");
-    expect(guide).toContain("npm run build:cached");
-    expect(guide).toContain("TEKVRO_LANG=zh-CN");
+  it("keeps translated onboarding commands aligned with the English examples", async () => {
+    const inventory = JSON.parse(
+      await readFile(resolve("website/locales/languages.json"), "utf8"),
+    ) as { code: string; readme: string }[];
+    const translatedReadmes = inventory
+      .filter((language) => language.code !== "en")
+      .map((language) => language.readme);
+    expect(translatedReadmes).toContain("docs/readme/README_it.md");
+    expect(translatedReadmes).toContain("docs/readme/README_el.md");
+    const editions = (await readdir(resolve("docs/readme")))
+      .filter((name) => /^README_[A-Za-z0-9-]+\.md$/u.test(name))
+      .map((name) => `docs/readme/${name}`);
+    expect([...translatedReadmes].sort()).toEqual(editions.sort());
+    const english = shellExamples(await readFile(resolve("README.md"), "utf8"));
+    for (const path of translatedReadmes)
+      expect(
+        shellExamples(await readFile(resolve(path), "utf8")),
+        path,
+      ).toEqual(english);
   });
 
-  it("marks upstream npm examples as legacy and not Tekvro commands", async () => {
-    const guide = await read("docs/installation.md");
-    expect(guide).toContain("属于**原上游**");
-    expect(guide).toContain("zh-CN/quick-start.md");
-    expect(guide).toContain("Node.js 22");
+  it("preserves Persian joiners in links to GitHub-rendered headings", async () => {
+    const persian = await readFile(resolve("docs/readme/README_fa.md"), "utf8");
+    // Confirmed against GitHub's rendered README, which retains U+200C.
+    for (const heading of [
+      "REA چگونه کار می‌کند",
+      "چه چیزهایی را می‌توان تحلیل کرد",
+      "نمونه‌های عملی",
+      "پرسش‌های متداول",
+      "به‌روزرسانی REA",
+    ]) {
+      expect(persian).toContain(`## ${heading}`);
+      expect(persian).toContain(
+        `](#${heading.toLowerCase().replaceAll(" ", "-")})`,
+      );
+    }
   });
 });

@@ -7,6 +7,7 @@ import { projectAnalysisError } from "../../../src/domain/analysisErrorProjectio
 import { evmInterfaceSchema } from "../../../src/domain/evm/evmInterface.js";
 import { EvmoleInterfaceProvider } from "../../../src/evm/EvmoleInterfaceProvider.js";
 import { spawnOwnedProviderProcess } from "../../../src/process/ProviderProcess.js";
+import { cleanupOwnedProcessGroup } from "../../../src/process/ProcessOwnership.js";
 import { waitForProviderProcessReady } from "../../fixtures/providerProcess.js";
 import { PrivateRuntimeRoot } from "../../../src/process/PrivateRuntimeRoot.js";
 import {
@@ -111,12 +112,12 @@ it.runIf(!unsupportedHost).each(["missing", "wrong"])(
     if (result.ok) throw new Error("Expected launcher failure");
     expect(projectAnalysisError(result.error).code).toBe("execution_failure");
     expect(result.error).toMatchObject({
+      capturedOutput: { stdout: "launcher failure", truncated: false },
       diagnostics: {
         file_size_failure_marker: {
           verified: false,
           failure: expect.any(String),
         },
-        captured_output: { stdout: "launcher failure", truncated: false },
       },
     });
     await expect(access(ownedPath)).rejects.toMatchObject({ code: "ENOENT" });
@@ -128,32 +129,159 @@ it.runIf(!unsupportedHost)(
   async () => {
     const { path } = await fixture();
     let ownedPath = "";
+    let failCleanup = true;
+    let launches = 0;
     const provider = new EvmoleInterfaceProvider({}, async (spawn) => {
+      launches += 1;
       ownedPath = spawn.cwd ?? "";
       const launched = await spawnOwnedProviderProcess({
         ...spawn,
         command: process.execPath,
         arguments: ["-e", 'process.stdout.write("x".repeat(1048577))'],
       });
+      const cleanupOwned =
+        launched.cleanup ??
+        (() => cleanupOwnedProcessGroup(launched.ownership));
       return {
         ...launched,
         cleanup: async () => {
-          await launched.cleanup?.();
-          throw new Error("injected post-cleanup reporting failure");
+          const cleaned = await cleanupOwned();
+          if (failCleanup)
+            throw new Error("injected post-cleanup reporting failure");
+          return cleaned;
         },
       };
     });
+    onTestFinished(async () => {
+      failCleanup = false;
+      await provider.close();
+    });
     const result = await provider.inspect({ path, encoding: "hex" });
     if (result.ok) throw new Error("Expected compounded lifecycle failure");
-    expect(result.error).toMatchObject({
-      cleanupIncomplete: true,
-      diagnostics: {
-        reason: "injected post-cleanup reporting failure",
-        previous_error: { failure_kind: "output-limit" },
-        captured_output: { truncated: true, stderr: "" },
-      },
+    expect(result.error.cleanupIncomplete).toBe(true);
+    // Inspect the retained error chain without diffing a megabyte of stdout.
+    const cleanup = z
+      .object({
+        reason: z.string(),
+        previous_error: z.object({
+          code: z.string(),
+          category: z.string(),
+          message: z.string(),
+          details: z.record(z.string(), z.unknown()).optional(),
+        }),
+        captured_output: z.object({
+          truncated: z.boolean(),
+          stderr: z.literal(""),
+          stdout: z.string().transform((value) => Buffer.byteLength(value)),
+        }),
+      })
+      .parse(projectAnalysisError(result.error).details?.["diagnostics"]);
+    expect(cleanup).toEqual({
+      reason: "injected post-cleanup reporting failure",
+      previous_error: expect.objectContaining({ code: "unreadable_output" }),
+      captured_output: { truncated: true, stderr: "", stdout: 1048576 },
     });
+    expect(cleanup.previous_error.details?.["captured_output"]).toBeUndefined();
+    expect(JSON.stringify(cleanup.previous_error)).not.toContain(
+      "x".repeat(256),
+    );
+    expect(result.error.cleanupResources).toContain(ownedPath);
+    await access(ownedPath);
+    const blocked = await provider.inspect({ path, encoding: "hex" });
+    expect(blocked.ok).toBe(false);
+    expect(launches).toBe(1);
+    await expect(provider.close()).rejects.toMatchObject({
+      cleanupIncomplete: true,
+    });
+    failCleanup = false;
+    await provider.close();
     await expect(access(ownedPath)).rejects.toMatchObject({ code: "ENOENT" });
+  },
+);
+
+it.runIf(!unsupportedHost).each(["completed", "malformed-reply"] as const)(
+  "retains worker facts or its primary reply failure while process cleanup is unresolved: %s",
+  async (scenario) => {
+    const { path } = await fixture();
+    let ownedRoot = "";
+    let launches = 0;
+    let mayClean = false;
+    const provider = new EvmoleInterfaceProvider({}, async (spawn) => {
+      launches += 1;
+      ownedRoot = spawn.cwd ?? "";
+      const requestPath = spawn.arguments.at(-1);
+      if (requestPath === undefined) throw new Error("Request missing");
+      const request = requestSchema.parse(
+        JSON.parse(await readFile(requestPath, "utf8")),
+      );
+      if (scenario === "malformed-reply")
+        await writeFile(request.reply_path, "malformed worker reply");
+      else {
+        const bytes = Buffer.from("60006000f3", "hex");
+        await writeFile(
+          request.reply_path,
+          JSON.stringify({
+            ok: true,
+            version: "0.9.3",
+            bytecode: {
+              sha256: createHash("sha256").update(bytes).digest("hex"),
+              bytes: bytes.length,
+              hex: bytes.toString("hex"),
+            },
+            raw: { functions: [] },
+          }),
+        );
+      }
+      const launched = await spawnOwnedProviderProcess({
+        ...spawn,
+        command: process.execPath,
+        arguments: ["-e", 'process.stderr.write("worker completed")'],
+      });
+      const cleanup =
+        launched.cleanup ??
+        (() => cleanupOwnedProcessGroup(launched.ownership));
+      return {
+        ...launched,
+        cleanup: async () => {
+          const stopped = await cleanup();
+          if (!mayClean) throw new Error("injected retained cleanup failure");
+          return stopped;
+        },
+      };
+    });
+    onTestFinished(async () => {
+      mayClean = true;
+      await provider.close();
+    });
+
+    const result = await provider.inspect({ path, encoding: "hex" });
+    if (result.ok)
+      throw new Error("Expected process cleanup to remain visible");
+    expect(result.error).toMatchObject({ cleanupIncomplete: true });
+    const projected = projectAnalysisError(result.error);
+    expect(projected.details?.["diagnostics"]).toMatchObject({
+      reason: "injected retained cleanup failure",
+      captured_output: { stderr: "worker completed", truncated: false },
+      ...(scenario === "malformed-reply"
+        ? { previous_error: { code: "unreadable_output" } }
+        : { previous_error: null }),
+    });
+    if (scenario === "completed")
+      expect(result.error.partialObservation).toMatchObject({
+        normalized_result: {
+          bytecode: { hex: "60006000f3" },
+          evidence_kind: "inferred",
+        },
+      });
+    else expect(result.error.partialObservation).toBeUndefined();
+    await access(ownedRoot);
+
+    const blocked = await provider.inspect({ path, encoding: "hex" });
+    expect(blocked.ok).toBe(false);
+    expect(launches).toBe(1);
+    mayClean = true;
+    await provider.close();
+    await expect(access(ownedRoot)).rejects.toMatchObject({ code: "ENOENT" });
   },
 );
 

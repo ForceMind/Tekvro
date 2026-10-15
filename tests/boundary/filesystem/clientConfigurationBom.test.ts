@@ -16,6 +16,7 @@ import {
 } from "../../../src/application/SetupClientConfiguration.js";
 import { systemUninstallHost } from "../../../src/application/Uninstall.js";
 import { supportedClients } from "../../../src/application/SupportedClients.js";
+import { CURRENT_ENTRYPOINT_PATH } from "../../../src/process/CurrentEntrypointPath.js";
 import { createTestTempDirectory } from "../../fixtures/temporaryDirectory.js";
 
 describe.each([
@@ -99,22 +100,30 @@ describe.each([
   );
 });
 
-it("rejects malformed BOM-prefixed JSON without writing or backing it up", async () => {
-  const home = await createTestTempDirectory("rea-client-config-bom-invalid-");
-  const configPath = join(home, "mcp.json");
-  const client = { name: "vscode", format: "vscode", configPath } as const;
-  const original = '\uFEFF{"servers": {"rea": @}}';
-  await writeFile(configPath, original);
+it.each(['\uFEFF{"servers": {"rea": @}}', '\uFEFF{"setting":\uFEFFtrue}'])(
+  "rejects malformed BOM placement without mutation: %j",
+  async (original) => {
+    const home = await createTestTempDirectory(
+      "rea-client-config-bom-invalid-",
+    );
+    const configPath = join(home, "mcp.json");
+    const client = { name: "vscode", format: "vscode", configPath } as const;
+    await writeFile(configPath, original);
+    const invalidOffset = original.includes("@") ? original.indexOf("@") : 12;
+    expect(() => parseClientConfiguration(original, client.format)).toThrow(
+      `Invalid JSON/JSONC at offset ${invalidOffset}: InvalidSymbol`,
+    );
 
-  expect(
-    await inspectClientConfiguration(client, {}, ["rea", "mcp"]),
-  ).toMatchObject({ status: "invalid" });
-  expect(
-    await configureClientConfiguration(client, {}, ["rea", "mcp"]),
-  ).toEqual({ status: "failed", reason: "readback" });
-  expect(await readFile(configPath)).toEqual(Buffer.from(original));
-  expect(await readdir(home)).toEqual(["mcp.json"]);
-});
+    expect(
+      await inspectClientConfiguration(client, {}, ["rea", "mcp"]),
+    ).toMatchObject({ status: "invalid" });
+    expect(
+      await configureClientConfiguration(client, {}, ["rea", "mcp"]),
+    ).toEqual({ status: "failed", reason: "readback" });
+    expect(await readFile(configPath)).toEqual(Buffer.from(original));
+    expect(await readdir(home)).toEqual(["mcp.json"]);
+  },
+);
 
 it("restores original BOM-prefixed JSONC bytes after update and removal", async () => {
   const home = await createTestTempDirectory("rea-client-config-bom-cycle-");
@@ -129,8 +138,10 @@ it("restores original BOM-prefixed JSONC bytes after update and removal", async 
   await mkdir(dirname(client.configPath), { recursive: true });
   await writeFile(client.configPath, original);
 
-  const firstCommand = [join(home, "bin", "rea"), "mcp"];
-  const updatedCommand = [join(home, "updated", "bin", "rea"), "mcp"];
+  if (CURRENT_ENTRYPOINT_PATH === undefined)
+    throw new Error("test runner entrypoint is unavailable");
+  const firstCommand = ["rea", "mcp"];
+  const updatedCommand = [process.execPath, CURRENT_ENTRYPOINT_PATH, "mcp"];
   expect(
     await configureClientConfiguration(client, {}, firstCommand),
   ).toMatchObject({ status: "configured" });

@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { chmod, writeFile } from "node:fs/promises";
+import { chmod, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, extname, join } from "node:path";
 import { promisify } from "node:util";
 
@@ -21,7 +21,6 @@ import {
   type LinuxPrivateDisplayRunnableStrategy,
   type LinuxPrivateDisplaySelection,
 } from "./LinuxPrivateDisplayProbe.js";
-import writeFileAtomic from "write-file-atomic";
 
 import {
   prepareHopperMachOImage,
@@ -33,6 +32,8 @@ import {
   acquireLinuxHopperApplicationLease,
 } from "./HopperTargetLease.js";
 import type { HopperTargetLease } from "./HopperTargetLease.js";
+import { HOPPER_SHUTDOWN_TIMEOUT_MS } from "./HopperSessionValues.js";
+import { verifyMacHopperNativeHelper } from "./HopperMacPublisher.js";
 
 const execFileAsync = promisify(execFile);
 const HOPPER_BACKGROUND_STARTUP_MS = 5_000;
@@ -46,7 +47,16 @@ export interface BridgeSession {
 }
 
 /** Process handle returned by a bridge launcher. */
-export type BridgeLaunch =
+export type BridgeLaunch = {
+  /** Verified publisher and sealed native-helper identity; omission is unknown. */
+  readonly nativeHelperVerified?: true;
+  /** Only literal native-helper arguments support a pre-handoff denial conclusion. */
+  readonly authorizationDenialBeforeHandoff?: true;
+  /** Release application/target exclusivity only after verified document and process cleanup. */
+  readonly releaseLease?: () => Promise<void>;
+  /** Exact launch command retained in local ownership metadata. */
+  readonly launcherCommand?: string;
+} & (
   | (ProviderProcessLaunch & {
       readonly shutdownMode: "bridge-request";
       readonly preparedImagePath?: string;
@@ -58,7 +68,8 @@ export type BridgeLaunch =
       readonly preparedImagePath?: string;
       readonly providerLifetime: "launcher-process";
       readonly cleanup: NonNullable<ProviderProcessLaunch["cleanup"]>;
-    });
+    })
+);
 
 /** Application-owned capability that starts the in-Hopper bridge. */
 export interface BridgeLauncher {
@@ -74,6 +85,7 @@ export interface BridgeLauncher {
 }
 
 interface SharedHopperApplicationLauncherOptions {
+  readonly environment: Readonly<NodeJS.ProcessEnv>;
   readonly launcherPath: string;
   readonly targetPath: string;
   readonly targetKind: "executable" | "database";
@@ -97,10 +109,12 @@ export type HopperApplicationLauncherOptions =
     });
 
 export interface HopperApplicationLauncherDependencies {
+  readonly verifyNativeHelper?: typeof verifyMacHopperNativeHelper;
   readonly platform?: NodeJS.Platform;
   readonly acquireTargetLease?: typeof acquireHopperTargetLease;
   readonly acquireApplicationLease?: typeof acquireLinuxHopperApplicationLease;
   readonly selectPrivateDisplay?: (options: {
+    readonly environment: Readonly<NodeJS.ProcessEnv>;
     readonly helperPath: string;
     readonly signal?: AbortSignal;
   }) => Promise<LinuxPrivateDisplaySelection>;
@@ -199,12 +213,21 @@ export class HopperApplicationLauncher implements BridgeLauncher {
       action,
       input.loadedPath,
     ];
+    let launched = false;
     try {
       if (signal?.aborted === true) return err(new HopperCancelledError());
       const display = await this.#privateDisplay(signal);
       if (!display.ok) return err(display.error);
+      const nativeHelperVerified =
+        (this.dependencies.platform ?? process.platform) === "darwin" &&
+        this.options.launchMode === "native" &&
+        (await (
+          this.dependencies.verifyNativeHelper ?? verifyMacHopperNativeHelper
+        )(this.options.launcherPath, this.options.environment, signal)) ===
+          "verified";
       const prepared = await prepareHopperApplication(
         this.options.launcherPath,
+        this.options.environment,
         signal,
       );
       if (!prepared) return err(new HopperCancelledError());
@@ -224,28 +247,8 @@ export class HopperApplicationLauncher implements BridgeLauncher {
         signal,
       });
       if (started === null) return err(new HopperCancelledError());
-      const cleanup = () =>
-        cleanupOwnedProcessGroup(started.ownership).finally(() =>
-          lease?.release(),
-        );
-      const ownership = {
-        run_id: session.runId,
-        pid: started.ownership.leaderPid,
-        process_group_id: started.ownership.leaderPid,
-        parent_pid: process.pid,
-        launcher: linuxDemo?.command ?? this.options.launcherPath,
-        created_at: new Date().toISOString(),
-      };
-      try {
-        await writeFileAtomic(
-          join(session.directory, "ownership.json"),
-          `${JSON.stringify(ownership)}\n`,
-          { encoding: "utf8", mode: 0o600 },
-        );
-      } catch (cause: unknown) {
-        await cleanupOwnedProcessGroup(started.ownership);
-        return err(new HopperStartError({ cause }));
-      }
+      launched = true;
+      const cleanup = () => cleanupOwnedProcessGroup(started.ownership);
       const ownedLauncher = {
         ...(this.options.preparedImage === undefined
           ? {}
@@ -254,6 +257,8 @@ export class HopperApplicationLauncher implements BridgeLauncher {
         ownsProcessLifetime: true as const,
         ownership: started.ownership,
         cleanup,
+        launcherCommand: linuxDemo?.command ?? this.options.launcherPath,
+        ...(lease === undefined ? {} : { releaseLease: () => lease.release() }),
       };
       return ownsProcessLifetime
         ? ok({
@@ -265,9 +270,27 @@ export class HopperApplicationLauncher implements BridgeLauncher {
             ...ownedLauncher,
             providerLifetime: "external-application",
             shutdownMode: "bridge-request",
+            ...(nativeHelperVerified
+              ? { nativeHelperVerified: true as const }
+              : {}),
+            // The vendor helper interpolates these values into AppleScript
+            // literals without escaping. Preserve them, but withhold the
+            // pre-handoff conclusion when they can alter that script.
+            ...((this.dependencies.platform ?? process.platform) === "darwin" &&
+            ![this.options.launcherPath, ...argumentsForTarget].some((value) =>
+              /["\\\r\n]/u.test(value),
+            )
+              ? { authorizationDenialBeforeHandoff: true as const }
+              : {}),
           });
     } catch (cause: unknown) {
       return err(hopperLaunchFailure(cause, signal));
+    } finally {
+      // Remove the token-bearing bootstrap file on every non-success path.
+      // Only the launched process needs the file; all error returns, early
+      // cancellations, and thrown exceptions must not leave it on disk.
+      if (!launched)
+        await rm(bootstrapPath, { force: true }).catch(() => undefined);
     }
   }
 
@@ -332,6 +355,8 @@ export class HopperApplicationLauncher implements BridgeLauncher {
       await chmod(bootstrapPath, 0o600);
       return ok(bootstrapPath);
     } catch (cause: unknown) {
+      // Clean up any partially written bootstrap file that may contain the token.
+      await rm(bootstrapPath, { force: true }).catch(() => undefined);
       return err(new HopperStartError({ cause }));
     }
   }
@@ -352,6 +377,7 @@ export class HopperApplicationLauncher implements BridgeLauncher {
       selectLinuxPrivateDisplayStrategy
     )({
       helperPath: this.options.demoHelperPath,
+      environment: this.options.environment,
       ...(signal === undefined ? {} : { signal }),
     });
     if (signal?.aborted === true)
@@ -360,10 +386,9 @@ export class HopperApplicationLauncher implements BridgeLauncher {
       ? { ok: true, strategy: selection.strategy }
       : {
           ok: false,
-          error: new HopperProcessError(
-            selection.exitCode,
-            selection.diagnostic,
-          ),
+          error: new HopperProcessError(selection.exitCode, {
+            diagnostic: selection.diagnostic,
+          }),
         };
   }
 }
@@ -380,6 +405,7 @@ const bridgeBootstrapSource = (
     `REA_RUN_ID = ${JSON.stringify(session.runId)}`,
     `REA_TARGET_PATH = ${JSON.stringify(loadedPath)}`,
     `REA_OWNS_PROCESS_LIFETIME = ${ownsProcessLifetime ? "True" : "False"}`,
+    `REA_RECONNECT_TIMEOUT_SECONDS = ${HOPPER_SHUTDOWN_TIMEOUT_MS / 1_000}`,
     `exec(compile(open(${JSON.stringify(options.bridgeScriptPath)}, 'rb').read(), ${JSON.stringify(options.bridgeScriptPath)}, 'exec'))`,
     "",
   ].join("\n");
@@ -401,6 +427,7 @@ const launchHopperProcess = async (input: {
       arguments: arguments_,
       runId: input.session.runId,
       expectedCommand: ownershipCommand,
+      hostEnvironment: input.options.environment,
       ...(input.signal === undefined ? {} : { signal: input.signal }),
     });
   if (input.linuxDemo !== undefined)
@@ -409,6 +436,9 @@ const launchHopperProcess = async (input: {
       arguments: input.linuxDemo.args,
       runId: input.session.runId,
       expectedCommand: ownershipCommand,
+      hostEnvironment: input.options.environment,
+      // The helper observes EOF when this REA process exits, including SIGKILL.
+      stdin: "pipe",
       ...(input.signal === undefined ? {} : { signal: input.signal }),
     });
   return spawn(input.argumentsForTarget);
@@ -430,6 +460,7 @@ export const linuxDemoLaunch = (
     return undefined;
   const helperArguments = [
     options.demoHelperPath,
+    "--owner-stdin",
     "--strategy",
     strategy ?? "direct",
     ...(strategy === "user-mount-namespace" ? ["--mount-private-x11"] : []),
@@ -480,20 +511,21 @@ export const usesLinuxDemo = (
 
 const prepareHopperApplication = async (
   launcherPath: string,
+  environment: Readonly<NodeJS.ProcessEnv>,
   signal?: AbortSignal,
 ): Promise<boolean> => {
   const appBundle = hopperApplicationBundle(launcherPath);
   if (appBundle === undefined) return signal?.aborted !== true;
   const executablePath = join(appBundle, "Contents/MacOS/Hopper Disassembler");
-  if (await processIsRunning(executablePath)) return signal?.aborted !== true;
+  if (await processIsRunning(executablePath, environment))
+    return signal?.aborted !== true;
   // This reduces activation when Hopper is cold, but the vendor launcher that
   // follows may still activate its window. See HopperApplicationLauncher.
-  await execFileAsync("/usr/bin/open", [
-    "--hide",
-    "--background",
-    "-a",
-    appBundle,
-  ]);
+  await execFileAsync(
+    "/usr/bin/open",
+    ["--hide", "--background", "-a", appBundle],
+    { env: environment },
+  );
   return (
     (await waitForAbortableDelay(HOPPER_BACKGROUND_STARTUP_MS, signal)) ===
     "elapsed"
@@ -506,13 +538,16 @@ const hopperApplicationBundle = (launcherPath: string): string | undefined => {
   return extname(candidate) === ".app" ? candidate : undefined;
 };
 
-const processIsRunning = async (executablePath: string): Promise<boolean> => {
+const processIsRunning = async (
+  executablePath: string,
+  environment: Readonly<NodeJS.ProcessEnv>,
+): Promise<boolean> => {
   try {
-    const processes = await execFileOutput("/bin/ps", [
-      "-ax",
-      "-o",
-      "command=",
-    ]);
+    const processes = await execFileOutput(
+      "/bin/ps",
+      ["-ax", "-o", "command="],
+      { env: environment },
+    );
     return processes.stdout
       .split("\n")
       .some((command) => command.trim() === executablePath);

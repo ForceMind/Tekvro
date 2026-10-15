@@ -1,13 +1,18 @@
 import type {
   OwnedProviderProcessSpawnOptions,
   ProviderProcessSnapshot,
+  ProviderProcessStopResult,
   SpawnedOwnedProviderProcess,
 } from "./ProviderProcess.js";
 import {
   ProviderProcessSupervisor,
   spawnOwnedProviderProcess,
 } from "./ProviderProcess.js";
-import { cleanupOwnedProcessGroup } from "./ProcessOwnership.js";
+import {
+  cleanupOwnedProcessGroup,
+  type OwnedProcessGroup,
+  type ProcessCleanupFailure,
+} from "./ProcessOwnership.js";
 import {
   ProviderStartupDeadline,
   waitForAbortableDelay,
@@ -15,17 +20,37 @@ import {
 
 /** A short-lived command failed its lifecycle or complete-output contract. */
 export class OwnedCommandFailure extends Error {
+  readonly cleanupResult: ProcessCleanupFailure | undefined;
+  readonly collectionFailure: boolean;
+
   constructor(
     readonly reason: "cancelled" | "timeout" | "output-limit" | "process",
     message: string,
     readonly snapshot: ProviderProcessSnapshot | null = null,
     readonly cleanupFailure: string | null = null,
-    options?: ErrorOptions,
+    options?: ErrorOptions & {
+      readonly cleanupResult?: ProcessCleanupFailure;
+      readonly collectionFailure?: boolean;
+    },
     readonly resources: readonly string[] = [],
+    readonly cleanupOwner?: ProviderProcessSupervisor,
   ) {
     super(message, options);
+    this.cleanupResult = options?.cleanupResult;
+    this.collectionFailure = options?.collectionFailure ?? false;
   }
 }
+
+/** Report recorded launch identities; these labels do not authorize signaling. */
+export const ownedCommandResources = (
+  ownership: OwnedProcessGroup,
+  directory?: string,
+): readonly string[] => [
+  ownership.runId,
+  ...(directory === undefined ? [] : [directory]),
+  `pid:${ownership.leaderPid}`,
+  `process-group:${ownership.processGroupId}`,
+];
 
 /** Execute a single owned process with independent cleanup and bounded diagnostic retention. */
 export const runOwnedCommand = async (
@@ -37,7 +62,12 @@ export const runOwnedCommand = async (
     readonly acceptNonZeroExit?: boolean;
   },
   options: {
-    readonly signal?: AbortSignal;
+    readonly signal?: AbortSignal | undefined;
+    /** Synchronously accept unresolved cleanup ownership; execution still returns its original outcome. Must not throw. */
+    readonly retainCleanup?: (
+      owner: ProviderProcessSupervisor,
+      result: Extract<ProviderProcessStopResult, { status: "incomplete" }>,
+    ) => void;
     readonly launcher?: (
       input: OwnedProviderProcessSpawnOptions,
     ) => Promise<SpawnedOwnedProviderProcess>;
@@ -57,6 +87,7 @@ export const runOwnedCommand = async (
       options.launcher ?? spawnOwnedProviderProcess,
       deadline,
       callerSignal,
+      options.retainCleanup,
     );
   } finally {
     deadline.dispose();
@@ -75,6 +106,10 @@ const collectOwnedCommand = async (
   ) => Promise<SpawnedOwnedProviderProcess>,
   deadline: ProviderStartupDeadline,
   callerSignal?: AbortSignal,
+  retainCleanup?: (
+    owner: ProviderProcessSupervisor,
+    result: Extract<ProviderProcessStopResult, { status: "incomplete" }>,
+  ) => void,
 ): Promise<ProviderProcessSnapshot> => {
   const signal = deadline.signal;
   let launched: SpawnedOwnedProviderProcess;
@@ -133,7 +168,9 @@ const collectOwnedCommand = async (
           "Command diagnostic output exceeded its complete-output budget.",
         );
       if (processFailure !== undefined)
-        throw new OwnedCommandFailure("process", processFailure);
+        throw new OwnedCommandFailure("process", processFailure, null, null, {
+          collectionFailure: true,
+        });
       await waitForAbortableDelay(25, signal);
     }
     const snapshot = supervisor.snapshot();
@@ -168,6 +205,8 @@ const collectOwnedCommand = async (
         processFailure ??
           "Command failed; inspect its exit status and diagnostics.",
         snapshot,
+        null,
+        { collectionFailure: processFailure !== undefined },
       );
   } catch (cause: unknown) {
     failure =
@@ -183,20 +222,25 @@ const collectOwnedCommand = async (
   }
   const stopped = await supervisor.stop();
   const snapshot = supervisor.snapshot();
-  supervisor.dispose();
-  if (stopped.status === "incomplete")
+  if (stopped.status === "incomplete" && retainCleanup !== undefined)
+    retainCleanup(supervisor, stopped);
+  else if (stopped.status === "incomplete")
     throw new OwnedCommandFailure(
       failure?.reason ?? "process",
       failure?.message ?? "Command cleanup failed.",
       snapshot,
       stopped.reason,
-      failure === undefined ? undefined : { cause: failure },
-      [
-        spawn.runId,
-        ...(spawn.cwd === undefined ? [] : [spawn.cwd]),
-        `pid:${launched.ownership.leaderPid}`,
-        `process-group:${launched.ownership.processGroupId}`,
-      ],
+      {
+        ...(failure === undefined ? {} : { cause: failure }),
+        ...(stopped.cleanupResult === undefined
+          ? {}
+          : { cleanupResult: stopped.cleanupResult }),
+        ...(failure?.collectionFailure === true
+          ? { collectionFailure: true }
+          : {}),
+      },
+      ownedCommandResources(launched.ownership, spawn.cwd),
+      supervisor,
     );
   if (failure !== undefined)
     throw new OwnedCommandFailure(
@@ -204,7 +248,13 @@ const collectOwnedCommand = async (
       failure.message,
       snapshot,
       failure.cleanupFailure,
-      { cause: failure },
+      {
+        cause: failure,
+        ...(failure.cleanupResult === undefined
+          ? {}
+          : { cleanupResult: failure.cleanupResult }),
+        ...(failure.collectionFailure ? { collectionFailure: true } : {}),
+      },
       failure.resources,
     );
   if (callerSignal?.aborted)

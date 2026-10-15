@@ -1,4 +1,6 @@
+import { isSafeNumber, type LosslessNumber } from "lossless-json";
 import type { WebNetworkCaptureRecord } from "../../domain/webNetworkCapture.js";
+import { parseRecordedTransportUrl } from "../../domain/recordedTransportUrl.js";
 
 type Redaction = WebNetworkCaptureRecord["redactions"][number];
 const CREDENTIAL_HEADERS = new Set([
@@ -25,10 +27,10 @@ export class CaptureRedaction {
   text(value: string, pointer: string, transportUrl = false): string | null {
     let result = value;
     if (transportUrl) {
-      const match =
-        /^([\x00-\x20]*(?:[a-z][a-z0-9+.-]*:)?\/\/)([^/?#]*@)/i.exec(result);
-      if (match !== null) {
-        result = `${match[1]}${result.slice(match[0].length)}`;
+      const { credentials } = parseRecordedTransportUrl(value);
+      if (credentials === "ambiguous") return this.credential(pointer);
+      if (credentials !== null) {
+        result = `${value.slice(0, credentials.start)}${value.slice(credentials.end)}`;
         this.redactions.push({ pointer, reason: "transport-credential" });
       }
     }
@@ -47,6 +49,22 @@ export class CaptureRedaction {
   credential(pointer: string): null {
     this.redactions.push({ pointer, reason: "transport-credential" });
     return null;
+  }
+
+  /** Check both retained spellings before projecting a producer JSON number. */
+  number(
+    value: LosslessNumber,
+    pointer: string,
+    redact = true,
+  ): { reported: number | null; literal: string } | null {
+    const reported = isSafeNumber(value.value) ? Number(value.value) : null;
+    if (
+      redact &&
+      (this.text(value.value, pointer) === null ||
+        (reported !== null && this.text(String(reported), pointer) === null))
+    )
+      return null;
+    return { reported, literal: value.value };
   }
 
   /** Known HAR credential surfaces; unknown extensions are ordinary caller-selected evidence. */

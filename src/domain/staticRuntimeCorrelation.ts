@@ -5,9 +5,13 @@ import { z } from "zod";
 
 import { artifactComparisonResultSchema } from "./artifactComparison.js";
 import { uniqueSorted } from "./canonicalOrdering.js";
-import { comparisonSourceEvidenceIds } from "./comparisonSourceEvidence.js";
+import { compareUnicodeCodePoints } from "./unicodeCodePointOrder.js";
+import {
+  comparisonSourceEvidenceIds,
+  assertComparisonFindingLinks,
+} from "./comparisonSourceEvidence.js";
 import { evidenceSchema, parseEvidence, type Evidence } from "./evidence.js";
-import { functionComparisonResultSchema } from "./functionComparison.js";
+import { functionComparisonResultSchema } from "./functionComparisonSchemas.js";
 import {
   PROCESS_PROVIDER,
   isProcessEvidenceProvider,
@@ -16,7 +20,7 @@ import type { JsonValue } from "./jsonValue.js";
 import {
   comparisonStatusSchema,
   processCaptureComparisonSchema,
-} from "./process/processCapture.js";
+} from "./process/processComparison.js";
 import { PROCESS_COMPARISON_DIMENSIONS } from "./process/processComparison.js";
 import { prefixedDigestSchema } from "./../domain/digests.js";
 
@@ -175,7 +179,7 @@ export const correlateStaticAndRuntime = (
   const correlations = parsed.mappings
     .map((mapping) => correlate(mapping, staticById, runtimeById))
     .sort((left, right) =>
-      left.correlation_id.localeCompare(right.correlation_id, "en"),
+      compareUnicodeCodePoints(left.correlation_id, right.correlation_id),
     );
   if (
     new Set(correlations.map(({ correlation_id: id }) => id)).size !==
@@ -235,7 +239,10 @@ const correlate = (
     mapping.runtime.comparison_evidence_id,
     "runtime comparison",
   );
-  const selectedStatic = selectStatic(staticEvidence, mapping.static.selector);
+  const { limitations: selectedLimitations, ...selectedStatic } = selectStatic(
+    staticEvidence,
+    mapping.static.selector,
+  );
   const process = processCaptureComparisonSchema.parse(
     runtimeEvidence.normalized_result,
   );
@@ -269,6 +276,7 @@ const correlate = (
     ]),
     limitations: uniqueSorted([
       ...staticEvidence.limitations,
+      ...selectedLimitations,
       ...runtimeEvidence.limitations,
       ...process.limitations,
       "This correlation tests an explicit hypothesis and does not establish causality.",
@@ -280,7 +288,9 @@ const correlate = (
 const selectStatic = (
   evidence: Evidence,
   selector: z.infer<typeof staticSelectorSchema>,
-): Pick<CorrelationItem["static"], "status" | "conclusion_kind"> => {
+): Pick<CorrelationItem["static"], "status" | "conclusion_kind"> & {
+  readonly limitations: readonly string[];
+} => {
   if (selector.kind === "function") {
     if (evidence.operation !== "compare_functions")
       throw new TypeError(
@@ -298,6 +308,7 @@ const selectStatic = (
     return {
       status: match.status,
       conclusion_kind: match.conclusion_kind,
+      limitations: match.limitations,
     };
   }
   if (evidence.operation !== "compare_artifacts")
@@ -318,6 +329,7 @@ const selectStatic = (
   const status = match.classification;
   return {
     status,
+    limitations: [],
     conclusion_kind:
       status === "contradiction"
         ? "contradiction"
@@ -341,7 +353,7 @@ const parseStatic = (input: unknown): Evidence => {
     const result = artifactComparisonResultSchema.parse(
       evidence.normalized_result,
     );
-    assertNestedLinks(
+    assertComparisonFindingLinks(
       evidence,
       result.changes.flatMap(({ evidence_links: links }) => links),
     );
@@ -349,23 +361,12 @@ const parseStatic = (input: unknown): Evidence => {
     const result = functionComparisonResultSchema.parse(
       evidence.normalized_result,
     );
-    assertNestedLinks(
+    assertComparisonFindingLinks(
       evidence,
       result.dimensions.flatMap(({ evidence_links: links }) => links),
     );
   }
   return evidence;
-};
-
-const assertNestedLinks = (
-  evidence: Evidence,
-  nestedLinks: readonly string[],
-): void => {
-  const closure = new Set(evidence.evidence_links);
-  if (nestedLinks.some((evidenceId) => !closure.has(evidenceId)))
-    throw new TypeError(
-      "Comparison finding cites Evidence outside its top-level closure",
-    );
 };
 
 const parseRuntime = (input: unknown): Evidence => {
