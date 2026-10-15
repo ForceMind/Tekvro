@@ -175,6 +175,15 @@ const registerMaintenanceCommands = (
         logger,
         CLI_COMMANDS.update,
         async () => {
+          if (PRODUCT_IDENTITY.privateSourceBuild)
+            return {
+              status: "failed" as const,
+              currentVersion: PRODUCT_IDENTITY.packageVersion,
+              latestVersion: null,
+              reason: "unknown-install-method" as const,
+              remediation:
+                "Tekvro is a source checkout and has no published npm update. Pull the reviewed Git changes and rebuild locally.",
+            };
           const [{ runUpdate }, { systemUpdateHost }] = await Promise.all([
             import("../application/Update.js"),
             import("../application/UpdateRuntime.js"),
