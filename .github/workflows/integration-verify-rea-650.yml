@@ -1,0 +1,71 @@
+name: Test REA 6.5.0 integration with native experiments
+
+on:
+  push:
+    branches:
+      - integration/rea-6.5.0-engine-prototype-20261015
+    paths:
+      - .github/workflows/integration-verify-rea-650.yml
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    if: github.repository == 'ForceMind/Tekvro'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      HUSKY: '0'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+      - name: Import missing upstream evaluation fixtures and run regression suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install -g npm@11.16.0
+          git clone --depth 1 --branch rea-agents-6.5.0 https://github.com/morluto/rea.git /tmp/rea-650-tests
+          test "$(git -C /tmp/rea-650-tests rev-parse HEAD)" = '3b79af28e80785afce9f5998d8f03289402a1847'
+          cp -a /tmp/rea-650-tests/experiments ./experiments
+          npm ci
+          npm run build:cached
+          logdir="$RUNNER_TEMP/rea-650-verification"
+          mkdir -p "$logdir"
+          summary='docs/upstream/rea-6.5.0-integration-prototype.md'
+          echo '' >> "$summary"
+          echo '### 后续集成复测（补齐上游 experiments + 调整 Tekvro 兼容测试）' >> "$summary"
+          failed=0
+          check() {
+            local label="$1"; shift
+            local slug="${label//[^[:alnum:]]/_}"
+            local rc=0
+            "$@" >"$logdir/$slug.log" 2>&1 || rc=$?
+            if [ "$rc" -eq 0 ]; then echo "- \`$label\`: **通过**" >> "$summary"; else
+              echo "- \`$label\`: **失败（exit $rc）**，日志保留到本次 workflow artifact" >> "$summary"
+              failed=1
+              echo "--- $label: first failing tests ---"
+              grep -E '^( FAIL| Test Files |      Tests  |[^[:space:]].*failed)' "$logdir/$slug.log" | tail -n 60 || true
+            fi
+          }
+          check 'npm run test:fast' npm run test:fast
+          check 'npm run test:focused -- tests/boundary/cli/localizedJavaScriptHelp.test.ts' npm run test:focused -- tests/boundary/cli/localizedJavaScriptHelp.test.ts
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A experiments docs/upstream/rea-6.5.0-integration-prototype.md
+          git rm -- .github/workflows/integration-verify-rea-650.yml
+          git commit -m 'test(engine): add pinned 6.5.0 experiment fixtures and record regression checks'
+          git push origin HEAD:refs/heads/integration/rea-6.5.0-engine-prototype-20261015
+          if [ "$failed" -ne 0 ]; then exit 1; fi
+      - name: Upload regression failure logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tekvro-rea650-regression-logs
+          path: ${{ runner.temp }}/rea-650-verification/*.log
+          if-no-files-found: ignore
