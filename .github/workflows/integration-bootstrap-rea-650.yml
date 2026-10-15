@@ -32,6 +32,7 @@ jobs:
           git -C /tmp/rea-upstream-650 submodule update --init --recursive --depth 1
           python3 tools/integration/assemble_650.py /tmp/rea-upstream-650
           npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          npm ci
           npm run metadata:generate
           report='docs/upstream/rea-6.5.0-integration-prototype.md'
           logdir="$RUNNER_TEMP/rea-650-prototype-logs"
