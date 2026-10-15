@@ -1,0 +1,81 @@
+name: Bootstrap Tekvro with pinned REA 6.5.0 engine
+
+on:
+  push:
+    branches:
+      - integration/rea-6.5.0-engine-prototype-20261015
+    paths:
+      - .github/workflows/integration-bootstrap-rea-650.yml
+
+permissions:
+  contents: write
+
+jobs:
+  assemble:
+    if: github.repository == 'ForceMind/Tekvro'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+      - name: Assemble and test development-only engine integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --global npm@11.16.0
+          git clone --depth 1 --branch rea-agents-6.5.0 https://github.com/morluto/rea.git /tmp/rea-upstream-650
+          git -C /tmp/rea-upstream-650 submodule update --init --recursive --depth 1
+          python3 tools/integration/assemble_650.py /tmp/rea-upstream-650
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          npm run metadata:generate
+          report='docs/upstream/rea-6.5.0-integration-prototype.md'
+          logdir="$RUNNER_TEMP/rea-650-prototype-logs"
+          mkdir -p "$logdir"
+          failed=0
+          check() {
+            local label="$1"; shift
+            local slug="${label//[^[:alnum:]]/_}"
+            local rc=0
+            "$@" >"$logdir/$slug.log" 2>&1 || rc=$?
+            if [ "$rc" -eq 0 ]; then echo "- \`$label\`: **通过**" >> "$report"; else
+              echo "- \`$label\`: **失败（exit $rc）**，需在后续提交中处理；日志见 GitHub Actions 原始记录" >> "$report"
+              failed=1
+              echo "--- $label (failure tail) ---"
+              tail -n 65 "$logdir/$slug.log" || true
+            fi
+            return 0
+          }
+          echo '' >> "$report"
+          echo '### 实际执行于 GitHub Actions Ubuntu 24.04 / Node 24.18.0 / npm 11.16.0' >> "$report"
+          check 'npm ci' npm ci
+          if [ "$failed" -eq 0 ]; then check 'npm run build:cached' npm run build:cached; fi
+          if [ "$failed" -eq 0 ]; then check 'npm run check:fast' npm run check:fast; fi
+          if [ "$failed" -eq 0 ]; then check 'node scripts/rea.mjs --help' node scripts/rea.mjs --help; fi
+          if [ "$failed" -eq 0 ]; then check 'node scripts/rea.mjs capabilities --json' node scripts/rea.mjs capabilities --json; fi
+          if [ "$failed" -eq 0 ]; then check 'npm run test:fast' npm run test:fast; fi
+          echo '' >> "$report"
+          echo '> 未运行的测试不等于成功。本记录只代表实际执行命令结果。' >> "$report"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A src bridge scripts tests native package.json package-lock.json \
+            tsconfig.json tsconfig.build.json vitest.config.ts turbo.json \
+            knip.json .jscpd.json .oxlintrc.json .oxfmtrc.json tools/integration docs/upstream
+          if [ -d licenses ]; then git add -A licenses; fi
+          if [ -f .gitattributes ]; then git add -A .gitattributes; fi
+          git rm -- .github/workflows/integration-bootstrap-rea-650.yml
+          git commit -m 'feat(engine): prototype REA 6.5.0 core with Tekvro identity isolation'
+          git push origin HEAD:refs/heads/integration/rea-6.5.0-engine-prototype-20261015
+          echo "PROTOTYPE_FAILED=$failed"
+          if [ "$failed" -ne 0 ]; then exit 1; fi
+      - name: Upload prototype logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tekvro-rea650-integration-logs
+          path: ${{ runner.temp }}/rea-650-prototype-logs/*.log
+          if-no-files-found: ignore
