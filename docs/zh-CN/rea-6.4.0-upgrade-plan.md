@@ -2,6 +2,8 @@
 
 > 状态：**已立项 / 实施未开始**；制定日期：2026-10-14。本文是升级执行基线，不代表代码已迁移、测试已通过或 Tekvro 已发布。
 >
+> **2026-10-15 补充：** 上游已发布 [REA 6.5.0](https://github.com/morluto/rea/releases/tag/rea-agents-6.5.0)。本文件保留 6.2～6.4 必需的底层迁移步骤；新增 T65-00～T65-06 的工作及 Breaking Changes 见 [6.5.0 增量升级方案](rea-6.5.0-upgrade-addendum.md)。6.4.0 与 6.5.0 原始源码已保存在隔离研究分支，但 Tekvro 引擎代码尚未移植。
+>
 > 总跟踪：[GitHub Issue #21](https://github.com/ForceMind/Tekvro/issues/21)；总路线：[docs/roadmap.md](../roadmap.md)；关联：[独立发行身份 #8](https://github.com/ForceMind/Tekvro/issues/8)、[中文化 #9](https://github.com/ForceMind/Tekvro/issues/9)、[CLI 中文帮助 PR #20](https://github.com/ForceMind/Tekvro/pull/20)。
 
 ## 一、决策与固定基线
