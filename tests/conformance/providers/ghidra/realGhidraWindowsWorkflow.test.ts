@@ -27,11 +27,7 @@ describe("Tekvro Windows Ghidra workflow trust boundary", () => {
       if: "github.ref == 'refs/heads/main'",
       needs: "native-artifact",
       environment: "real-ghidra-windows",
-      "runs-on": expect.arrayContaining([
-        "self-hosted",
-        "Windows",
-        "x64",
-      ]),
+      "runs-on": expect.arrayContaining(["self-hosted", "Windows", "x64"]),
       steps: expect.arrayContaining([
         expect.objectContaining({
           uses: expect.stringMatching(/^actions\/setup-node@/u),

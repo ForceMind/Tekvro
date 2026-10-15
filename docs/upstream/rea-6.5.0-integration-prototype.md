@@ -28,3 +28,11 @@
 ### 后续集成复测（补齐上游 experiments + 调整 Tekvro 兼容测试）
 - `npm run test:fast`: **失败（exit 1）**，日志保留到本次 workflow artifact
 - `npm run test:focused -- tests/boundary/cli/localizedJavaScriptHelp.test.ts`: **失败（exit 1）**，日志保留到本次 workflow artifact
+
+### 合并前迭代 3：新版引擎与 Tekvro 中文帮助
+- `npm run build:cached`: **通过**
+- `npm run check:fast`: **通过**
+- `npm run test:fast`: **通过**
+- `npm run test:focused -- tests/boundary/cli/localizedJavaScriptHelp.test.ts`: **通过**
+- `npm run format:check`: **失败（exit 1）**，本次日志随 Actions 附件保留
+- `node scripts/rea.mjs update --json`: **失败（exit 1）**，本次日志随 Actions 附件保留

@@ -140,13 +140,7 @@ describe("REA update", () => {
       status: "updated",
       installMethod: "bun",
       installedVersion: "3.3.0",
-      command: [
-        "bun",
-        "add",
-        "--global",
-        "--ignore-scripts",
-        "tekvro@3.3.0",
-      ],
+      command: ["bun", "add", "--global", "--ignore-scripts", "tekvro@3.3.0"],
     });
     expect(host.verifiedInstallation).toEqual(host.installationResult);
     expect(await runUpdate("3.3.0", host)).toMatchObject({

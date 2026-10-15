@@ -17,8 +17,10 @@ export const registerWebScriptCommands = (
   logger: Logger,
 ): void => {
   cli.command(CLI_COMMANDS.exportWebScripts, {
-    description:
-      selectHumanText("Export retained website scripts into an absent directory for static JavaScript analysis", "将已保留的网页脚本导出到新目录，供 JavaScript 静态分析"),
+    description: selectHumanText(
+      "Export retained website scripts into an absent directory for static JavaScript analysis",
+      "将已保留的网页脚本导出到新目录，供 JavaScript 静态分析",
+    ),
     args: z.object({
       capturePath: z
         .string()

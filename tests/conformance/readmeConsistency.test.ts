@@ -13,7 +13,9 @@ describe("Tekvro source-build documentation and distribution boundaries", () => 
       file("README.en.md"),
     ]);
     for (const text of [chinese, english]) {
-      expect(text).toContain("git clone https://github.com/ForceMind/Tekvro.git");
+      expect(text).toContain(
+        "git clone https://github.com/ForceMind/Tekvro.git",
+      );
       expect(text).toContain("npm run build:cached");
       expect(text).toContain("node scripts/rea.mjs doctor --json");
       expect(text).toContain("docs/zh-CN/quick-start.md");
@@ -78,6 +80,8 @@ describe("Tekvro source-build documentation and distribution boundaries", () => 
     expect(license).toContain("MIT License");
     expect(notices).toContain("REA");
     expect(readme).toContain("[LICENSE](LICENSE)");
-    expect(readme).toContain("[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)");
+    expect(readme).toContain(
+      "[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)",
+    );
   });
 });

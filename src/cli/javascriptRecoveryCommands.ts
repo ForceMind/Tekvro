@@ -19,8 +19,11 @@ export const registerJavaScriptRecoveryCommands = (
     createJavaScriptRecoveryProvider(environment),
   );
   cli.command(CLI_COMMANDS.recoverJavaScriptSources, {
-    description:
-      selectHumanText("Recover readable JavaScript modules with source provenance and verified files", "恢复可读 JavaScript 模块并保留来源及文件校验证据", environment),
+    description: selectHumanText(
+      "Recover readable JavaScript modules with source provenance and verified files",
+      "恢复可读 JavaScript 模块并保留来源及文件校验证据",
+      environment,
+    ),
     args: z.object({
       path: z
         .string()
