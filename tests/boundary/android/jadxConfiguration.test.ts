@@ -224,6 +224,16 @@ it("distinguishes a runnable JRE from a missing Java executable", async () => {
       process_error_code: "ENOENT",
     },
   });
+  await expect(
+    resolveConfiguration(
+      { REA_JADX_MCP_JAR: jar, PATH: emptyPath },
+      "inspect_android_package",
+    ),
+  ).rejects.toMatchObject({
+    _tag: "AnalysisCapabilityUnavailableError",
+    reason: expect.stringContaining("spawn java ENOENT"),
+    remediationAction: expect.stringContaining("java --list-modules"),
+  });
 });
 
 it("preserves exact Java probe output and marks max-buffer capture as truncated", async () => {

@@ -1,0 +1,156 @@
+name: Tekvro optional provider acceptance
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, labeled]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # Keep an expensive provider proof tied to its exact revision while fixes run.
+  group: tekvro-providers-${{ github.event.pull_request.number || github.ref }}-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  HUSKY: "0"
+
+jobs:
+  ghidra:
+    name: Real Ghidra host, ARM and m68k (Linux x64)
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'ci:providers')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      GHIDRA_RELEASE_URL: https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_12.1.4_build/ghidra_12.1.4_PUBLIC_20260921.zip
+      GHIDRA_RELEASE_SHA256: ddac49f903da9d5bac833e5cc79395098b9c33cfd3279be5f31bd00387d2d4db
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+      - name: Cache npm package downloads
+        uses: ./.github/actions/npm-cache
+      - run: npm ci
+      - run: npm run build:cached
+      - name: Check the SDK pin and acquire the full official distribution
+        shell: bash
+        run: |
+          node scripts/verify-ghidra-bridge-sources.mjs --check-sdk-pin >> "$GITHUB_ENV"
+          provider_root="$RUNNER_TEMP/tekvro-ghidra"
+          mkdir -p "$provider_root"
+          curl --fail --location --retry 3 "$GHIDRA_RELEASE_URL" -o "$provider_root/ghidra.zip"
+          printf '%s  %s\n' "$GHIDRA_RELEASE_SHA256" "$provider_root/ghidra.zip" | sha256sum --check
+          unzip -q "$provider_root/ghidra.zip" -d "$provider_root"
+          properties="$(find "$provider_root" -path '*/Ghidra/application.properties' -print -quit)"
+          test -n "$properties"
+          printf 'GHIDRA_INSTALL_DIR=%s\n' "$(dirname "$(dirname "$properties")")" >> "$GITHUB_ENV"
+      - name: Select the verified JDK and inspect prerequisites
+        shell: bash
+        run: |
+          java_home_variable="JAVA_HOME_${GHIDRA_JAVA_MAJOR}_X64"
+          test -n "${!java_home_variable}"
+          printf 'JAVA_HOME=%s\n' "${!java_home_variable}" >> "$GITHUB_ENV"
+          cc --version
+          clang --version
+      - name: Verify actual native inventory and function analysis
+        run: npm run verify:ghidra
+      - name: Verify actual AArch64 jump-table analysis
+        run: npm run verify:ghidra:aarch64-jump-table
+      - name: Verify actual m68k raw-image CLI and MCP
+        run: npm run verify:ghidra:m68k
+
+  kuna:
+    name: Real Kuna MCP lifecycle and retained exports (Linux x64)
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'ci:providers')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+      - name: Cache npm package downloads
+        uses: ./.github/actions/npm-cache
+      - run: npm ci
+      - run: npm run build:cached
+      - name: Acquire the verified Kuna release
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/tekvro-kuna"
+          curl --fail --location --retry 3 https://github.com/Noelo-Lab/kuna/releases/download/v1.833/kuna-v1.833-linux-x86_64.tar.gz -o "$RUNNER_TEMP/kuna.tgz"
+          printf '%s  %s\n' e9f047fb5a93925ede6d869df22c26c1c0ced90764ace7467ae90f880625d530 "$RUNNER_TEMP/kuna.tgz" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/kuna.tgz" --strip-components=1 -C "$RUNNER_TEMP/tekvro-kuna"
+          printf 'REA_KUNA_COMMAND=%s\n' "$RUNNER_TEMP/tekvro-kuna/kuna" >> "$GITHUB_ENV"
+      - name: Verify actual pseudocode, strings, calls, reuse and cleanup
+        run: npm run verify:kuna -- --report "$RUNNER_TEMP/kuna-report.json"
+      - name: Retain the bounded verification report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: tekvro-kuna-proof
+          path: ${{ runner.temp }}/kuna-report.json
+          if-no-files-found: ignore
+
+  android-resources:
+    name: Real compiled APK multilingual Evidence (Linux x64)
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'ci:providers')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+      - name: Cache npm package downloads
+        uses: ./.github/actions/npm-cache
+      - run: npm ci
+      - run: npm run build:cached
+      - name: Acquire the fixed official resource compiler and decoder
+        shell: bash
+        run: |
+          curl --fail --location --retry 3 https://github.com/iBotPeaches/Apktool/releases/download/v3.0.2/apktool_3.0.2.jar -o "$RUNNER_TEMP/apktool.jar"
+          printf '%s  %s\n' eee4669a704a14e0623407e6701b0b91887e61e1e4049cb7a82833e14ae8b5fd "$RUNNER_TEMP/apktool.jar" | sha256sum --check
+          cat > "$RUNNER_TEMP/tekvro-apktool" <<'SH'
+          #!/bin/sh
+          exec "$JAVA_HOME/bin/java" -jar "$TEKVRO_APKTOOL_JAR" "$@"
+          SH
+          chmod +x "$RUNNER_TEMP/tekvro-apktool"
+          printf 'JAVA_HOME=%s\n' "$JAVA_HOME_21_X64" >> "$GITHUB_ENV"
+          printf 'TEKVRO_APKTOOL_JAR=%s\n' "$RUNNER_TEMP/apktool.jar" >> "$GITHUB_ENV"
+          printf 'REA_APKTOOL_COMMAND=%s\n' "$RUNNER_TEMP/tekvro-apktool" >> "$GITHUB_ENV"
+      - name: Compile a source-owned resource-only APK
+        shell: bash
+        run: |
+          python3 scripts/fixtures/tekvro_android_locales.py "$RUNNER_TEMP/tekvro-android-locales"
+          "$REA_APKTOOL_COMMAND" build "$RUNNER_TEMP/tekvro-android-locales" --output "$RUNNER_TEMP/tekvro-locales.apk"
+      - name: Verify actual decoding and per-locale tables
+        run: npm run verify:apktool -- --apk "$RUNNER_TEMP/tekvro-locales.apk"
+      - name: Verify the same resource Evidence through CLI and MCP
+        run: node scripts/verify-tekvro-android-locales.mjs "$RUNNER_TEMP/tekvro-locales.apk"
+
+  jadx:
+    name: Real JADX package, classes, methods and references (Linux x64)
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'ci:providers')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+      - name: Cache npm package downloads
+        uses: ./.github/actions/npm-cache
+      - run: npm ci
+      - run: npm run build:cached
+      - name: Fetch the audited JADX jar and fixed Apache-2.0 ApiDemos APK
+        shell: bash
+        run: |
+          npm run fixtures:android -- "$RUNNER_TEMP/tekvro-jadx"
+          printf 'JAVA_HOME=%s\n' "$JAVA_HOME_21_X64" >> "$GITHUB_ENV"
+          printf 'REA_JADX_MCP_JAR=%s\n' "$RUNNER_TEMP/tekvro-jadx/jadx-headless-mcp-0.7.1-all.jar" >> "$GITHUB_ENV"
+          printf 'REA_ANDROID_TEST_APK=%s\n' "$RUNNER_TEMP/tekvro-jadx/ApiDemos-debug.apk" >> "$GITHUB_ENV"
+      - name: Verify actual CLI and MCP analysis, cancellation and recovery
+        run: npm run verify:android

@@ -22,6 +22,7 @@ import type { ProviderProcessSnapshot } from "../process/ProviderProcess.js";
 import { DarwinProcessOwnershipInspectionError } from "../process/DarwinProcessRunTokenReader.js";
 import { retainOwnedCommandCleanup } from "../providers/OwnedCommandCleanup.js";
 import { analysisClientFailureForOperation } from "../providers/AnalysisClientFailure.js";
+import { JADX_JAVA_RUNTIME_REMEDIATION } from "./JadxRelease.js";
 
 const JAVA_MODULE_LISTING_TIMEOUT_MS = 10_000;
 const JAVA_MODULE_LISTING_MAX_OUTPUT_BYTES = 1024 * 1024;
@@ -89,6 +90,10 @@ const projectRefusal = (
     {
       cause,
       userMessage: failure.message,
+      remediationAction:
+        failure.kind === "java_runtime"
+          ? JADX_JAVA_RUNTIME_REMEDIATION
+          : failure.message,
       diagnostics: {
         ...facts,
         failure_kind: failure.kind,

@@ -1,67 +1,47 @@
-# REA 6.7.0 内核集成记录
+# REA 6.7.0 内核集成与恢复记录
 
-## 固定来源和状态
+## 当前状态（2026-10-19）
 
-- 基于现有 6.5.0 集成成果继续开发；文档检查的 languages.json 阻塞已修复。
-- 目标源码：REA 6.7.0，提交 `27dc42d10249f0410904a75c0997842eb03b931c`。
-- 实施 PR：[#24](https://github.com/ForceMind/Tekvro/pull/24)，总任务：[#21](https://github.com/ForceMind/Tekvro/issues/21)。合并与资格状态以该 PR 的当前提交检查为准；下列记录区分已执行样本与未验证范围。
-- 生产代码已接入 src、bridge、CLI、MCP、配置编辑、Evidence、Snapshot 与分析提供方；研究分支没有整体合并。
-- 产品包保留兼容版本标记，内核来源单独记录在 engine-metadata.json。private:true、安装器拒绝、源码更新拒绝及发布工作流身份保护保持。
+[PR #24](https://github.com/ForceMind/Tekvro/pull/24) 已合并到 main，合并提交 `070736717dc0947ea90dea6023201b203837a016`。资格提交 `db18e56693c800628961cc00d383ae690e99b286` 与合并提交的源码树相同。内核来源为固定 REA 6.7.0 `27dc42d10249f0410904a75c0997842eb03b931c`，基于既有 6.5.0 集成继续完成，没有整体合并研究分支。总任务为 [Issue #21](https://github.com/ForceMind/Tekvro/issues/21)。
 
-## 契约和能力
+产品包 `tekvro` 保留 `6.1.0` 兼容标记，内核来源单列于 `engine-metadata.json`。MCP 身份为 `io.github.forcemind/tekvro`；新注册启动本地构建，旧命令及配置保留识别和迁移。`TEKVRO_LANG`、中文帮助、MIT/第三方告知、`private:true`、安装器/源码更新拒绝与全部发布入口保护保持。没有 npm、MCP Registry、正式 Release 发布或定时任务。
 
-- Evidence 和 Snapshot 的 relationship_coverage 纳入解析与摘要身份；缺失字段的历史 Evidence 不补造，保留原始文件并重新采集。
-- Artifact Inventory 覆盖范围、integrity_contradictions、浏览器预算与遗漏、取消和清理证据、provider unknown 状态沿固定 6.7.0 生产者和消费者同步迁移。
-- JavaScript 精确源码选择、模块关系及 retained javascript-facts 路径/属性过滤和分页接入共享 CLI/MCP 工作流。
-- 集成 WASM、Electron、APK 多语言表、Kuna、Ghidra 架构更新、网络保存制品与 SQLite 等对应适配代码。适配代码不等于外部工具实机验证。
-- JSON/JSONC 重复成员沿新版格式解析和事务编辑，仍保留 Tekvro 本地注册策略及旧命令兼容。
+## 实际实现
 
-## 已执行验证
+- 6.5 文档阻塞已修复：文档事实生成器适配真实 Tekvro 中英文 README/网站，保留本地链接验证；没有伪造 `website/locales/languages.json`。
+- Evidence/Snapshot 的 nullable `relationship_coverage` 同步进入生产、解析、身份计算、摘要和历史读取。历史记录缺失必要字段时保留原文件并拒绝使用，明确要求重新采集，不补造覆盖事实。
+- Artifact Inventory 覆盖及 `integrity_contradictions`、浏览器预算与遗漏、取消/超时/清理证据、provider unknown 状态，以及 JSON/JSONC 重复成员的事务编辑按固定 6.7 契约同步迁移。
+- 精确 JavaScript source/module 选择、模块与属性/调用关系、retained javascript-facts 查询/过滤/分页由共享应用层接入 CLI/MCP。WASM、Electron、Android locales、Kuna、Ghidra、网络制品和 SQLite 适配代码已集成；外部工具运行范围见下表。
+- 实际发现清单为 207 个 MCP 工具、153 个 CLI 命令和 6 个 prompts。机器工具 ID、字段及 Schema 不随帮助语言改变。
+- Windows native 制品必须来自同一 Tekvro Git 提交的 CI 或该源码构建；兼容版本号与 ABI/哈希校验不能代替源提交一致性。不能改用公共 `rea-agents` 包。
 
-本地 Linux / Node.js 24.19.0：npm ci、build:cached、docs:check 已通过；中文 CLI 11 项、源码更新拒绝与发行配置 6 项通过。其后配置和安装器回归仍在迭代，完整 CI 未通过前不得宣布验收。
+## 已通过验证
 
-本机沙箱的 /proc 进程身份读取与 Unix socket 受限，部分真正启动受监督进程的分析会明确返回 capability_unavailable。相关用例交由 GitHub 托管运行器验证，不能把本机受限执行当作分析成功。
+| 执行环境/范围               | 真实结果与记录                                                                                                                                                                                                                                     |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 当前提交完整 CI             | [39221071429](https://github.com/ForceMind/Tekvro/actions/runs/39221071429)：六覆盖率分片共 19,178 通过、170 跳过、0 失败；静态、构建、docs、覆盖率汇总及最终 CI 门禁通过                                                                          |
+| Linux H5/WASM               | [核心验收](https://github.com/ForceMind/Tekvro/actions/runs/39221071209)：JS 精确范围与 retained MCP facts、固定 WABT 1.0.42 的源码/安装包 WASM 检查及接口比较通过                                                                                 |
+| macOS arm64 Electron        | 同一核心验收：官方 Electron 44.9.0 的 discovery、生命周期、IPC、reload、取消及清理通过                                                                                                                                                             |
+| 平台包与公共接口            | 完整 CI 的 Windows x64 能力/安装包、Apple CLI/MCP、Linux x64/arm64 和 macOS x64/arm64 原生包基线通过；不代表每个可选引擎均在这些平台运行                                                                                                           |
+| 浏览器/网络/恢复            | 完整 CI 的真实 browser、Web runtime、HAR/PCAP、source maps、JS recovery、binary layout 和 SQLite Node22/24/26 兼容检查通过                                                                                                                         |
+| 其他独立真实样本            | [packet capture](https://github.com/ForceMind/Tekvro/actions/runs/39221071366)、[signal recording](https://github.com/ForceMind/Tekvro/actions/runs/39221071225)、[Go metadata](https://github.com/ForceMind/Tekvro/actions/runs/39221071326) 通过 |
+| 安装包录制崩溃              | [Ubuntu/Debian](https://github.com/ForceMind/Tekvro/actions/runs/39216029765) 真实 CLI/MCP 通过；此前错误的包路径已修复                                                                                                                            |
+| 本地 Work / Linux Node24.19 | npm ci、build:cached、check:ci（8 项及架构守卫）、docs:check、licenses、format 通过；双语/注册18、CI 分流224、注册状态39、配置/缓存31、安装器37、Evidence27、Snapshot12 等针对性测试通过                                                           |
 
-## 验证边界与恢复
+本地 Work 的 procfs、PTY/Unix socket 限制使部分真实监督进程测试失败，未计为通过；完整回归由 GitHub 托管运行器执行。历史 `javascript-interruption-applicability-2026-10-15.json` 是固定上游 Joplin 样本，仅用于范围归因回归，不能算作本次 Tekvro 实测。
 
-无真实 Hopper、IDA、Kuna、JADX/ADB 设备或 Frida 插桩验收声明。CI 的平台和样本通过项在本记录后续补充；模拟提供方只验证协议和错误行为。
+## 可复现命令
 
-- 所有开发均在实施分支，main 仍保留既有版本。回滚使用 PR revert，不强制改写主线。
-- 继续处理 PR #24 的失败检查、跨平台包验证、真实 H5/Electron/WASM 和 MCP Evidence 链路。
-- 不设置定时任务，不执行 npm、Registry 或正式 Release 发布。
+使用 `.nvmrc` 的 Node24.18.0 和 `packageManager` 的 npm11.16.0；本地记录另注明实际 Node24.19.0。先运行 `npm ci`、`npm run build:cached`、`npm run check:ci` 和 `npm run docs:check`。`npm run test:focused -- PATH...` 运行指定回归；完整资格由 PR 的 `ci:full` 标签触发覆盖率及平台矩阵。
 
-### 真实 Linux Electron 边界（2026-10-19）
+`scripts/rea.mjs --help`、`TEKVRO_LANG=zh-CN node scripts/rea.mjs --help`、`node scripts/rea.mjs mcp` 分别提供 CLI 帮助和 stdio MCP。真实 H5/WASM/Electron 验证的固定依赖、fixture 和命令写在 `.github/workflows/tekvro-engine-acceptance.yml`；该记录链接到实际运行，不把模拟引擎等同实机。
 
-固定 Electron 44.9.0 的 CLI/MCP 验收进入了 discovery、页面脚本检查、静态分析与 runtime reconciliation；作业因 Chromium 子进程 run-token mismatch 和 /proc/environ 权限限制在清理阶段失败。原始记录：[Linux 验收](https://github.com/ForceMind/Tekvro/actions/runs/39214005017)。这与上游 docs/verification/electron-cancellation-2026-10-16.md 记录的 Linux ownership gap 一致。
+可选提供方工作流 `.github/workflows/tekvro-provider-acceptance.yml` 使用 PR 标签 `ci:providers` 或手工触发，校验固定官方 Ghidra12.1.4、Kuna1.833、Apktool3.0.2、JADX0.7.1 及 ApiDemos6.0.18 的 SHA-256。它只在 CI 临时目录使用工具和样本，不将外部二进制提交或捆绑到 Tekvro，不改变用户安装器。该工作流的运行结果尚待补充，不能提前视为通过。
 
-不能将该结果写成 Linux Electron 完整运行成功，也不能用进程名称或 PID 推定归属来强行清理。完整 Electron 验收改在 macOS arm64 执行；Linux Electron 运行和取消仍保留 partial/cleanup_incomplete 边界，是否满足具体任务需逐项判断。Linux H5 静态、浏览器和 WASM 分别验证。
+## 限制与下一步
 
-### 已通过的真实核心验收（2026-10-19）
-
-[Linux 核心作业](https://github.com/ForceMind/Tekvro/actions/runs/39214005017)：精确 JavaScript source selection、retained MCP facts 分页、Electron 模块静态互操作与 Fuses 的 24 项测试通过、1 项按平台跳过。固定 WABT 1.0.42 的实际 WASM 制品检查与接口比较均通过，使用官方 release asset 并核对 SHA-256；未将跳过执行视作通过。
-
-后续修复恢复了顶层与 setup/doctor 的既有中文帮助，扩展 WASM 和 Evidence 查询中文帮助，并恢复带空格、单双引号源码路径的本地 MCP 注册序列化；19 项 CLI/注册/更新拒绝测试本地通过。完整资格 CI 以 PR 当前 head 为准。为避免旧的完整资格作业阻塞更新后的 head，ci:full 的并发分组绑定实际 PR head SHA；保留旧作业记录。
-
-### 当前 head 的资格验证进度（2026-10-19 07:27 UTC）
-
-提交 `6aecacf82936c499bb0b67039adabd84ccafc63e` 的[核心验收](https://github.com/ForceMind/Tekvro/actions/runs/39215091356)通过：Linux JavaScript 选择和 retained facts、固定 WABT 的源码及安装包 WASM CLI/MCP、macOS arm64 官方 Electron 44.9.0 的完整生命周期、IPC、reload、取消与清理。此前 Linux Electron 失败记录仍适用。
-
-[完整 CI](https://github.com/ForceMind/Tekvro/actions/runs/39215091650)的静态检查、包构建、文档生成、真实浏览器、Web runtime、HAR/PCAP 网络捕获、源映射、JavaScript recovery、二进制布局、Linux x64/arm64 包基线以及 Node 22/24/26 SQLite 检查已通过；六分片回归及剩余平台检查仍在执行。Ghidra 此处仅验证桥接源码编译，不能推导为所有架构实机成功。
-
-真实 Go metadata、packet capture 和 signal recording 独立工作流也已通过。录制崩溃的 Ubuntu/Debian 作业发现旧安装包路径，现已改为 `node_modules/tekvro` 并增加有限 stderr 诊断；需要新提交 CI 重新验证。本地包 canary 已进入 MCP 生命周期，但因 Work 的 procfs 限制失败，未计为通过。恢复发布工作流也增加了与主发布流程一致的上游仓库保护，Tekvro 不会执行 npm 或 MCP Registry 发布。
-
-回归依赖的 `javascript-interruption-applicability-2026-10-15.json` 从固定上游提交逐字保留；它是上游历史 Joplin 样本记录，仅用于检验 scope 归因的正确/错误对照，不能算作本次 Tekvro 运行证据。
-
-### 完整回归修复批次（2026-10-19 07:36 UTC）
-
-完整 CI 的六个分片已返回，发现并修复 Tekvro 产品适配遗漏：旧 npm 安装路径、源码更新拒绝、包身份夹具、本地 launcher 及 doctor 的入口身份、中文 PR 模板、README.en.md 文档分流、生成的翻译暂存目录和托管缓存策略。保留旧版精确 npm 注册的读取并提供迁移提示；新配置继续指向本地 Tekvro。没有删除有效检查或把未知身份提升为已对齐。
-
-本地针对性复测：文档分流 224 项通过；配置/模板/历史 scope 与 tar 清单批次中已修复的 287 项通过（含 1 项平台跳过），两项 CLI 文件单独复测 4 项通过；注册状态 39 项通过、3 项跳过；最后分片策略/缓存/分层配置 31 项通过；双语帮助及带引号路径本地 MCP 注册 18 项通过。check:ci 的 8 个任务、架构守卫、docs:check 和许可证检查通过。npm runner 模拟环境的 setup/doctor 两项在 Work 受限宿主仍无法运行，必须以托管运行器结果验收。
-
-真实 Windows 包/能力、Apple CLI/MCP、Linux 与 macOS 的四个架构包基线在旧 head 的完整 CI 均已通过；这些结果不代替本批次当前提交的完整资格。新 CI 需要重跑全部必要检查。
-
-### 发行身份末轮审计
-
-Windows/MSIX 修复提示、Grok Bot 手工配置、交互向导与 Windows native 恢复文档的旧上游包建议已改为当前 Tekvro 源码工作流。尤其不能用 `rea-agents@6.1.0` 的原生二进制匹配 Tekvro 的产品兼容版本：Windows addon 必须来自同一 Tekvro Git 提交的 CI 构建，或由该源码明确构建。manifest 的版本/ABI/哈希校验不代替操作者确认源提交。历史 `docs/user-visible-errors.csv` 是原上游错误文案研究记录，其中旧命令不是当前安装指引。
-
-Windows 修复提示复测：提交 `9ade4fd` 的完整 CI 第六分片发现 Ghidra doctor 断言仍要求旧 REA 包说明；已同步 Ghidra/JADX/Windows 回归与 Tekvro 构建指引。Ghidra doctor 16 项、Windows conformance 4 项及 JADX 的 10 项本地检查通过；另外 10 项需要启动 Java 探针，在 Work 的 procfs 限制下失败，仍交由当前提交 CI 验证。没有放宽权限或制品真实性校验。
+- [Linux Electron](https://github.com/ForceMind/Tekvro/actions/runs/39214005017) 到达页面、脚本、静态和 runtime reconciliation，但 Chromium 子进程 run-token mismatch / procfs 权限使清理未完成。保留 `partial/cleanup_incomplete`；不得用 PID/进程名推断归属来绕过。完整 Electron 结论限 macOS arm64。
+- Ghidra 桥接源码编译已通过，真实 Ghidra/Kuna/JADX/Apktool 的独立验收正在实施。不能将任何 Linux x64 结果推广为全部宿主或全部架构支持。
+- 没有授权的 Hopper/IDA/JEB 实例、ADB 设备或 Frida 插桩目标；这些保持未验证，Frida/设备修改需明确目标授权。WASM 静态分析不等于恢复原始 Unity/C# 源码。
+- Node22 的 SQLite 兼容测试覆盖拒绝/能力边界；真正 SQLite 分析仍要求相应 Node24.15+/26+ 原生支持。
+- 恢复入口：从 main 和 `engine-metadata.json` 确定版本，查看本记录与 Issue #21，重跑对应工作流并读取失败日志。回滚用 PR revert；不强制改写主线或删除历史。可选工具缺失应返回明确不可用/unknown，不生成空成功结果。
