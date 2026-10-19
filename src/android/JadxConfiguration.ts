@@ -303,6 +303,10 @@ const projectConfigurationFailure = (
     {
       cause,
       userMessage: cause.message,
+      remediationAction:
+        cause.kind === "java_probe"
+          ? cause.message
+          : projectJadxFailureOutcome(cause.kind, true).remediation,
       diagnostics: {
         ...facts,
         failure_kind: cause.kind,
