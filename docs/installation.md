@@ -522,4 +522,3 @@ The reserved product identity is `io.github.forcemind/tekvro`. No independent Re
 ```
 
 The `rea` registration key remains for compatibility. Use absolute paths to the intended Node.js runtime and checkout. Setup resolves these paths automatically and displays them in its plan.
-
