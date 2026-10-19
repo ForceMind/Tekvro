@@ -167,6 +167,7 @@ it("limits recovery to verification and dependent MCP publication from the relea
           steps: z.array(step),
         }),
         "publish-mcp": z.object({
+          if: z.string(),
           needs: z.string(),
           permissions: z.record(z.string(), z.string()),
           steps: z.array(step),
@@ -177,7 +178,13 @@ it("limits recovery to verification and dependent MCP publication from the relea
       parse(await readFile(".github/workflows/release-recovery.yml", "utf8")),
     );
   expect(Object.keys(workflow.on)).toEqual(["workflow_dispatch"]);
-  expect(workflow.jobs.verify.if).toBe("github.ref == 'refs/heads/main'");
+  expect(workflow.jobs.verify.if).toContain("github.ref == 'refs/heads/main'");
+  expect(workflow.jobs.verify.if).toContain(
+    "github.repository == 'morluto/rea'",
+  );
+  expect(workflow.jobs["publish-mcp"].if).toBe(
+    "github.repository == 'morluto/rea'",
+  );
   expect(workflow.jobs.verify.permissions).toEqual({
     contents: "read",
     actions: "read",

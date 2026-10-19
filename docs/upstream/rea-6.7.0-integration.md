@@ -41,3 +41,11 @@
 [Linux 核心作业](https://github.com/ForceMind/Tekvro/actions/runs/39214005017)：精确 JavaScript source selection、retained MCP facts 分页、Electron 模块静态互操作与 Fuses 的 24 项测试通过、1 项按平台跳过。固定 WABT 1.0.42 的实际 WASM 制品检查与接口比较均通过，使用官方 release asset 并核对 SHA-256；未将跳过执行视作通过。
 
 后续修复恢复了顶层与 setup/doctor 的既有中文帮助，扩展 WASM 和 Evidence 查询中文帮助，并恢复带空格、单双引号源码路径的本地 MCP 注册序列化；19 项 CLI/注册/更新拒绝测试本地通过。完整资格 CI 以 PR 当前 head 为准。为避免旧的完整资格作业阻塞更新后的 head，ci:full 的并发分组绑定实际 PR head SHA；保留旧作业记录。
+
+### 当前 head 的资格验证进度（2026-10-19 07:27 UTC）
+
+提交 `6aecacf82936c499bb0b67039adabd84ccafc63e` 的[核心验收](https://github.com/ForceMind/Tekvro/actions/runs/39215091356)通过：Linux JavaScript 选择和 retained facts、固定 WABT 的源码及安装包 WASM CLI/MCP、macOS arm64 官方 Electron 44.9.0 的完整生命周期、IPC、reload、取消与清理。此前 Linux Electron 失败记录仍适用。
+
+[完整 CI](https://github.com/ForceMind/Tekvro/actions/runs/39215091650)的静态检查、包构建、文档生成、真实浏览器、Web runtime、HAR/PCAP 网络捕获、源映射、JavaScript recovery、二进制布局、Linux x64/arm64 包基线以及 Node 22/24/26 SQLite 检查已通过；六分片回归及剩余平台检查仍在执行。Ghidra 此处仅验证桥接源码编译，不能推导为所有架构实机成功。
+
+真实 Go metadata、packet capture 和 signal recording 独立工作流也已通过。录制崩溃的 Ubuntu/Debian 作业发现旧安装包路径，现已改为 `node_modules/tekvro` 并增加有限 stderr 诊断；需要新提交 CI 重新验证。本地包 canary 已进入 MCP 生命周期，但因 Work 的 procfs 限制失败，未计为通过。恢复发布工作流也增加了与主发布流程一致的上游仓库保护，Tekvro 不会执行 npm 或 MCP Registry 发布。

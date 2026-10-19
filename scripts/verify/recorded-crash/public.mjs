@@ -20,11 +20,21 @@ export async function connectRecordedCrash({ entrypoint, environment }) {
     env: environment,
     stderr: "pipe",
   });
+  let diagnostics = "";
+  transport.stderr?.on("data", (chunk) => {
+    if (diagnostics.length < 16_384)
+      diagnostics += chunk
+        .toString("utf8")
+        .slice(0, 16_384 - diagnostics.length);
+  });
   try {
     await client.connect(transport);
   } catch (cause) {
     await transport.close();
-    throw cause;
+    throw new Error(
+      `Installed recorded-crash MCP launch failed: ${diagnostics}`,
+      { cause },
+    );
   }
   return {
     client,

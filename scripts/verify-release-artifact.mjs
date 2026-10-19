@@ -1,3 +1,4 @@
+import { PRODUCT_IDENTITY } from "../dist/identity.js";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -43,5 +44,5 @@ try {
   await rm(workspace, { recursive: true, force: true });
 }
 process.stdout.write(
-  `${JSON.stringify({ verifier_run: await completeVerifierRun(verifierRun), package: "rea-agents", version, source, ...result })}\n`,
+  `${JSON.stringify({ verifier_run: await completeVerifierRun(verifierRun), package: PRODUCT_IDENTITY.packageName, version, source, ...result })}\n`,
 );
