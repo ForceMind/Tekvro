@@ -687,4 +687,14 @@ it("reports a complete large-upgrade selection without putting its JSON in the c
       CI_TEST_SELECTION: serialized.slice(0, 100),
     }),
   ).rejects.toMatchObject({ code: 1 });
+  await executeTimingReport(root, { CI_TEST_SELECTION_PATH: path });
+  await writeFile(path, "");
+  await expect(
+    executeTimingReport(root, {
+      CI_TEST_SELECTION_PATH: path,
+    }),
+  ).rejects.toMatchObject({ code: 1 });
+  await expect(
+    readFile(join(root, ".cache/ci-test-history/test-results.json")),
+  ).rejects.toMatchObject({ code: "ENOENT" });
 });
