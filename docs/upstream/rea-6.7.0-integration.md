@@ -29,3 +29,9 @@
 - 所有开发均在实施分支，main 仍保留既有版本。回滚使用 PR revert，不强制改写主线。
 - 继续处理 PR #24 的失败检查、跨平台包验证、真实 H5/Electron/WASM 和 MCP Evidence 链路。
 - 不设置定时任务，不执行 npm、Registry 或正式 Release 发布。
+
+### 真实 Linux Electron 边界（2026-10-19）
+
+固定 Electron 44.9.0 的 CLI/MCP 验收进入了 discovery、页面脚本检查、静态分析与 runtime reconciliation；作业因 Chromium 子进程 run-token mismatch 和 /proc/environ 权限限制在清理阶段失败。原始记录：[Linux 验收](https://github.com/ForceMind/Tekvro/actions/runs/39214005017)。这与上游 docs/verification/electron-cancellation-2026-10-16.md 记录的 Linux ownership gap 一致。
+
+不能将该结果写成 Linux Electron 完整运行成功，也不能用进程名称或 PID 推定归属来强行清理。完整 Electron 验收改在 macOS arm64 执行；Linux Electron 运行和取消仍保留 partial/cleanup_incomplete 边界，是否满足具体任务需逐项判断。Linux H5 静态、浏览器和 WASM 分别验证。

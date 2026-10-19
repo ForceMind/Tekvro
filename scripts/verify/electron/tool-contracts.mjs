@@ -86,6 +86,7 @@ bridge.exposeInMainWorld("fixture", {
     serverStderr += chunk.toString();
   });
   let application;
+  let primaryFailure;
   let stderr = "";
   try {
     await readProcessRunId(process.pid);
@@ -263,10 +264,11 @@ bridge.exposeInMainWorld("fixture", {
     if (process.platform !== "win32")
       await verifyCancellation({ input, ready, entrypoint, root });
   } catch (cause) {
-    throw new Error(
+    primaryFailure = new Error(
       `Electron public-tool verification failed: ${cause.message}\nMCP stderr:\n${serverStderr}`,
       { cause },
     );
+    throw primaryFailure;
   } finally {
     await client.close();
     await transport.close();
@@ -278,7 +280,16 @@ bridge.exposeInMainWorld("fixture", {
         expectedParentPid: process.pid,
         expectedCommand: executable,
       });
-      assert.equal(cleanup.cleaned, true, JSON.stringify(cleanup));
+      if (!cleanup.cleaned)
+        throw new AggregateError(
+          [
+            ...(primaryFailure === undefined ? [] : [primaryFailure]),
+            new Error(
+              `Electron fixture cleanup failed: ${JSON.stringify(cleanup)}`,
+            ),
+          ],
+          "Electron verification and/or owned fixture cleanup failed",
+        );
     }
     await rm(root, { recursive: true, force: true });
   }
@@ -415,7 +426,16 @@ async function verifyCancellation({ input, ready, entrypoint, root }) {
     }
     if (ownership) {
       const cleanup = await cleanupOwnedProcessGroup(ownership);
-      assert.equal(cleanup.cleaned, true, JSON.stringify(cleanup));
+      if (!cleanup.cleaned)
+        throw new AggregateError(
+          [
+            ...(primaryFailure === undefined ? [] : [primaryFailure]),
+            new Error(
+              `Electron fixture cleanup failed: ${JSON.stringify(cleanup)}`,
+            ),
+          ],
+          "Electron verification and/or owned fixture cleanup failed",
+        );
     }
   }
 }

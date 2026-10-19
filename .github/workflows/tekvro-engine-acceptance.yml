@@ -56,10 +56,11 @@ jobs:
         run: |
           npm run verify:wasm:artifact -- --require-tools
           npm run verify:wasm-interface-comparison
+          npm run verify:wasm:package
 
   electron:
-    name: Real Electron lifecycle and IPC (Linux x64)
-    runs-on: ubuntu-24.04
+    name: Real Electron lifecycle and IPC (macOS arm64)
+    runs-on: macos-15
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -73,12 +74,10 @@ jobs:
         shell: bash
         run: |
           mkdir -p "$RUNNER_TEMP/electron"
-          curl --fail --location --retry 3 https://github.com/electron/electron/releases/download/v44.9.0/electron-v44.9.0-linux-x64.zip -o "$RUNNER_TEMP/electron.zip"
-          printf '%s  %s\n' ecced7ecb55697f92ca870939c5988557faa8acd8c222c232cae5913d318c8b9 "$RUNNER_TEMP/electron.zip" | sha256sum --check
+          curl --fail --location --retry 3 https://github.com/electron/electron/releases/download/v44.9.0/electron-v44.9.0-darwin-arm64.zip -o "$RUNNER_TEMP/electron.zip"
+          printf '%s  %s\n' 12d873a5ae98a6598e730402e9278c5d132e97ea1a4405a7713bec2a3e83921f "$RUNNER_TEMP/electron.zip" | shasum -a 256 --check
           unzip -q "$RUNNER_TEMP/electron.zip" -d "$RUNNER_TEMP/electron"
-          sudo chown root:root "$RUNNER_TEMP/electron/chrome-sandbox"
-          sudo chmod 4755 "$RUNNER_TEMP/electron/chrome-sandbox"
       - name: Verify actual Electron CLI/MCP capture, IPC, reload and cleanup
         env:
-          REA_ELECTRON_EXECUTABLE: ${{ runner.temp }}/electron/electron
-        run: xvfb-run -a npm run verify:electron
+          REA_ELECTRON_EXECUTABLE: ${{ runner.temp }}/electron/Electron.app/Contents/MacOS/Electron
+        run: npm run verify:electron

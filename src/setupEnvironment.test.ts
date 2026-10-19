@@ -10,13 +10,13 @@ import { runSetup } from "./application/Setup.js";
 import { discoverSetupState } from "./application/SetupPlan.js";
 import { options } from "./application/Setup.fixture.js";
 import { systemSetupHost } from "./application/SetupHost.js";
+import { CURRENT_ENTRYPOINT_PATH } from "./process/CurrentEntrypointPath.js";
 import { systemUninstallHost } from "./application/Uninstall.js";
 import { runUpdateCommand } from "./application/UpdateRuntime.js";
 import { createSystemDoctorHost } from "./doctorRuntime.js";
 import { PRODUCT_IDENTITY } from "./identity.js";
 import {
   invokingPackageRunner,
-  packageRunnerRegistrationCommand,
   withoutPackageRunnerIdentity,
 } from "./application/ClientRegistrationIdentity.js";
 import { snapshotEnvironment } from "./process/snapshotEnvironment.js";
@@ -63,7 +63,8 @@ it("plans setup and uninstall against selected home and client overrides", async
         }),
       ]),
     );
-    expect(host.registrationCommand).toContain(
+    expect(host.registrationCommand).toContain(CURRENT_ENTRYPOINT_PATH);
+    expect(host.registrationCommand).not.toContain(
       PRODUCT_IDENTITY.registrationPackageSpecifier,
     );
     const clients = await systemUninstallHost(
@@ -248,7 +249,7 @@ it.each([
   { userAgent: "npm/10.9.0 node/v24.11.0 win32 x64", runner: "npx" },
   { userAgent: "bun/1.4.2 npm/? node/v26.3.0 win32 x64", runner: "bunx" },
 ] as const)(
-  "registers the $runner launcher from a Windows CLI environment snapshot",
+  "keeps a local source launcher even with a Windows $runner invocation snapshot",
   ({ userAgent, runner }) => {
     // The CLI snapshot canonicalizes Windows variable names to upper case.
     const environment = snapshotEnvironment(
@@ -261,14 +262,14 @@ it.each([
         createDoctorHostFixture({ platform: "win32" }),
         environment,
       ).registrationCommand,
-    ).toEqual(packageRunnerRegistrationCommand(runner, "win32"));
+    ).toEqual([process.execPath, CURRENT_ENTRYPOINT_PATH, "mcp"]);
     expect(withoutPackageRunnerIdentity(environment, "win32")).toEqual({
       NPM_CONFIG_USER_AGENT: userAgent,
     });
   },
 );
 
-it("registers the selected Windows package runner after canonicalizing environment aliases", async () => {
+it("keeps the Windows source launcher after canonicalizing package-runner aliases", async () => {
   const environment = snapshotEnvironment(
     {
       NPM_COMMAND: "run",
@@ -288,9 +289,11 @@ it("registers the selected Windows package runner after canonicalizing environme
     environment,
   );
   try {
-    expect(host.registrationCommand).toEqual(
-      packageRunnerRegistrationCommand("npx", "win32"),
-    );
+    expect(host.registrationCommand).toEqual([
+      process.execPath,
+      CURRENT_ENTRYPOINT_PATH,
+      "mcp",
+    ]);
   } finally {
     await host.close?.();
   }

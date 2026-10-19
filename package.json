@@ -96,7 +96,8 @@
     "bridge/pwndbg/core_context.py",
     "third_party/pwndbg/README.md",
     "third_party/pwndbg/LICENSE.md",
-    "licenses"
+    "licenses",
+    "engine-metadata.json"
   ],
   "scripts": {
     "release:notes": "node scripts/release-notes.mjs",
