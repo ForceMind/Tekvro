@@ -481,14 +481,24 @@ export const CI_FLAGS = [
 // run. No selected CI lane executes them, so their edits need only the static
 // checks and the source-test suite. Shared helpers under scripts/lib remain
 // broad inputs.
+// These real providers have a pinned, opt-in hosted acceptance workflow.
+// The workflow owns their runtime prerequisites; ordinary edits still receive
+// static checking without claiming a provider run in the portable test lane.
+export const HOSTED_PROVIDER_VERIFIERS = new Set([
+  "scripts/verify-real-ghidra.mjs",
+  "scripts/verify-real-ghidra-m68k.mjs",
+  "scripts/verify-real-kuna.mjs",
+  "scripts/verify-apktool.mjs",
+  "scripts/verify-tekvro-android-locales.mjs",
+]);
+
 export const MANUAL_VERIFIERS = [
-  "scripts/verify-real-ghidra*.mjs",
+  "scripts/verify-real-ghidra-!(m68k).mjs",
   "scripts/verify-real-hopper*.mjs",
   "scripts/verify-real-ida.mjs",
   "scripts/verify-*-client.mjs",
   "scripts/verify-native-agent-client.mjs",
   "scripts/verify-jeb.mjs",
-  "scripts/verify-apktool.mjs",
   "scripts/verify-adb.mjs",
   "scripts/verify-agent-experience.mjs",
   "scripts/verify-packaged-ghidra-windows.mjs",

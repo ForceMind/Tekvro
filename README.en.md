@@ -78,7 +78,7 @@ Tekvro currently runs **from source**. An independent npm package and MCP Regist
 
 - The source package is named `tekvro`. Existing `rea` and `rea-agents` CLI aliases, as well as selected MCP registration keys, remain for compatibility.
 - `scripts/rea.mjs` is the current source entrypoint. The public `rea-agents` npm package is not a Tekvro build; `npx tekvro` is not a supported installation method until an independent release is available.
-- The package retains the `6.1.0` compatibility version while this branch integrates the fixed REA `6.7.0` engine. See `engine-metadata.json` and the [integration record](docs/upstream/rea-6.7.0-integration.md) for source provenance and validation. Neither version denotes an independent published release. See the [roadmap](docs/roadmap.md) and [distribution notes](docs/zh-CN/distribution.md).
+- The package retains the `6.1.0` compatibility version while main integrates the fixed, qualified REA `6.7.0` engine through PR #24. See `engine-metadata.json` and the [integration record](docs/upstream/rea-6.7.0-integration.md) for source provenance and validation. Neither version denotes an independent published release. See the [roadmap](docs/roadmap.md) and [distribution notes](docs/zh-CN/distribution.md).
 - `install.sh` does not perform an automatic download or installation before the independent release.
 
 ## License

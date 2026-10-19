@@ -1,7 +1,12 @@
 import { execFileSync } from "node:child_process";
 import { appendFileSync } from "node:fs";
 import { matchesGlob } from "node:path";
-import { CI_FLAGS as flags, MANUAL_VERIFIERS, SCOPES } from "./scopes.mjs";
+import {
+  CI_FLAGS as flags,
+  HOSTED_PROVIDER_VERIFIERS,
+  MANUAL_VERIFIERS,
+  SCOPES,
+} from "./scopes.mjs";
 import { planTestSelection } from "./test-selection.mjs";
 
 // Test files select the host/runtime lanes that execute their focused suites.
@@ -192,7 +197,10 @@ if (tier === "reused") {
           selected[owner] ||= matchesAny(file, SCOPES[owner]);
         continue;
       }
-      if (matchesAny(file, MANUAL_VERIFIERS)) {
+      if (
+        matchesAny(file, MANUAL_VERIFIERS) ||
+        HOSTED_PROVIDER_VERIFIERS.has(file)
+      ) {
         selected.code = true;
         continue;
       }
