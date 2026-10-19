@@ -103,17 +103,23 @@ export async function verifyAndroidFailureRecovery({
         label: "JRE without compiler",
         env: { ...environment, JAVA_HOME: jre },
         observation: "jdk.compiler",
+        message: /jdk\.compiler.*full JDK/u,
       },
       {
         label: "missing java",
         env: { ...withoutJavaHome, PATH: empty },
         observation:
           process.platform === "win32" ? "Cannot find java.exe" : "ENOENT",
+        message:
+          process.platform === "win32"
+            ? /Cannot find java\.exe/u
+            : /Cannot inspect selected Java runtime.*ENOENT/u,
       },
       {
         label: "invalid engine archive with a working JDK",
         env: { ...environment, REA_JADX_MCP_JAR: invalidJar },
         observation: "Cannot inspect REA_JADX_MCP_JAR",
+        message: /REA_JADX_MCP_JAR/u,
         jarFailure: true,
       },
     ];
@@ -126,6 +132,7 @@ export async function verifyAndroidFailureRecovery({
           label: "macOS Java stub",
           env: { ...withoutJavaHome, PATH: "/usr/bin:/bin" },
           observation: "Unable to locate a Java Runtime",
+          message: /Cannot inspect selected Java runtime/u,
         });
       }
     }
@@ -152,10 +159,7 @@ export async function verifyAndroidFailureRecovery({
         JSON.stringify(failure).includes(scenario.observation),
         JSON.stringify(failure),
       );
-      assert.match(
-        failure.message,
-        scenario.jarFailure ? /REA_JADX_MCP_JAR/u : /full JDK/u,
-      );
+      assert.match(failure.message, scenario.message);
       assert.match(
         failure.remediation.action,
         scenario.jarFailure ? /jadx-headless-mcp/u : /java --list-modules/u,
