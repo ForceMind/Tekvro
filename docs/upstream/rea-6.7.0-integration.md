@@ -63,3 +63,5 @@
 ### 发行身份末轮审计
 
 Windows/MSIX 修复提示、Grok Bot 手工配置、交互向导与 Windows native 恢复文档的旧上游包建议已改为当前 Tekvro 源码工作流。尤其不能用 `rea-agents@6.1.0` 的原生二进制匹配 Tekvro 的产品兼容版本：Windows addon 必须来自同一 Tekvro Git 提交的 CI 构建，或由该源码明确构建。manifest 的版本/ABI/哈希校验不代替操作者确认源提交。历史 `docs/user-visible-errors.csv` 是原上游错误文案研究记录，其中旧命令不是当前安装指引。
+
+Windows 修复提示复测：提交 `9ade4fd` 的完整 CI 第六分片发现 Ghidra doctor 断言仍要求旧 REA 包说明；已同步 Ghidra/JADX/Windows 回归与 Tekvro 构建指引。Ghidra doctor 16 项、Windows conformance 4 项及 JADX 的 10 项本地检查通过；另外 10 项需要启动 Java 探针，在 Work 的 procfs 限制下失败，仍交由当前提交 CI 验证。没有放宽权限或制品真实性校验。

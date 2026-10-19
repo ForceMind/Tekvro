@@ -495,7 +495,7 @@ const requireSupportedHost = (): void => {
       if (loaded.authority.inspection.protocolStdin === true) return;
       throw configurationFailure(
         "runtime_missing",
-        "The bundled Windows native artifact lacks owned protocol stdin; use a matching current Windows x64 REA package.",
+        "The bundled Windows native artifact lacks owned protocol stdin; use a matching current Windows x64 Tekvro build.",
         {
           platform: process.platform,
           architecture: process.arch,

@@ -19,7 +19,7 @@ const dependencies = (
       proof: "not-proven",
       code: "runtime_missing",
       failureStage: "artifact",
-      remediation: "Install the matching Windows x64 REA package.",
+      remediation: "Install the matching Windows x64 Tekvro build.",
     },
     private_runtime_dacl: {
       available: false,
@@ -27,7 +27,7 @@ const dependencies = (
       proof: "not-proven",
       code: "runtime_missing",
       failureStage: "artifact",
-      remediation: "Install the matching Windows x64 REA package.",
+      remediation: "Install the matching Windows x64 Tekvro build.",
     },
     reparse_safe_path_admission: {
       available: false,
@@ -35,7 +35,7 @@ const dependencies = (
       proof: "not-proven",
       code: "runtime_missing",
       failureStage: "artifact",
-      remediation: "Install the matching Windows x64 REA package.",
+      remediation: "Install the matching Windows x64 Tekvro build.",
     },
   }),
   probeSymlinkCreation: () =>
@@ -102,7 +102,7 @@ describe("Windows host capability report", () => {
           proof: "not-proven",
           code: "runtime_missing",
           failureStage: "artifact",
-          remediation: "Install the matching Windows x64 REA package.",
+          remediation: "Install the matching Windows x64 Tekvro build.",
         },
         private_runtime_dacl: {
           available: false,
@@ -110,7 +110,7 @@ describe("Windows host capability report", () => {
           proof: "not-proven",
           code: "runtime_missing",
           failureStage: "artifact",
-          remediation: "Install the matching Windows x64 REA package.",
+          remediation: "Install the matching Windows x64 Tekvro build.",
         },
         reparse_safe_path_admission: {
           available: false,
@@ -118,7 +118,7 @@ describe("Windows host capability report", () => {
           proof: "not-proven",
           code: "runtime_missing",
           failureStage: "artifact",
-          remediation: "Install the matching Windows x64 REA package.",
+          remediation: "Install the matching Windows x64 Tekvro build.",
         },
       },
     });

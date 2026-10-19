@@ -35,7 +35,7 @@ export interface WindowsNativeCapabilitySet {
 
 /** Stable explanation used whenever the native Windows authority is absent. */
 export const WINDOWS_NATIVE_AUTHORITY_UNAVAILABLE_REASON =
-  "Windows native controls are unavailable in this runtime; use the Windows x64 REA package with its matching bundled native artifact.";
+  "Windows native controls are unavailable in this runtime; use the Windows x64 Tekvro build with its matching bundled native artifact.";
 
 /** One readiness observation, shared by diagnostics and security controls. */
 export type WindowsNativeReadiness =

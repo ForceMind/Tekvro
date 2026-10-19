@@ -244,7 +244,9 @@ describe("Windows Ghidra doctor authority", () => {
       ok: false,
       classification: "missing_dependency",
       detail: WINDOWS_NATIVE_AUTHORITY_UNAVAILABLE_REASON,
-      remediation: expect.stringContaining("matching Windows x64 REA package"),
+      remediation: expect.stringContaining(
+        "matching reviewed Windows x64 Tekvro package",
+      ),
     });
   });
 
