@@ -7,6 +7,16 @@ hashes, detected formats, bundle anatomy, runtime-family hints, and path-based
 bridge hypotheses. It does not parse plist or CMS semantics or claim observed
 runtime calls.
 
+Framework hints match complete path segments such as `React.framework`,
+`ReactNative.framework`, `hermes.framework`, `Flutter.framework`, and
+`UnityFramework.framework`. Substrings in `Preact.framework`,
+`Community.framework`, or `MyApp.framework` do not identify those families.
+A generic `App.framework` also does not identify Flutter by itself. Runtime
+families remain inventory-derived hints, not observed loading. Generic framework
+and dylib paths do not establish Swift or Objective-C; this projection does not
+decode language metadata. A bridge basis is inferred from the native path and
+repeated for each paired script, rather than proving a particular binding.
+
 ```sh
 rea project-apple-application-graph '{"inventory_evidence":[<inventory_artifact Evidence>]}'
 ```
@@ -31,6 +41,14 @@ overall coverage becomes `partial` and a limitation explains the omission.
 Duplicate inventory pages are merged by artifact identity and occurrence path;
 their Evidence IDs remain attached as source Evidence.
 
+Content nodes identify bytes by SHA-256 and report only content-derived formats.
+Each occurrence reports its own `artifact_kind`, `artifact_format`, and executable
+permission. Identical bytes can therefore appear as a script, resource, or native
+addon at different paths without overwriting another occurrence's role. Package
+formats such as APK and IPA belong to the occurrence; their ZIP bytes share a
+content format. Graph and directory identities use locale-independent Unicode
+ordering.
+
 For IPA inventories, archive components outside every application root remain
 in the component lists. Their JavaScript and native candidates are grouped with
 other unrooted components, preserving the inventory projection's path pairing
@@ -42,6 +60,15 @@ states that absence is unknown. Component arrays remain complete when candidate
 hypotheses are omitted; component arrays still include every component from
 the supplied inventory pages, and overall coverage is `partial` in that case.
 
+Inventoried files whose bytes were not read, such as encrypted archive members,
+are listed in `unavailable_components` with their original path, format,
+encryption flag, limitations, and null content identity. The same application-root
+and AppleDouble attribution rules apply. These files make overall coverage
+`partial`; component absence is unknown even when `inventory_complete` is true.
+Directories have no file bytes and symlinks remain in `symlinks`, so neither is
+an unavailable file component. The additive field participates in `projection_id`,
+including when empty, so Apple projection identifiers change.
+
 ## Application roots
 
 | Inventory root                         | Application root                                    |
@@ -49,6 +76,15 @@ the supplied inventory pages, and overall coverage is `partial` in that case.
 | IPA                                    | Each `Payload/<Name>.app`                           |
 | `.app` directory                       | `.`, the inventoried bundle itself                  |
 | Directory, ZIP, or DMG containing apps | Each outermost `<Name>.app` followed by `Contents/` |
+
+File and slice occurrences supply component endpoints. Directory tree identities
+remain in source inventory and bundle anatomy, and links remain in `symlinks`.
+
+Root and layout discovery use known directories and ancestors implied by deeper
+inventory paths. A leaf file or symlink named `*.app`, `Contents`, or `Versions`
+does not establish that directory. Directory and authenticated-file identity are
+selected before applying anatomy case preferences, so a file cannot shadow a
+folded directory name or a directory shadow a metadata/signature file.
 
 ZIP archives made with `ditto -c -k --keepParent` report `<Name>.app`. A DMG
 reports `<image>.dmg/<Volume>/<Name>.app`; DMG child inventory needs the native
@@ -156,7 +192,7 @@ Resolution follows dyld:
 - `@rpath` tries each `LC_RPATH` of the loading image first, then those of the
   image that loaded it, up to the process root.
 - Dependencies load dependents-first in load-command order, and each image
-  loads once per process. A later request whose install name matches an
+  loads once per process. A later @rpath request whose install name matches an
   already loaded image reuses it.
 - Symlinks such as `Versions/Current` are followed inside the analyzed root.
   An escape through `..` or an absolute link is `escapes-target`.

@@ -1,109 +1,34 @@
-# Native UI and dispatch investigation
+<div id="native-ui-and-dispatch-investigation"></div>
 
-REA joins static resources, native metadata and code facts while keeping runtime
-observations separate. Every result reports its evidence, target identity,
-coverage and unknowns. The CLI and MCP use the same application workflows.
+# Native binary investigation
 
-## Static inspection
+Use a native provider to discover functions, inspect instructions and pseudocode,
+follow references, and examine database types. Static resources and runtime
+observation complement that analysis when they answer a specific question.
 
-`inspect_macho` retains otool segment `file_offset` values relative to the
-selected Mach-O slice. Its evidence file-offset ranges address the original
-input file and include the observed lipo slice offset for universal binaries.
-If that offset is unavailable, segment evidence locations are omitted with an
-explicit limitation; architecture inventory locations remain available.
+## Start with a function
 
-Hopper's `address_to_file_offset` combines the native image-relative mapping with
-original-file coordinates only after checking the source against the session's
-SHA-256. FAT tables and embedded Mach-O headers come from that same hashing pass.
-A changed or nonregular source reports `artifact_changed`; an unreadable or
-missing source reports its access or filesystem failure. Those errors retain the native offset,
-loaded header and provider source path in `details.partial_observation`, with the
-original-file coordinate explicitly unavailable. Restore the original bytes or
-reopen the changed executable to obtain verified coordinates. Snapshot replay
-remains historical evidence for its recorded artifact identity.
+Choose an installed provider from [setup](installation.md#hopper). For Ghidra:
 
-A selected Hopper database's digest identifies the database rather than its
-original executable. Original-file mapping is unavailable for that selection;
-native mapping facts remain in partial evidence, and `read_bytes` still reads
-the loaded database. Open the original executable to verify source coordinates.
+```bash
+rea inspect /absolute/path/to/program --provider ghidra --json
+rea search /absolute/path/to/program entry --kind procedures --provider ghidra --json
+```
 
-Native Xcode command execution uses shared process supervision with a 60-second
-deadline and a 64 MiB aggregate stdout/stderr budget. Timeout, cancellation,
-stream failure, and output exhaustion retain the captured output, exit details,
-and cleanup outcome in the error result. Truncated output is never parsed as a
-complete observation.
+Select an exact name or address from the returned inventory, then use it with
+`rea function PATH PROCEDURE --provider ghidra --json` for a function dossier,
+`rea instructions` for assembly, or `rea decompile` for pseudocode. Do not assume
+that every target names its entry function `entry`. MCP uses `open_binary` and
+focused tools such as `list_procedures` and `analyze_function` on the same session.
 
-- `trace_dylib_resolution` / `rea trace-dylib-resolution <app-or-mach-o>`
-  parses Mach-O load commands in TypeScript and follows dyld's path expansion
-  for every executable in an app bundle, or for one Mach-O within its directory.
-  It reports each `@rpath`, `@loader_path` and `@executable_path` candidate with
-  its outcome. Paths outside the analyzed root, including shared-cache system
-  libraries, stay undetermined. See
-  [Apple application analysis](apple-application-analysis.md#dylib-load-resolution).
-- `inspect_asset_catalog` / `rea inspect-asset-catalog <app>` reads compiled
-  `Assets.car` metadata through macOS `assetutil --info`. Catalog digests, raw
-  rendition fields, pagination and exact UI resource-name matches are returned.
-  Image extraction and undocumented rendition interpretation are unsupported.
-- `inspect_keyed_archive` / `rea inspect-keyed-archive <plist>` reads XML or
-  binary Foundation keyed archives without instantiating classes. For an active
-  app, provide its relative archive path as the second CLI argument or MCP
-  `path`. Results retain original `$objects` indices, named `$top` roots,
-  shared/cyclic references, class descriptors, raw serialized fields and
-  malformed/unresolved/nil references. Missing fields stay absent; unknown
-  classes are preserved. Select `root`, `offset` and `limit` explicitly.
-  UID 0 cannot distinguish conditional nil from ordinary nil. Limits are
-  64 MiB of input, 200,000 objects/references and 128 nesting levels.
-- `decode_interface_builder` / `rea decode-interface-builder <app>` reads
-  compiled storyboard and nib resources into objects, outlets, actions,
-  connections and controller/class names. `verify:interface-builder` compiles
-  a source-owned AppKit XIB with `ibtool`. Storyboards require an installed
-  iOS platform; unsupported archive forms remain explicit.
-  XML plist archives accept UTF-8 and BOM-marked UTF-16 in either byte order.
-  App bundle `Info.plist` executable resolution uses the same decoder as keyed
-  archives and Interface Builder. The decoder consumes an initial
-  BOM and rejects malformed byte sequences, unsupported encoding declarations,
-  and declarations that disagree with the detected encoding. It never substitutes
-  UTF-8 for a declared encoding it cannot process. Archive and evidence digests
-  still identify the original serialized bytes. Bundle resolution reports
-  malformed bytes and unsupported encodings against the original plist path
-  before looking up the executable. Interface Builder decoding
-  limits aggregate input archives to 32 MiB.
-  Before decoding, it also bounds the serialized structure: expanded binary
-  plist references, NIB table records, XML elements and text, plus their
-  projected representations must fit the 256 MiB aggregate decode budget.
-  NIB string values, data, property names and class names are charged at each
-  projected JSON occurrence, including when the archive reuses one source
-  value. Binary plist data projection also accounts for the temporary byte
-  copy made by the pinned decoder projection. These are format-derived
-  representation reservations, not exact heap measurements or a process-wide
-  heap ceiling.
-  Archives beyond either aggregate budget are omitted with their paths and an
-  explicitly partial `archive_decode` facet; previously decoded documents and
-  their identities remain available.
-- `inspect_native_dispatch_metadata` /
-  `rea inspect-native-dispatch-metadata <app-or-binary>` prefers a validated macOS Mach-O byte reader. It decodes
-  64-bit little-endian Objective-C class/metaclass records, superclass pointers,
-  absolute/relative method entries, ivar offsets/sizes/alignment and protocol
-  declarations. It also decodes simple Swift conformances, static synchronous
-  witness slots, signed-relative pointers and non-generic, non-resilient class
-  vtable descriptors. Records include exact virtual addresses/file offsets and
-  artifact evidence. Vtable indexes are metadata word offsets; witness indexes
-  start after the conformance header. Names unavailable in metadata remain null.
-  Pointers are decoded through the image's fixups:
-  - `LC_DYLD_CHAINED_FIXUPS` rebases and binds, including the authenticated
-    arm64e formats;
-  - legacy `LC_DYLD_INFO` bind opcodes.
-
-  So an external superclass resolves from its `_OBJC_CLASS_$_` bind (for
-  example `NSObject`). The `pointer_fixups` coverage facet names the mechanism.
-  Class properties, with parsed attributes, and `__objc_catlist` categories are
-  also decoded. Categories record the extended class, local or external, plus
-  their methods, protocols and properties; category methods appear as
-  implementations with a `category`. Swift field-offset globals that are only
-  initialized at runtime stay unresolved. Generic, resilient, async and
-  coroutine tables, and inherited overrides, have explicit unsupported or
-  partial coverage. Other providers retain the
-  existing symbol-based inventory with its narrower coverage.
+| Question                                                     | Section                                                                                |
+| ------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| Which instructions, calls, references, or types are present? | [Native primitives](#native-instruction-call-and-type-primitives)                      |
+| How can I select a name beginning with a dash?               | [CLI selectors](#exact-cli-selectors)                                                  |
+| What static path connects these functions?                   | [Bounded traces](#bounded-static-traces)                                               |
+| Which UI resources or dispatch metadata are present?         | [Static inspection](#static-inspection)                                                |
+| What did the declared runtime scenario observe?              | [Desktop](#native-desktop-observation) or [call observation](#native-call-observation) |
+| What can this provider and host establish?                   | [Provider boundaries](#provider-and-verification-boundaries)                           |
 
 ## Exact CLI selectors
 
@@ -182,8 +107,35 @@ rea inspect-native-data-type <binary> --address <typed-data-address> --provider 
 Instruction facts include bytes, length, decoder text, ordered register/scalar/
 address tokens, typed references and flow destinations. Mid-instruction, data,
 outside-memory and undecodable addresses have separate outcomes. Effective
-memory base/index/displacement roles and per-instruction context mode remain
-unavailable; `mode` is the program language variant.
+memory base/index/displacement roles remain unavailable. Ghidra reports its program
+language variant in `mode`; other providers retain their own mode label. Ghidra
+MIPS results additionally expose `decoder_context`
+with the observed `ISA_MODE` register at the queried address and its provider
+source. A null value is unavailable, not mode zero; an empty array reports no
+available context register, and omission preserves older captures or providers
+that do not expose this facet. The context is an analysis observation, not proof
+of a runtime processor state.
+
+`inspect_native_instruction` also returns `incoming_references` to the exact
+queried address, including data, interior-instruction and undecodable addresses.
+Ghidra enumerates its ReferenceManager, excludes synthetic entry-point
+references, and returns deterministic source-address ordering while retaining
+distinct operand references from the same source. `[]` means that enumeration
+found no references; omission or `null` means this facet is unavailable in an
+older capture or another provider. Empty static references do not prove that
+the address is unused at runtime. The existing `references` field still holds
+outgoing instruction references, and `xrefs` still returns bare source addresses.
+The Ghidra analysis profile versions this incoming-reference coverage. Reopen
+the target without an older snapshot and save a fresh snapshot to acquire it;
+the older snapshot's Evidence bundle remains readable with this facet unavailable.
+
+Compact incoming, outgoing instruction and call-target references preserve the source
+address, operand index, DATA/READ/WRITE classification, primary status, provider
+`provenance`, and reference `source` (for Ghidra: `analysis`, `default`, `imported`
+or `user_defined`). Primary status reports the provider's chosen reference; it
+does not establish literal addressing. Analyzer-inferred indexed targets remain
+static references, not observed runtime reads or writes. Older evidence may omit
+the additive fields, and null or omitted facts mean unavailable rather than false.
 
 Ghidra distinguishes a return using decoded instruction p-code's `RETURN`
 operation. `flow.classification_evidence` preserves the Listing flow type and
@@ -202,6 +154,18 @@ Call resolution reports direct, resolved indirect, ambiguous, unresolved and
 non-call outcomes from static call references. It does not establish runtime
 execution or classify Objective-C/Swift/vtable/closure mechanisms from names.
 
+`batch_decompile` keeps each caller-selected symbol or address in `items[].address`.
+The separate `procedure` field reports the canonical entry and the provider's
+observed entry label. An interior address therefore remains visible without
+being mistaken for the function entry. Identity failures are reported as
+`procedure.status: "unknown"`; label failures leave a null name and `name_error`.
+Neither failure discards usable pseudocode, and names are not parsed from it.
+Resolved entries also appear in the composed Evidence locations. New batch
+Evidence commits the revised workflow profile; retained historical Evidence
+remains valid. This tool
+has no dedicated CLI command; the existing `decompile` command remains the
+single-procedure CLI operation.
+
 Type inspection selects one exact database pathname or typed data address.
 Struct/union fields, enums, pointers, arrays, typedefs, size, alignment, packing
 and bitfields retain database authority. Child types use exact IDs for further
@@ -209,6 +173,37 @@ inspection, including recursive layouts. Source/debug authority and flexible
 array semantics are not inferred. The real lane uses a native DWARF 4 object
 with a struct containing a union, enum and recursive pointer; a stripped linked
 binary may have no corresponding recovered layout.
+
+Ghidra serializes at most 20,000 fields or enum members per inspected type.
+Check `total_fields` and `truncated` before treating the returned layout as
+complete. These fields describe omissions from the response, independently of
+whether Ghidra recovered the original source layout.
+
+### Hopper analysis behavior
+
+Cursor navigation returns the observed object start when Hopper snaps an interior
+address; adjacent-object navigation rejects unmapped inputs and document ends.
+Native API text rejects NUL characters and unpaired Unicode surrogates before
+annotation changes. Renames preserve unselected label owners; use a batch with
+all affected addresses to move or swap existing labels explicitly. Every rename
+destination must be mapped, and native symbol names must fit Hopper's 1024 UTF-16
+code-unit limit. Oversized names fail before any batch edits; bookmarks and
+literal string results are not subject to that symbol-name limit. Rename success
+requires exact final readback. New bookmarks must point into mapped memory;
+existing legacy bookmarks outside it can still be removed.
+String results read each native typed object's complete bytes, retain the original
+provider display in `provider_value`, and report its encoding, byte length, and
+termination. `encoding_status: inferred` distinguishes REA's decoding from an
+observed source encoding. Hopper can split long literals into adjacent
+unterminated objects; search matches each object's decoded bytes independently.
+Undecodable objects retain native display text with `decoding.available: false`
+and a reason, so one uncertain object does not block unrelated inspections.
+Function dossiers retain this same string evidence. Native call edges retain
+Hopper's partial `CallReference` classification and exact endpoints; detailed
+reference flags remain unavailable rather than being invented.
+Regex searches use ECMAScript Unicode syntax in a cancellable worker with a
+five-second matching deadline. Deadline or cancellation stops matching while
+leaving the Hopper API available. Literal mode retains Unicode casefold matching.
 
 ## Bounded static traces
 
@@ -231,6 +226,10 @@ remain unknown. Budgets control depth, decompilations, call-site resolutions,
 nodes and edges. Node payloads are bounded to 8 MiB and serialized results to
 32 MiB. Pagination returns edges whose source is on the node page and preserves
 stable IDs for endpoints outside that page.
+
+Within one value trace, each exact procedure selector is attempted at most once,
+including failed analyses. Failures remain unknown observations and do not
+establish canonical function identity. A new trace can retry those selectors.
 
 The raw Java `is_dead` flag can remain set after Ghidra decodes a live block;
 `block_membership` reports actual syntax-tree membership separately.
@@ -260,6 +259,171 @@ scaled ADD/BR instructions and the recovered target set. It reads exactly the
 proven count and preserves unknowns for other forms. Real ELF and host ARM64
 Mach-O fixtures check each case against source-owned return values.
 
+## Static inspection
+
+`inspect_plist.format` describes the selected source, not plutil's conversion
+format. Sources explicitly identified as XML, binary or JSON retain those
+labels. For generic text, a bounded source-prefix probe recognizes leading XML
+markup, including UTF-8 and BOM-marked UTF-16 sources. Unidentified text and
+OpenStep plists, including a data-only value such as `<deadbeef>`, report
+`unknown` even when plutil decodes their values through an XML conversion.
+
+A plist explicitly selected through the path input or as the active plist target
+reports an unreadable or malformed selection as `invalid_request`. A missing or
+unreadable default plist of another target reports `capability_unavailable`.
+Permission failures remain `access_denied`; output and cleanup failures retain
+their own error categories.
+
+A plist decode refusal includes plutil's diagnostic from either output stream.
+`details.captured_output` retains bounded stdout/stderr excerpts, observed byte
+totals and exit status. `truncated: true` means those excerpts are incomplete.
+
+`inspect_macho.selected_architecture` identifies the exact selected lipo slice
+and its `container_file_offset` in the input file. A thin Mach-O has a known
+offset of zero; an unknown universal-slice offset stays null. The Evidence
+subject format describes the input container: `mach-o-universal` for FAT files,
+including those with one slice. The normalized result describes the selected
+Mach-O image. Architecture
+`file_offset` values are container-relative. Entrypoint, segment and section
+`file_offset` values retain their source meaning and are relative to the
+selected Mach-O slice. Raw load-command fields retain their original values.
+A field otool prints more than once, such as each `LC_BUILD_VERSION` tool, is
+keyed `name #n` in print order. Each `LC_LINKER_OPTION` string is keyed
+`string #n` and checked against the declared `count`. Evidence locations map the LC_MAIN entrypoint and nonempty file-backed segment
+ranges to container offsets by adding the observed slice offset. Zero-fill
+segments do not produce file ranges. When the selected slice's container offset
+is unknown, those mapped locations are omitted with an explicit limitation;
+architecture inventory locations remain available.
+
+Hopper's `address_to_file_offset` combines the native image-relative mapping with
+original-file coordinates only after checking the source against the session's
+SHA-256. FAT tables and embedded Mach-O headers come from that same hashing pass.
+A changed or nonregular source reports `artifact_changed`; an unreadable or
+missing source reports its access or filesystem failure. Those errors retain the native offset,
+loaded header and provider source path in `details.partial_observation`, with the
+original-file coordinate explicitly unavailable. Restore the original bytes or
+reopen the changed executable to obtain verified coordinates. Snapshot replay
+remains historical evidence for its recorded artifact identity.
+
+A selected Hopper database's digest identifies the database rather than its
+original executable. Original-file mapping is unavailable for that selection;
+native mapping facts remain in partial evidence, and `read_bytes` still reads
+the loaded database. Open the original executable to verify source coordinates.
+
+Native Xcode command execution uses shared process supervision with a 60-second
+deadline and a 64 MiB aggregate stdout/stderr budget. Timeout, cancellation,
+stream failure, and output exhaustion retain the captured output, exit details,
+and cleanup outcome in the error result. Truncated output is never parsed as a
+complete observation.
+
+- `trace_dylib_resolution` / `rea trace-dylib-resolution <app-or-mach-o>`
+  parses Mach-O load commands in TypeScript and follows dyld's path expansion
+  for every executable in an app bundle, or for one Mach-O within its directory.
+  It reports each `@rpath`, `@loader_path` and `@executable_path` candidate with
+  its outcome. Paths outside the analyzed root, including shared-cache system
+  libraries, stay undetermined. See
+  [Apple application analysis](apple-application-analysis.md#dylib-load-resolution).
+- `inspect_asset_catalog` / `rea inspect-asset-catalog <app>` reads compiled
+  `Assets.car` metadata through macOS `assetutil --info`. Catalog digests, raw
+  rendition fields, pagination and exact UI resource-name matches are returned.
+  Image extraction and undocumented rendition interpretation are unsupported.
+- `inspect_keyed_archive` / `rea inspect-keyed-archive <plist>` reads XML or
+  binary Foundation keyed archives without instantiating classes. For an active
+  app, provide its relative archive path as the second CLI argument or MCP
+  `path`. Results retain original `$objects` indices, named `$top` roots,
+  shared/cyclic references, class descriptors, raw serialized fields and
+  malformed/unresolved/nil references. Missing fields stay absent; unknown
+  classes are preserved. Select `root`, `offset` and `limit` explicitly.
+  Object `kind` describes the decoded archive value: data, dates and numbers
+  remain `scalar` when their JSON value uses a `$plist_type` wrapper. An actual
+  dictionary with the same fields remains `dictionary`.
+  UID 0 cannot distinguish conditional nil from ordinary nil. Limits are
+  64 MiB of input, 200,000 objects/references and 128 nesting levels.
+  XML dictionary entries decoded as `__proto__` are omitted with an explicit
+  count because REA results cannot represent that key. XML tag whitespace and
+  comments do not change that handling. XML key names combine their text and
+  CDATA segments without trimming or expanding literal CDATA entities. Other
+  values and the original archive digest are preserved.
+- `decode_interface_builder` / `rea decode-interface-builder <app>` reads
+  compiled storyboard and nib resources into objects, outlets, actions,
+  connections and controller/class names. A full app graph is often several
+  megabytes (XLD.app: 6.7 MB, about 2M tokens, which also exceeds the default
+  MCP response budget), so MCP callers should pass `detail: "summary"`. The
+  summary keeps every decoded document and node/edge/coverage counts and
+  retains the complete Evidence; page rows with `inspect_analysis_view`
+  `view: {kind: "interface-builder", collection: "nodes", document:
+  "Contents/Resources/Base.lproj/MainMenu.nib", offset: 0, limit: 64}`.
+  `document` selects rows whose evidence names that exact
+  `documents[].relative_path` (nodes and edges only); `source_truncated` keeps
+  graph incompleteness visible on every page. `verify:interface-builder` compiles
+  a source-owned AppKit XIB with `ibtool`. Storyboards require an installed
+  iOS platform; unsupported archive forms remain explicit.
+  XML plist archives accept UTF-8 and BOM-marked UTF-16 in either byte order.
+  App bundle `Info.plist` executable resolution uses the same decoder as keyed
+  archives and Interface Builder. The decoder consumes an initial
+  BOM and rejects malformed byte sequences, unsupported encoding declarations,
+  and declarations that disagree with the detected encoding. It never substitutes
+  UTF-8 for a declared encoding it cannot process. Archive and evidence digests
+  still identify the original serialized bytes. Bundle resolution reports
+  malformed bytes and unsupported encodings against the original plist path
+  before looking up the executable. Interface Builder decoding
+  limits aggregate input archives to 32 MiB.
+  Before decoding, it also bounds the serialized structure: expanded binary
+  plist references, NIB table records, XML elements and text, plus their
+  projected representations must fit the 256 MiB aggregate decode budget.
+  NIB string values, data, property names and class names are charged at each
+  projected JSON occurrence, including when the archive reuses one source
+  value. Binary plist data projection also accounts for the temporary byte
+  copy made by the pinned decoder projection. These are format-derived
+  representation reservations, not exact heap measurements or a process-wide
+  heap ceiling.
+  Archives beyond either aggregate budget are omitted with their paths and an
+  explicitly partial `archive_decode` facet; previously decoded documents and
+  their identities remain available.
+- `inspect_native_dispatch_metadata` /
+  `rea inspect-native-dispatch-metadata <app-or-binary>` prefers a validated macOS Mach-O byte reader. It decodes
+  64-bit little-endian Objective-C class/metaclass records, superclass pointers,
+  absolute/relative method entries, ivar offsets/sizes/alignment and protocol
+  declarations. It also decodes simple Swift conformances, static synchronous
+  witness slots, signed-relative pointers and non-generic, non-resilient class
+  vtable descriptors. Records include exact virtual addresses/file offsets and
+  artifact evidence. Vtable indexes are metadata word offsets; witness indexes
+  start after the conformance header. Names unavailable in metadata remain null.
+  Pointers are decoded through the image's fixups:
+  - `LC_DYLD_CHAINED_FIXUPS` rebases and binds, including the authenticated
+    arm64e formats;
+  - legacy `LC_DYLD_INFO` bind opcodes.
+
+  So an external superclass resolves from its `_OBJC_CLASS_$_` bind (for
+  example `NSObject`). The `pointer_fixups` coverage facet names the mechanism.
+  Class properties preserve each encoded attribute as a raw `{name, value}`
+  pair, for example `{ name: "N", value: "" }`, and report atomicity on the
+  property: `N` means `nonatomic`; a complete typed attribute string without
+  `N` means the Objective-C default `atomic`;
+  missing or incomplete attribute metadata leaves `atomicity` and any
+  unestablished read-only value null. A type attribute whose quoted class name
+  never closes is incomplete and marks `objc_properties_categories` partial
+  with `property_attributes_incomplete`. A property record that cannot be
+  decoded, such as one with an empty or unmapped name, is reported as
+  `property_decode_failed` at its entry address while sibling properties are
+  retained. `is_meta_class`, `is_root_class`, and
+  `ivar_count` are also nullable when the selected provider exposes only symbol
+  names. Class implementation methods have null `is_required` and `is_optional`
+  fields because those facts apply to protocol declarations; decoded protocol
+  method lists retain their observed required/optional values. Class properties
+  and `__objc_catlist` categories are also decoded. Categories record the
+  extended class, local or external, plus
+  their methods, protocols and properties; category methods appear as
+  implementations with a `category`. Swift field-offset globals that are only
+  initialized at runtime stay unresolved. Generic, resilient, async and
+  coroutine tables, and inherited overrides, have explicit unsupported or
+  partial coverage. Other providers retain the
+  existing symbol-based inventory with its narrower coverage.
+  Symbols without a reported location remain in that inventory: Swift symbol
+  `address` and Objective-C `implementation_address` are null. An empty provider
+  address is retained as `reported_address` in the symbol's evidence, whose
+  location also remains unknown. Nonempty provider address syntax is preserved.
+
 ## Native desktop observation
 
 `observe_native_ui` captures one explicitly selected existing PID/window ID.
@@ -275,7 +439,11 @@ decrement scrolling and text-value entry, or bounded waits. No global event
 injection is used. Unsupported AX actions fail explicitly. The result preserves
 ordered before/after captures and gaps; an action may have occurred before a
 post-action capture fails. Application state is left as-is; REA does not attempt
-to restore it.
+to restore it. Failed or cancelled scenarios return a typed error with the
+collected report in `partial_observation`, including ordered step outcomes.
+Cancellation preserves the caller's reason and remains observable through helper
+cleanup. A later abort does not replace an earlier helper or output failure.
+Cleanup failures retain their runtime owner until a confirmed cleanup retry.
 
 Scenarios accept caller-selected action lists and accessibility node counts.
 Individual waits cannot exceed the operation's 180-second deadline, and the
@@ -312,6 +480,11 @@ The run ends when the process exits, `max_events` entries are recorded,
 Bounded termination reports partial coverage. REA checks process termination
 using a launch-time OS start identity; if ownership or cleanup cannot be
 verified, the result or error preserves that uncertainty. The result reports:
+Launch errors keep the fact that LLDB created a process separate from whether
+it remains alive. An exited `SBProcess` is reported as exited only after LLDB
+confirms that state; unresolved ownership remains retained for cleanup retry.
+Cancellation observed while output and Evidence are finalized returns partial
+cancellation Evidence, even if the target has already exited.
 
 - the outcome, exit status and captured stdout/stderr (1 MiB kept per stream
   while excess bytes are drained and counted without growing capture files).
@@ -342,6 +515,11 @@ with partial coverage. Available output prefixes remain inline; their byte
 counts are observed lower bounds when final drain counters are unavailable.
 The original failure classification and cleanup uncertainty remain separate.
 An interrupted journal row is ignored with an explicit limitation.
+If the trace completed before cancellation or runtime-directory cleanup failed,
+the retained observation also keeps its exit status, termination proof, launch
+identity, breakpoint results and final stream counters. Those fields remain
+absent when the interrupted producer did not report them; partial coverage alone
+does not mean that every retained fact is incomplete.
 
 Only entries are observed: return values, floating-point and stack arguments,
 and inlined or `objc_direct` calls are not. The target runs with the current
@@ -349,16 +527,20 @@ user's permissions and may change files, show UI or use the network.
 
 Debugging must be allowed for the user (Developer Tools access). A
 hardened-runtime target without `com.apple.security.get-task-allow` cannot be
-debugged; `inspect_signature` reports this as the debugger-attach facet, and
-the tool fails with a `debugger-attach-denied` reason.
+debugged; `inspect_signature` reports the signature's `hardened_runtime` value
+and its `entitlements`, including `com.apple.security.get-task-allow` when it
+is present. A denied trace reports the `debugger-attach-denied` reason.
 
 ## Provider and verification boundaries
 
 Install a Ghidra 12.1.x release and the 64-bit full JDK it declares, then configure REA to
 use them. Ghidra analysis supports Linux x64/arm64 and macOS x64/arm64; each installation requires
 the matching native decompiler. Experimental Windows x64 P0 admits native
-x86-64 PE applications on local NTFS using bundled Job Object ownership,
-protected runtime DACLs, and handle-based path admission. See [Windows Ghidra P0](windows-ghidra-p0.md) and
+x86, x86-64, ARMNT (Thumb-2) and ARM64 PE applications and DLLs, plus explicitly selected
+[raw NMOS 6502 images](raw-binary.md#nmos-6502) with a caller-supplied load address,
+on fixed local NTFS volumes. Other raw CPU families remain unsupported on Windows.
+The boundary uses bundled Job Object ownership, protected runtime DACLs, and
+handle-based path admission. See [Windows Ghidra P0](windows-ghidra-p0.md) and
 [issue #527](https://github.com/morluto/rea/issues/527).
 On Linux and macOS, `annotate_native_function` atomically edits a function name
 and entry comments in the ephemeral database, returning refreshed analysis
@@ -367,6 +549,12 @@ unpaired Unicode surrogate; a rejection identifies the field and UTF-16 index
 and leaves every annotation unchanged. CRLF, supplementary Unicode characters,
 and combining characters are preserved. Windows P0 remains read-only. Ghidra has no
 GUI authority, and REA never falls back automatically to Hopper.
+`set_address_name` and `set_addresses_names` give Ghidra sessions the same
+compact naming results as Hopper: a local function entry renames that function,
+and any other mapped address, such as a global, receives a new or renamed primary
+label. A batch applies each address separately and reports one success boolean
+per address. Use them to name many globals and helpers cheaply; use
+`annotate_native_function` when you also want comments and a refreshed dossier.
 Ghidra name edits preserve the existing namespace. Supply either a leaf name
 such as `renamed` or a fully qualified name in that namespace, such as
 `alpha::renamed`. The returned qualified name can be reused as an idempotent
@@ -395,6 +583,12 @@ unresolved runtime/value semantics remain visible in results.
 
 ## Interface Builder hierarchy coverage
 
+A document's `hierarchy_complete` flag follows its own hierarchy coverage.
+If graph limits omit a hierarchy source or destination, or prevent a hierarchy
+edge or traversal from being retained, that document reports partial hierarchy
+coverage. Retained unresolved edges remain in the graph and do not add to the
+omitted-edge count. Coverage is evaluated separately for each document.
+
 A keyed-archive hierarchy UID without an object-table entry marks the hierarchy
 as partial while preserving decoded objects and known links. UID 0 remains
 archived nil and does not count as a missing reference. Archive and evidence
@@ -403,6 +597,10 @@ digests identify the original serialized bytes.
 ## Keyed archive integer precision
 
 The archive reader observes XML number element types and binary number markers.
+XML values and their number facts are interpreted together from the validated
+DOM. Hexadecimal `<integer>` text, including an optional sign, retains its value;
+`<real>` text and CDATA segments are combined without inferring text from nested
+elements. The XML path does not serialize or reparse character references.
 Integers beyond the exact range of a JSON number are reported with the original
 decimal text as `{ "$plist_type": "integer", "decimal": "<exact digits>" }` when
 that source value can be associated unambiguously. Integral real values remain
@@ -421,3 +619,59 @@ Value projection preserves serialized node kinds, IDs, references and pagination
 Exact and ambiguous value counts describe emitted root/object value instances;
 a root and an object may contain the same value. Archive digests identify the
 original bytes.
+
+Interface Builder's XML and binary plist archives use the same number metadata
+and exact-decimal representation for emitted node attributes. Projection follows
+object and connection classification, so archive IDs, UID links and graph counts
+keep their meaning. Precision limitations name the source document. Unsafe
+integer-literal counts cover the archive, including fields not emitted as node
+attributes; exact and ambiguous projection counts cover emitted attribute values.
+Integral reals stay numbers, and ambiguous or incompletely observed values retain
+explicit precision limitations. Before plist decoding, the existing aggregate
+decode budget reserves estimated room for number metadata and attribute
+projection; these estimates are not a hard process-memory bound. Native
+NIBArchive decoding is unchanged by this plist-specific representation.
+
+Dates are reported as `{ "$plist_type": "date", "iso8601": "<timestamp>" }`. A
+date the decoder cannot represent, such as an XML date with a year beyond 9999
+or a negative year, is reported as `{ "$plist_type": "date", "iso8601": null }`
+with a counted limitation; the rest of the plist or archive is still decoded.
+`inspect_plist` and Interface Builder decoding use the same projection.
+
+A negative-zero real is reported as `{ "$plist_type": "real", "value": "-0" }`
+because a JSON number cannot carry the sign of zero. `inspect_plist` and
+`inspect_keyed_archive` count these values in a limitation, and Interface
+Builder node attributes use the same value. Positive zero and integer zero,
+including an `<integer>-0</integer>` literal, remain the number `0`.
+
+Known non-finite reals are reported as
+`{ "$plist_type": "real", "value": "nan" | "+infinity" | "-infinity" }`.
+These are canonical numeric labels, not a claim about original source spelling.
+Binary IEEE reals retain NaN versus signed infinity; NaN payload bits and sign
+are not represented in the JSON value, and the original bytes remain the source
+for those details. XML CFPropertyList literals (`nan`, `+infinity`, `-infinity`,
+`infinity`, `inf`, `+inf`, `-inf`, case-insensitively) decode to the same known
+values. Case and aliases normalize; original archive bytes retain source text.
+
+XML numeric text whose identity the decoder cannot establish, including
+unrecognized non-finite text and finite literals that overflow the numeric
+representation, remains `{ "$plist_type": "real", "value": null }` with a
+counted limitation. The XML decoder marks these values explicitly before shared
+projection, so they cannot be confused with known binary IEEE values.
+Incomplete numeric markup retains its existing compatibility behavior described
+above. Known non-finite and unresolved numeric values have separate counts.
+Native `inspect_plist` uses these same labels for plutil's XML conversion.
+
+## Locate a byte signature
+
+Use `search_bytes` after opening a target with Ghidra to locate a known constant
+or instruction sequence. For example, `{"pattern":"48 8B ?? ?? 89","limit":100}`
+returns ordered addresses with segments, source file offsets and containing
+procedures. The CLI equivalent is
+`rea search-bytes ./program '48 8B ?? ?? 89' --provider ghidra`.
+Use `start`/`end` to constrain the inclusive address window, and continue with
+`next_cursor` until `complete` is true. Inspect `searched` for page coverage and
+skipped uninitialized blocks. A missing match does not establish absence from
+uninitialized memory or across block boundaries. See
+[Ghidra byte search](ghidra-provider.md#masked-byte-search) for mask and coverage
+semantics. This query never executes or modifies target bytes.

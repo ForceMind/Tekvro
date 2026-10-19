@@ -4,7 +4,7 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { exec, json } from "./lib/verify-package-core.mjs";
+import { exec, json, runWithStatus } from "./lib/verify-package-core.mjs";
 
 /** Exercise the packaged updater with real npm and a local release registry fixture. */
 export async function verifyPackageUpdate({
@@ -16,6 +16,30 @@ export async function verifyPackageUpdate({
 }) {
   const metadataPath = join(packageRoot, "package.json");
   const metadata = json(await readFile(metadataPath, "utf8"));
+  if (metadata.private === true) {
+    const before = await readFile(metadataPath, "utf8");
+    const execution = await runWithStatus(
+      process.execPath,
+      [join(packageRoot, "scripts", "rea.mjs"), "update", "--json"],
+      environment,
+    );
+    const result = json(execution.stdout);
+    if (
+      execution.status !== 1 ||
+      result.status !== "failed" ||
+      result.reason !== "unknown-install-method" ||
+      result.latestVersion !== null ||
+      (await readFile(metadataPath, "utf8")) !== before
+    )
+      throw new Error(
+        `Private-source updater did not refuse safely: ${JSON.stringify(result)}`,
+      );
+    return {
+      source_update_refused: true,
+      package_unchanged: true,
+      exact_release: false,
+    };
+  }
   const archive = await readFile(tarball);
   const entry = join(packageRoot, "scripts", "rea.mjs");
   const home = join(workspace, "update-home");

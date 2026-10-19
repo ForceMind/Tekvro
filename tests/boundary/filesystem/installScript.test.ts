@@ -18,13 +18,52 @@ import { createTestTempDirectory } from "../../fixtures/temporaryDirectory.js";
 
 const execFileAsync = promisify(execFile);
 
+describe("prepublication installer protections", { timeout: 20_000 }, () => {
+  it("refuses unpublished Tekvro npm without touching npm or the network", async () => {
+    const fixture = await createFixture();
+    for (const args of [[], ["--version", "0.3.0"], ["--dry-run"]]) {
+      await expect(
+        execFileAsync(
+          "/bin/bash",
+          [join(process.cwd(), "install.sh"), ...args],
+          {
+            env: installerEnvironment(fixture),
+          },
+        ),
+      ).rejects.toMatchObject({
+        stderr: expect.stringContaining(
+          "Tekvro has no verified npm release yet",
+        ),
+      });
+    }
+    await expect(readFile(fixture.npmLog, "utf8")).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+  });
+
+  it("keeps help available while installation is unavailable", async () => {
+    const fixture = await createFixture();
+    const result = await execFileAsync(
+      "/bin/bash",
+      [join(process.cwd(), "install.sh"), "--help"],
+      { env: installerEnvironment(fixture) },
+    );
+    expect(result.stdout).toContain(
+      "No independent npm installer is published",
+    );
+    await expect(readFile(fixture.npmLog, "utf8")).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+  });
+});
+
 // install.sh:fail_node_version emits this recovery block verbatim. The fake
 // `uname` in createFixture reports `x86_64` / `Linux`, so the host labels
 // resolve to `linux/x64`.
 const UNSUPPORTED_NODE_RECOVERY_LINUX_X64 =
-  "REA installation failed: Node.js 20.0.0 is unsupported.\n" +
+  "Tekvro installation failed: Node.js 20.0.0 is unsupported.\n" +
   "\n" +
-  "REA requires Node.js 22.x (>=22.19), 24.x (>=24.11), or 26+. Install one via:\n" +
+  "Tekvro requires Node.js 22.x (>=22.19), 24.x (>=24.11), or 26+. Install one via:\n" +
   "  nvm:  nvm install 24 && nvm use 24      (https://github.com/nvm-sh/nvm)\n" +
   "  fnm:  fnm install 24 && fnm use 24      (https://github.com/Schniz/fnm)\n" +
   "  Direct download for linux/x64:\n" +
@@ -35,7 +74,7 @@ describe("curl installer scenarios", { timeout: 20_000 }, () => {
   it("installs only a pinned REA CLI with closed stdin", async () => {
     const fixture = await createFixture();
     const result = await runInstaller(fixture, ["--version", "0.3.0"]);
-    expect(result.stdout).toContain("REA 0.3.0 is installed");
+    expect(result.stdout).toContain("Tekvro 0.3.0 is installed");
     expect(result.stdout).toContain("Run ");
     expect(await readFile(fixture.npmLog, "utf8")).toContain(
       "install --global --prefix",
@@ -76,7 +115,7 @@ describe("curl installer scenarios", { timeout: 20_000 }, () => {
     },
   );
 
-  it("resolves and validates the latest REA release tag", async () => {
+  it("resolves and validates the latest Tekvro release tag", async () => {
     const fixture = await createFixture();
     const result = await runInstaller(fixture);
     expect(result.stdout).toContain("Version: 0.3.0");
@@ -107,55 +146,55 @@ describe("curl installer scenarios", { timeout: 20_000 }, () => {
       "unreadable Node version",
       ["--version", "0.3.0"],
       { FAKE_NODE_VERSION: "invalid" },
-      "REA installation failed: the active Node.js version could not be read. Check that node works and is on PATH, then retry.\n",
+      "Tekvro installation failed: the active Node.js version could not be read. Check that node works and is on PATH, then retry.\n",
     ],
     [
       "release lookup",
       [],
       { FAKE_CURL_FAIL: "1" },
-      "REA installation failed: the latest REA release could not be resolved. Check network access or pass --version VERSION, then retry.\n",
+      "Tekvro installation failed: the latest Tekvro release could not be resolved. Check network access or pass --version VERSION, then retry.\n",
     ],
     [
       "release response",
       [],
       { FAKE_CURL_BODY: "not-json" },
-      "REA installation failed: the release response was invalid. Retry later or pass --version VERSION.\n",
+      "Tekvro installation failed: the release response was invalid. Retry later or pass --version VERSION.\n",
     ],
     [
       "release tag",
       [],
       { FAKE_CURL_BODY: '{"tag_name":"unrelated-1.0.0"}' },
-      "REA installation failed: the latest release tag was invalid. Retry later or pass --version VERSION.\n",
+      "Tekvro installation failed: the latest release tag was invalid. Retry later or pass --version VERSION.\n",
     ],
     [
       "npm failure",
       ["--version", "0.3.0"],
       { FAKE_NPM_FAIL: "1" },
-      "REA installation failed: npm could not install REA. Check registry access and npm permissions, then retry.\n",
+      "Tekvro installation failed: npm could not install Tekvro. Check registry access and npm permissions, then retry.\n",
     ],
     [
       "npm prefix",
       ["--version", "0.3.0"],
       { FAKE_PLATFORM: "Darwin", FAKE_NPM_PREFIX_FAIL: "1" },
-      "REA installation failed: the npm global prefix could not be read. Repair the npm configuration, then retry.\n",
+      "Tekvro installation failed: the npm global prefix could not be read. Repair the npm configuration, then retry.\n",
     ],
     [
       "missing installed command",
       ["--version", "0.3.0"],
       { FAKE_NPM_SKIP_BINARY: "1" },
-      "REA installation failed: npm completed without installing the rea command. Check the npm global bin directory and PATH, then retry.\n",
+      "Tekvro installation failed: npm completed without installing the tekvro command. Check the npm global bin directory and PATH, then retry.\n",
     ],
     [
       "unreadable installed version",
       ["--version", "0.3.0"],
       { FAKE_REA_VERSION_FAIL: "1" },
-      "REA installation failed: the installed REA version could not be read. Reinstall the requested version, then retry.\n",
+      "Tekvro installation failed: the installed Tekvro version could not be read. Reinstall the requested version, then retry.\n",
     ],
     [
       "version mismatch",
       ["--version", "0.3.0"],
       { FAKE_REA_VERSION: "9.9.9" },
-      "REA installation failed: installed version 9.9.9 does not match 0.3.0. Reinstall the requested version, then retry.\n",
+      "Tekvro installation failed: installed version 9.9.9 does not match 0.3.0. Reinstall the requested version, then retry.\n",
     ],
   ] as const)(
     "fails closed with actionable recovery for %s",
@@ -181,7 +220,7 @@ describe("curl installer scenarios", { timeout: 20_000 }, () => {
       }),
     ).rejects.toMatchObject({
       stderr:
-        "REA installation failed: curl is required. Install curl, then rerun this installer.\n",
+        "Tekvro installation failed: curl is required. Install curl, then rerun this installer.\n",
     });
   });
 });
@@ -193,7 +232,7 @@ describe("installer reported version", { timeout: 20_000 }, () => {
       runInstaller(fixture, ["--version", "0.3.0"], { FAKE_REA_VERSION: "" }),
     ).rejects.toMatchObject({
       stderr:
-        "REA installation failed: the installed REA version could not be read. Reinstall the requested version, then retry.\n",
+        "Tekvro installation failed: the installed Tekvro version could not be read. Reinstall the requested version, then retry.\n",
     });
   });
 });
@@ -201,7 +240,7 @@ describe("installer reported version", { timeout: 20_000 }, () => {
 describe("installer TTY fallback", { timeout: 20_000 }, () => {
   it("skips automatic setup when stderr is redirected", async () => {
     const fixture = await createFixture();
-    const script = join(process.cwd(), "install.sh");
+    const script = await fixtureInstaller(fixture);
     const wrapper = `
       const { spawnSync } = require("node:child_process");
       const { openSync, closeSync } = require("node:fs");
@@ -248,7 +287,7 @@ describe("installer TTY fallback", { timeout: 20_000 }, () => {
 
     expect(exitCode).toBe(0);
     expect(output).toContain(
-      `Run ${join(fixture.home, ".local/bin/rea")} setup to configure Hopper and agents.`,
+      `Run ${join(fixture.home, ".local/bin/tekvro")} setup to configure Hopper and agents.`,
     );
     expect(await readFile(fixture.reaLog, "utf8")).toBe("--version\n");
     expect(await readFile(fixture.installerStderrLog, "utf8")).toBe("");
@@ -320,8 +359,14 @@ describe(
           source.subarray(Math.max(0, offset - 24), offset).toString(),
         )}`;
         if (offset >= groupEnd) {
-          if (result.code !== 0 || !result.stdout.includes("no changes made"))
-            failures.push(`${context}: complete script did not dry-run`);
+          if (
+            result.code !== 1 ||
+            result.stdout !== "" ||
+            !result.stderr.includes("Tekvro has no verified npm release yet")
+          )
+            failures.push(
+              `${context}: complete source installer did not refuse safely`,
+            );
           return;
         }
         if (result.stdout !== "")
@@ -377,7 +422,7 @@ describe("Linux user-prefix installer", { timeout: 20_000 }, () => {
       "--global",
       "--prefix",
       join(home, ".local"),
-      "rea-agents@0.3.0",
+      "tekvro@0.3.0",
       "",
     ]);
     expect((await readFile(argvLog)).toString()).toBe(printed.stdout);
@@ -392,11 +437,11 @@ describe("native macOS installer", { timeout: 20_000 }, () => {
       FAKE_NPM_PREFIX: join(fixture.home, "npm global prefix"),
     });
     expect(result.stdout).toContain(
-      "  Command: npm install --global rea-agents@0.3.0\n",
+      "  Command: npm install --global tekvro@0.3.0\n",
     );
-    expect(result.stdout).toContain("REA 0.3.0 is installed");
+    expect(result.stdout).toContain("Tekvro 0.3.0 is installed");
     expect(await readFile(fixture.npmLog, "utf8")).toBe(
-      "prefix --global\ninstall --global rea-agents@0.3.0\n",
+      "prefix --global\ninstall --global tekvro@0.3.0\n",
     );
     expect(await readFile(fixture.reaLog, "utf8")).toBe("--version\n");
     expect(await readdir(fixture.temporary)).toEqual([]);
@@ -411,7 +456,7 @@ describe("installer semantic version parsing", { timeout: 20_000 }, () => {
     ).rejects.toMatchObject({
       stdout: "",
       stderr:
-        "REA installation failed: version must be an exact semantic version.\n",
+        "Tekvro installation failed: version must be an exact semantic version.\n",
     });
     await expect(readFile(fixture.npmLog, "utf8")).rejects.toMatchObject({
       code: "ENOENT",
@@ -431,7 +476,7 @@ describe("installer semantic version parsing", { timeout: 20_000 }, () => {
       ).rejects.toMatchObject({
         stdout: "",
         stderr:
-          "REA installation failed: version must be an exact semantic version.\n",
+          "Tekvro installation failed: version must be an exact semantic version.\n",
       });
       await expect(readFile(fixture.npmLog, "utf8")).rejects.toMatchObject({
         code: "ENOENT",
@@ -452,7 +497,7 @@ describe("installer semantic version parsing", { timeout: 20_000 }, () => {
     expect(failure).toBeInstanceOf(Error);
     const stderr = getProcessOutput(failure, "stderr");
     expect(stderr).toBe(
-      "REA installation failed: npm cannot install an exact version with build metadata. Pass a version without build metadata, then retry.\n",
+      "Tekvro installation failed: npm cannot install an exact version with build metadata. Pass a version without build metadata, then retry.\n",
     );
     expect(getProcessOutput(failure, "stdout")).not.toContain(
       "REA install plan",
@@ -478,14 +523,14 @@ describe("installer semantic version parsing", { timeout: 20_000 }, () => {
   it("rejects build metadata in the latest release tag before printing a plan", async () => {
     const fixture = await createFixture();
     const failure = await runInstaller(fixture, [], {
-      FAKE_CURL_BODY: '{"tag_name":"rea-agents-1.2.3+build.01"}',
+      FAKE_CURL_BODY: '{"tag_name":"tekvro-1.2.3+build.01"}',
     }).then(
       () => undefined,
       (cause: unknown) => cause,
     );
     expect(failure).toBeInstanceOf(Error);
     expect(getProcessOutput(failure, "stderr")).toBe(
-      "REA installation failed: npm cannot install an exact version with build metadata. Pass a version without build metadata, then retry.\n",
+      "Tekvro installation failed: npm cannot install an exact version with build metadata. Pass a version without build metadata, then retry.\n",
     );
     expect(getProcessOutput(failure, "stdout")).not.toContain(
       "REA install plan",
@@ -499,11 +544,11 @@ describe("installer semantic version parsing", { timeout: 20_000 }, () => {
     const fixture = await createFixture();
     await expect(
       runInstaller(fixture, [], {
-        FAKE_CURL_BODY: '{"tag_name":"rea-agents-1.2.3-01"}',
+        FAKE_CURL_BODY: '{"tag_name":"tekvro-1.2.3-01"}',
       }),
     ).rejects.toMatchObject({
       stderr:
-        "REA installation failed: the latest release tag was invalid. Retry later or pass --version VERSION.\n",
+        "Tekvro installation failed: the latest release tag was invalid. Retry later or pass --version VERSION.\n",
     });
     await expect(readFile(fixture.npmLog, "utf8")).rejects.toMatchObject({
       code: "ENOENT",
@@ -569,15 +614,15 @@ while [ "$#" -gt 0 ]; do
 done
 [ "\${FAKE_NPM_SKIP_BINARY:-}" = "1" ] && exit 0
 mkdir -p "$prefix/bin"
-cp "$FAKE_REA_SOURCE" "$prefix/bin/rea"
-chmod +x "$prefix/bin/rea"
+cp "$FAKE_REA_SOURCE" "$prefix/bin/tekvro"
+chmod +x "$prefix/bin/tekvro"
 `,
     ),
     executable(
       join(bin, "curl"),
       `#!/bin/sh
 [ "\${FAKE_CURL_FAIL:-}" = "1" ] && exit 1
-if [ -n "\${FAKE_CURL_BODY:-}" ]; then printf '%s' "$FAKE_CURL_BODY"; else printf '%s' '{"tag_name":"rea-agents-0.3.0"}'; fi
+if [ -n "\${FAKE_CURL_BODY:-}" ]; then printf '%s' "$FAKE_CURL_BODY"; else printf '%s' '{"tag_name":"tekvro-0.3.0"}'; fi
 `,
     ),
     executable(
@@ -614,24 +659,38 @@ const installerEnvironment = (
   FAKE_NPM_PREFIX: join(fixture.home, ".npm-global"),
 });
 
+const fixtureInstaller = async (fixture: InstallerFixture): Promise<string> => {
+  const source = await readFile(join(process.cwd(), "install.sh"), "utf8");
+  const startMarker = "# TEKVRO_PRE_RELEASE_GUARD_BEGIN\n";
+  const endMarker = "# TEKVRO_PRE_RELEASE_GUARD_END\n";
+  const start = source.indexOf(startMarker);
+  const end = source.indexOf(endMarker);
+  if (start < 0 || end < start || source.indexOf(startMarker, start + 1) !== -1)
+    throw new Error(
+      "The checked-in Tekvro installer must have its release gate",
+    );
+  const fixtureScript = join(fixture.home, "installer-test-fixture.sh");
+  await writeFile(
+    fixtureScript,
+    source.slice(0, start) + source.slice(end + endMarker.length),
+  );
+  return fixtureScript;
+};
+
 const runInstaller = async (
   fixture: InstallerFixture,
   args: readonly string[] = [],
   overrides: Readonly<Record<string, string>> = {},
-  script = join(process.cwd(), "install.sh"),
+  script?: string,
 ): Promise<{ readonly stdout: string; readonly stderr: string }> =>
-  execFileAsync("/bin/bash", [script, ...args], {
-    env: {
-      ...process.env,
-      ...installerEnvironment(fixture),
-      ...overrides,
+  execFileAsync(
+    "/bin/bash",
+    [script ?? (await fixtureInstaller(fixture)), ...args],
+    {
+      env: { ...installerEnvironment(fixture), ...overrides },
     },
-  });
+  );
 
-/**
- * Run the installer as `curl ... | bash -s -- ARGS` does: source on stdin.
- * The environment is minimal and does not inherit the test runner's.
- */
 const runPipedInstaller = async (
   fixture: InstallerFixture,
   source: Uint8Array,

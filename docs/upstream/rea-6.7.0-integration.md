@@ -1,0 +1,31 @@
+# REA 6.7.0 内核集成记录
+
+## 固定来源和状态
+
+- 基于现有 6.5.0 集成成果继续开发；文档检查的 languages.json 阻塞已修复。
+- 目标源码：REA 6.7.0，提交 `27dc42d10249f0410904a75c0997842eb03b931c`。
+- 实施 PR：[#24](https://github.com/ForceMind/Tekvro/pull/24)，总任务：[#21](https://github.com/ForceMind/Tekvro/issues/21)。尚未合并主线；最终状态以 PR 检查为准。
+- 生产代码已接入 src、bridge、CLI、MCP、配置编辑、Evidence、Snapshot 与分析提供方；研究分支没有整体合并。
+- 产品包保留兼容版本标记，内核来源单独记录在 engine-metadata.json。private:true、安装器拒绝、源码更新拒绝及发布工作流身份保护保持。
+
+## 契约和能力
+
+- Evidence 和 Snapshot 的 relationship_coverage 纳入解析与摘要身份；缺失字段的历史 Evidence 不补造，保留原始文件并重新采集。
+- Artifact Inventory 覆盖范围、integrity_contradictions、浏览器预算与遗漏、取消和清理证据、provider unknown 状态沿固定 6.7.0 生产者和消费者同步迁移。
+- JavaScript 精确源码选择、模块关系及 retained javascript-facts 路径/属性过滤和分页接入共享 CLI/MCP 工作流。
+- 集成 WASM、Electron、APK 多语言表、Kuna、Ghidra 架构更新、网络保存制品与 SQLite 等对应适配代码。适配代码不等于外部工具实机验证。
+- JSON/JSONC 重复成员沿新版格式解析和事务编辑，仍保留 Tekvro 本地注册策略及旧命令兼容。
+
+## 已执行验证
+
+本地 Linux / Node.js 24.19.0：npm ci、build:cached、docs:check 已通过；中文 CLI 11 项、源码更新拒绝与发行配置 6 项通过。其后配置和安装器回归仍在迭代，完整 CI 未通过前不得宣布验收。
+
+本机沙箱的 /proc 进程身份读取与 Unix socket 受限，部分真正启动受监督进程的分析会明确返回 capability_unavailable。相关用例交由 GitHub 托管运行器验证，不能把本机受限执行当作分析成功。
+
+## 验证边界与恢复
+
+无真实 Hopper、IDA、Kuna、JADX/ADB 设备或 Frida 插桩验收声明。CI 的平台和样本通过项在本记录后续补充；模拟提供方只验证协议和错误行为。
+
+- 所有开发均在实施分支，main 仍保留既有版本。回滚使用 PR revert，不强制改写主线。
+- 继续处理 PR #24 的失败检查、跨平台包验证、真实 H5/Electron/WASM 和 MCP Evidence 链路。
+- 不设置定时任务，不执行 npm、Registry 或正式 Release 发布。

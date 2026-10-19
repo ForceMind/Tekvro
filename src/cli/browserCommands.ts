@@ -24,6 +24,7 @@ import {
   observationDuration,
 } from "../cliObservationOptions.js";
 import { withCommandCancellation } from "./commandCancellation.js";
+import { finishAnalysisCommand } from "./finishAnalysisCommand.js";
 
 /** Register CLI equivalents of the passive browser MCP tools. */
 export const registerBrowserCommands = (
@@ -68,12 +69,17 @@ const registerTargetList = (
                 input,
               ),
             );
-          const result = await listBrowserTargets(
-            context.provider,
-            parsed.data,
-            { signal },
+          return await finishAnalysisCommand(
+            () => listBrowserTargets(context.provider, parsed.data, { signal }),
+            {
+              close: async () => {
+                await context.provider.close?.();
+              },
+            },
+            context.provider.identity().id,
+            "list_browser_targets",
+            signal,
           );
-          return result.ok ? result.value : browserCliError(result.error);
         }),
       ),
   });
@@ -121,10 +127,17 @@ const registerPageInspection = (
                 input,
               ),
             );
-          const result = await inspectWebPage(context.provider, parsed.data, {
+          return await finishAnalysisCommand(
+            () => inspectWebPage(context.provider, parsed.data, { signal }),
+            {
+              close: async () => {
+                await context.provider.close?.();
+              },
+            },
+            context.provider.identity().id,
+            "inspect_web_page",
             signal,
-          });
-          return result.ok ? result.value : browserCliError(result.error);
+          );
         }),
       ),
   });
@@ -174,10 +187,17 @@ const registerBundleAnalysis = (
                 input,
               ),
             );
-          const result = await analyzeWebBundle(context.provider, parsed.data, {
+          return await finishAnalysisCommand(
+            () => analyzeWebBundle(context.provider, parsed.data, { signal }),
+            {
+              close: async () => {
+                await context.provider.close?.();
+              },
+            },
+            context.provider.identity().id,
+            "analyze_web_bundle",
             signal,
-          });
-          return result.ok ? result.value : browserCliError(result.error);
+          );
         }),
       ),
   });
@@ -221,12 +241,17 @@ const registerObservationSession = (
                 input,
               ),
             );
-          const result = await observeWebSession(
-            context.provider,
-            parsed.data,
-            { signal },
+          return await finishAnalysisCommand(
+            () => observeWebSession(context.provider, parsed.data, { signal }),
+            {
+              close: async () => {
+                await context.provider.close?.();
+              },
+            },
+            context.provider.identity().id,
+            "observe_web_session",
+            signal,
           );
-          return result.ok ? result.value : browserCliError(result.error);
         }),
       ),
   });

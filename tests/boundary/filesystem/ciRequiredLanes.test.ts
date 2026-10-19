@@ -93,7 +93,7 @@ it("exports every canonical scope with read authority for admission and keeps te
   const timings = z
     .object({
       on: z.object({
-        schedule: z.array(z.object({ cron: z.string() })),
+        schedule: z.array(z.object({ cron: z.string() })).optional(),
         workflow_dispatch: z.unknown(),
         workflow_run: z.unknown().optional(),
       }),
@@ -120,7 +120,7 @@ it("exports every canonical scope with read authority for admission and keeps te
       ),
     );
   expect(timings.on.workflow_run).toBeUndefined();
-  expect(timings.on.schedule).toHaveLength(1);
+  expect(timings.on.schedule).toBeUndefined();
   expect(timings.permissions).toEqual({
     contents: "read",
     actions: "read",
@@ -175,6 +175,41 @@ it("holds native and provider fan-out behind static validation while portable fe
 
 it("binds provider build reuse to the current run while keeping standalone dispatches independent", async () => {
   const { jobs } = await workflow();
+  const buildSteps = z
+    .array(
+      z.object({
+        run: z.string().optional(),
+        uses: z.string().optional(),
+        shell: z.string().optional(),
+        if: z.string().optional(),
+        with: z.record(z.string(), z.unknown()).optional(),
+        "continue-on-error": z.boolean().optional(),
+      }),
+    )
+    .parse(jobs.build?.steps);
+  const prepare = buildSteps.findIndex(
+    (step) => step.run === "npm run test:prepare",
+  );
+  const stage = buildSteps.findIndex((step) =>
+    step.run?.includes("portable-build-cache.mjs snapshot"),
+  );
+  const upload = buildSteps.findIndex(
+    (step) => step.with?.name === "rea-build-cache",
+  );
+  expect(prepare).toBeGreaterThanOrEqual(0);
+  expect(stage).toBeGreaterThan(prepare);
+  expect(upload).toBeGreaterThan(stage);
+  expect(buildSteps[stage]?.run).toContain(
+    "node scripts/ci/portable-build-cache.mjs snapshot < .cache/ci-build-plan.json",
+  );
+  expect(buildSteps[stage]?.if).toBeUndefined();
+  expect(buildSteps[stage]?.shell).toBe("bash");
+  expect(buildSteps[stage]?.["continue-on-error"]).not.toBe(true);
+  expect(buildSteps[upload]?.if).toBeUndefined();
+  expect(buildSteps[upload]?.with).toMatchObject({
+    path: ".cache/ci-build-cache/",
+    "if-no-files-found": "error",
+  });
   const consumers = [
     "browser",
     "binary_layout",
@@ -252,6 +287,7 @@ it("binds provider build reuse to the current run while keeping standalone dispa
             if: z.string().optional(),
             with: z.record(z.string(), z.unknown()).optional(),
             "continue-on-error": z.boolean().optional(),
+            run: z.string().optional(),
           }),
         ),
       }),
@@ -276,6 +312,9 @@ it("binds provider build reuse to the current run while keeping standalone dispa
   });
   expect(download?.if).toBe("inputs.build_cache_artifact != ''");
   expect(download?.["continue-on-error"]).not.toBe(true);
+  expect(action.runs.steps.find((step) => step.id === "plan")?.run).toContain(
+    'node scripts/ci/portable-build-cache.mjs key >> "$GITHUB_OUTPUT"',
+  );
   for (const step of action.runs.steps.filter(
     (step) => step.id === "plan" || step.uses?.startsWith("actions/cache"),
   ))
@@ -322,7 +361,7 @@ it("keeps fast feedback separate from complete qualification and release proof",
       on: z.object({
         push: z.unknown(),
         pull_request: z.unknown(),
-        schedule: z.array(z.object({ cron: z.string() })),
+        schedule: z.array(z.object({ cron: z.string() })).optional(),
         workflow_call: z.object({
           inputs: z.object({
             source_sha: z.object({
@@ -360,10 +399,7 @@ it("keeps fast feedback separate from complete qualification and release proof",
         ),
       ),
     );
-  expect(ci.on.schedule).toEqual([
-    { cron: "23 0-2,4-23 * * *" },
-    { cron: "23 3 * * *" },
-  ]);
+  expect(ci.on.schedule).toBeUndefined();
   expect(ci.concurrency.group).toContain("'qualification' || 'feedback'");
   expect(ci.concurrency.group).toContain("inputs.source_sha ||");
   expect(ci.concurrency.group).toContain("github.ref");
@@ -403,6 +439,7 @@ it.each([
     for (const [scope, lane] of [
       ["sqlite", "sqlite-runtime"],
       ["workflows", "static"],
+      ["ghidra_bridge", "ghidra_bridge"],
     ] as const) {
       // GitHub exposes only direct dependencies in the required job's needs context.
       const needs: Record<

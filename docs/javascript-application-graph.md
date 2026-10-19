@@ -68,10 +68,33 @@ The node vocabulary covers:
 - runtime script instance;
 - an explicit `unknown` kind when classification is not justified.
 
+Static network endpoints can have `resolution: "partial"` when the analyzer
+recognizes a request call but cannot resolve its target to one exact value.
+The observation's `value` then preserves the source expression, and its
+evidence points to the call site. Partial and exact endpoints have distinct
+identities even when their displayed values match. Partial identities also retain
+the source site: matching expression text at different sites does not establish
+the same runtime target. This records observed source syntax; it does not
+establish that the call ran or contacted that endpoint.
+Graph coverage describes the analyzed artifact scope and resource limits, not
+runtime execution. A partial target alone does not imply omitted source.
+
 The directed relation vocabulary is `contains`, `loads`, `imports`, `maps_to`,
 `exposes`, `sends`, `invokes`, `handles`, `calls`, `persists_to`, `observed_as`,
 and `changed_from`. Provider names are deliberately absent from both
 vocabularies.
+
+For a `maps_to` edge targeting a source-map node, the edge carries
+`resolved_path` and `declared_url_sha256`. The target node's reference
+observation carries that same digest and the exact `declared_url`; match the
+digest to select the URL belonging to that edge when several references share
+one physical source map. The full URL is kept out of node identity, display
+label, and edge properties, so large inline data URLs are stored once per
+source-map reference.
+
+Consumers previously reading `edge.properties.declared_url` should follow
+`target_node_id` and select the observation by `declared_url_sha256` instead.
+Node labels serve display; the observation preserves the original URL.
 
 For example, a source-owned synthetic fixture proves this path without using a
 third-party application:
@@ -91,6 +114,15 @@ The `loads`, `exposes`, `invokes`, `handles`, and `imports` relationships remain
 static inferences. Dynamic or ambiguous IPC is retained without a pairing edge.
 Runtime entities retain passive-CDP authority, while a successful static/runtime
 correspondence is a separately identified cross-layer inference.
+
+Source module links retain their resolution mode. Static imports in `.ts` and
+`.tsx` are `compiler-dependent` when compiler options have not been retained.
+REA compares Node import and require resolution: a shared outcome remains
+available with a limitation; divergent outcomes remain unavailable with both
+conditional branches and their limitations. This models source relationships,
+not verified emitted code or execution. A declaration file found only through
+an emitted-extension fallback is retained as a candidate, not a runtime target;
+an explicitly selected path keeps its original identity.
 
 ## Evidence and authority
 

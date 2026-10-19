@@ -78,7 +78,7 @@ TEKVRO_LANG=zh-CN node scripts/rea.mjs setup --client codex
 
 - 源码包名为 `tekvro`，现有 `rea`、`rea-agents` 命令别名及部分 MCP 注册键保留用于兼容。
 - `scripts/rea.mjs` 是当前源码构建的命令入口；不要将公共 npm 上的 `rea-agents` 包视为 Tekvro，也不要将 `npx tekvro` 当成已发布的安装方式。
-- 源码中的 `6.1.0` 是继承的引擎版本基线，不代表已发布同版本的 Tekvro 产品。升级计划及独立发行准备情况见[开发路线](docs/roadmap.md)和[分发说明](docs/zh-CN/distribution.md)。
+- 产品包版本暂保留 `6.1.0` 兼容标记；本分支集成固定 REA `6.7.0` 内核，具体提交及验证状态记录于 `engine-metadata.json` 和[集成记录](docs/upstream/rea-6.7.0-integration.md)，二者不代表正式发行版本。升级计划及独立发行准备情况见[开发路线](docs/roadmap.md)和[分发说明](docs/zh-CN/distribution.md)。
 - 正式发行前，`install.sh` 不提供自动下载安装。
 
 ## 许可证
