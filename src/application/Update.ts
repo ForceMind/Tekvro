@@ -15,7 +15,7 @@ export interface NpmInstallation {
 /** Bun global installation that owns the running package and its entry point. */
 export interface BunInstallation {
   readonly manager: "bun";
-  /** Bun's global project directory, which owns `node_modules/rea-agents`. */
+  /** Bun's global project directory, which owns `node_modules/tekvro`. */
   readonly globalDirectory: string;
   readonly packageRoot: string;
 }
@@ -203,7 +203,7 @@ const runUpdateWorkflow = async (
       latestVersion: targetVersion,
       reason: "unknown-install-method",
       remediation:
-        "Update this installation with the package manager or source checkout that owns it. For a one-off latest invocation, use npx rea-agents@latest.",
+        "Update this installation from its reviewed Tekvro source checkout, then run npm ci and npm run build:cached. No independent public Tekvro update package is available.",
     };
   const installed = await host.installVersion(
     installation,

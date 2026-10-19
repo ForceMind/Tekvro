@@ -322,16 +322,16 @@ describe("interactive setup journey", () => {
 
 describe("interactive setup completion", () => {
   it.each([
-    { npmCommand: "", userAgent: "", launcher: "rea" },
+    { npmCommand: "", userAgent: "", launcher: "node scripts/rea.mjs" },
     {
       npmCommand: "exec",
       userAgent: "npm/10.9.0 node/v24.11.0 linux x64",
-      launcher: "npx rea-agents",
+      launcher: "node scripts/rea.mjs",
     },
     {
       npmCommand: "exec",
       userAgent: "bun/1.4.2 npm/? node/v26.3.0 linux x64",
-      launcher: "bunx rea-agents",
+      launcher: "node scripts/rea.mjs",
     },
   ])(
     "prints an available next command for $launcher invocation",
@@ -384,6 +384,11 @@ describe("interactive setup completion", () => {
         "Guided reverse-engineering workflows: installed",
       );
       expect(stderr).toContain(`CLI: ${launcher} analyze /path/to/app`);
+      expect(stderr).toContain(
+        "Run these commands from your Tekvro source checkout",
+      );
+      expect(stderr).not.toContain("npx rea-agents");
+      expect(stderr).not.toContain("bunx rea-agents");
       expect(stderr).toContain(
         'Try in Codex: "Explain how a feature works in /path/to/app and show the evidence."',
       );

@@ -291,7 +291,8 @@ describe("package-private REA launchers", () => {
     );
     expect(blocker).toContain(stored);
     expect(blocker).toContain(CLAUDE_DESKTOP_PACKAGE_FAMILY);
-    expect(blocker).toContain("npm install -g rea-agents");
+    expect(blocker).toContain("npm ci && npm run build:cached");
+    expect(blocker).not.toContain("npm install -g rea-agents");
   });
 
   it("compares the launcher with the canonical package storage path", () => {

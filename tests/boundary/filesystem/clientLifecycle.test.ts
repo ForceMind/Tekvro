@@ -1359,6 +1359,15 @@ describe("Grok Bot registration", () => {
         command: [],
       }),
     ]);
+    const [manual] = await readClientRegistrationStatuses(
+      home,
+      "/current/rea",
+      { environment: {} },
+    );
+    expect(manual?.remediation).toContain(
+      "absolute Tekvro scripts/rea.mjs path",
+    );
+    expect(manual?.remediation).not.toContain("rea-agents");
     const removed = await runUninstall(false, systemUninstallHost(home));
     expect(removed.status).toBe("complete");
     expect(removed.items).toContainEqual(

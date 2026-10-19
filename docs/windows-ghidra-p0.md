@@ -63,14 +63,19 @@ and DLLs.
 ## Configuration
 
 ```powershell
-npm install --global rea-agents
+git clone https://github.com/ForceMind/Tekvro.git
+cd Tekvro
+npm ci
+npm run build:cached
+# Restore the native addon from the same Tekvro commit's CI artifact first;
+# see native/windows/README.md. A source build alone does not include it.
 $env:GHIDRA_INSTALL_DIR = "C:\tools\ghidra_12.1.4_PUBLIC"
 $env:JAVA_HOME = "C:\tools\jdk-21"
 $env:REA_ANALYSIS_PROVIDER = "ghidra"
 
-rea doctor --json
-rea providers --json
-rea inspect "C:\fixtures\sample.exe" --provider ghidra --format json
+node scripts/rea.mjs doctor --json
+node scripts/rea.mjs providers --json
+node scripts/rea.mjs inspect "C:\fixtures\sample.exe" --provider ghidra --format json
 ```
 
 `rea doctor` distinguishes installation prerequisites from native artifact or

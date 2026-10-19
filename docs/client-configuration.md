@@ -438,11 +438,16 @@ computer. It does not import `mcp.json` from the data directory, and it does
 not attach a stdio server running on this machine. Setup does not call the
 account connector API, does not write a registration file, and does not report
 the data directory as aligned. Ask the Grok Bot chat to add a custom MCP
-server named `rea` that runs on the Bot's computer:
+server named `rea` that runs on the Bot's computer. First place and build the
+reviewed Tekvro source checkout there; use that computer's Node.js and actual
+absolute script path, for example:
 
 ```bash
-npx -y rea-agents@<version> mcp
+node /absolute/path/to/Tekvro/scripts/rea.mjs mcp
 ```
+
+Tekvro has no independent public package. A local source checkout is not
+available on the Bot's hosted computer unless it is explicitly placed there.
 
 Do not put credentials in that command or its arguments. `rea doctor --client grok_bot`
 reports this manual step. `rea uninstall` does not remove the account connector.

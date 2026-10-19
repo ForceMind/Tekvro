@@ -1,7 +1,7 @@
 # Windows native controls
 
-REA ships one Windows x64 Node-API 8 addon. Users do not compile it or install
-another runtime. Ghidra and a full JDK remain bring-your-own prerequisites.
+Tekvro uses one Windows x64 Node-API 8 addon. The source tree does not contain
+the binary; use the explicit CI build or build lane described below. Ghidra and a full JDK remain bring-your-own prerequisites.
 The addon uses Windows 10+ APIs and admits fixed local NTFS volumes only.
 
 The package owns the artifact path. The loader checks the package version,
@@ -28,26 +28,20 @@ without this lane reports Windows native controls as unavailable.
 
 ## Restore the artifact in a source checkout
 
-The source tree omits `native/windows/build/` from Git. To run Windows
-provider-backed workflows from a checkout without the MinGW build lane, extract
-the two files from the published `rea-agents` tarball whose version exactly
-matches the checkout's `package.json` version. Do not use `latest` or copy files
-from another REA version; the loader verifies the manifest version, ABI,
-architecture, and addon digest before it grants authority.
+The source tree omits `native/windows/build/` from Git. Tekvro is private and
+has no independent public npm release. Do not restore this artifact from a
+`rea-agents` tarball: the product compatibility version does not identify the
+inherited engine or the native source revision.
 
-From the checkout root, replace `<matching-version>` with the `version` in
-`package.json`:
-
-```sh
-npm pack rea-agents@<matching-version>
-tar -xzf rea-agents-<matching-version>.tgz
-mkdir -p native/windows/build
-cp package/native/windows/build/manifest.json native/windows/build/
-cp package/native/windows/build/rea-windows-x64.node native/windows/build/
-```
-
-This is a manual recovery step. REA does not fetch or install the artifact
-automatically. Alternatively, build it using the Linux/MinGW lane above.
+Use the Windows native artifact uploaded by the CI build job for the **same
+Tekvro Git commit**. Verify the workflow's head SHA before downloading, then
+place its `manifest.json` and `rea-windows-x64.node` in
+`native/windows/build/` without modifying them. The loader validates manifest
+version, ABI, architecture and digest; the operator must also check the build's
+source commit because those loader checks alone do not prove source provenance.
+Alternatively, build both files from this checkout using the Linux/MinGW lane
+above. A checkout or development tarball without the files explicitly reports
+Windows native controls unavailable. No artifact is fetched automatically.
 
 ## Boundaries
 

@@ -59,3 +59,7 @@
 本地针对性复测：文档分流 224 项通过；配置/模板/历史 scope 与 tar 清单批次中已修复的 287 项通过（含 1 项平台跳过），两项 CLI 文件单独复测 4 项通过；注册状态 39 项通过、3 项跳过；最后分片策略/缓存/分层配置 31 项通过；双语帮助及带引号路径本地 MCP 注册 18 项通过。check:ci 的 8 个任务、架构守卫、docs:check 和许可证检查通过。npm runner 模拟环境的 setup/doctor 两项在 Work 受限宿主仍无法运行，必须以托管运行器结果验收。
 
 真实 Windows 包/能力、Apple CLI/MCP、Linux 与 macOS 的四个架构包基线在旧 head 的完整 CI 均已通过；这些结果不代替本批次当前提交的完整资格。新 CI 需要重跑全部必要检查。
+
+### 发行身份末轮审计
+
+Windows/MSIX 修复提示、Grok Bot 手工配置、交互向导与 Windows native 恢复文档的旧上游包建议已改为当前 Tekvro 源码工作流。尤其不能用 `rea-agents@6.1.0` 的原生二进制匹配 Tekvro 的产品兼容版本：Windows addon 必须来自同一 Tekvro Git 提交的 CI 构建，或由该源码明确构建。manifest 的版本/ABI/哈希校验不代替操作者确认源提交。历史 `docs/user-visible-errors.csv` 是原上游错误文案研究记录，其中旧命令不是当前安装指引。

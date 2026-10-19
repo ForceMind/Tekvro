@@ -16,6 +16,7 @@ import type {
   SetupResult,
 } from "../application/SetupTypes.js";
 import { SUPPORTED_CLIENT_DEFINITIONS } from "../application/SupportedClients.js";
+import { PRODUCT_IDENTITY } from "../identity.js";
 import { invokingPackageRunner } from "../application/ClientRegistrationIdentity.js";
 
 const clientDisplayNames: ReadonlyMap<string, string> = new Map(
@@ -233,8 +234,11 @@ const renderKeyboardHelp = (accessible: boolean): void => {
 };
 
 const cliInvocation = (environment: Readonly<NodeJS.ProcessEnv>): string => {
+  if (PRODUCT_IDENTITY.privateSourceBuild) return "node scripts/rea.mjs";
   const runner = invokingPackageRunner(environment);
-  return runner === undefined ? "rea" : `${runner} rea-agents`;
+  return runner === undefined
+    ? PRODUCT_IDENTITY.cliBinary
+    : `${runner} ${PRODUCT_IDENTITY.registrationPackageSpecifier}`;
 };
 
 const renderReadyCapabilities = (
@@ -243,6 +247,8 @@ const renderReadyCapabilities = (
   environment: Readonly<NodeJS.ProcessEnv>,
 ): void => {
   writeLine("◆  What you can do now");
+  if (PRODUCT_IDENTITY.privateSourceBuild)
+    writeLine("│  Run these commands from your Tekvro source checkout.");
   const providers = readyProviders(result);
   if (providers.length > 0)
     writeLine(`│  Deep analysis: ${humanList(providers)}`);
