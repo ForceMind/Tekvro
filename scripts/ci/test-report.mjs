@@ -65,8 +65,11 @@ if (process.env.CI_TEST_SELECTION_PATH && process.env.CI_TEST_SELECTION)
 const selectionSource = process.env.CI_TEST_SELECTION_PATH
   ? await readFile(process.env.CI_TEST_SELECTION_PATH, "utf8")
   : process.env.CI_TEST_SELECTION;
+const hasSelection = Boolean(
+  process.env.CI_TEST_SELECTION_PATH || selectionSource,
+);
 const expected =
-  verifyInventory || selectionSource
+  verifyInventory || hasSelection
     ? execFileSync("git", ["ls-files", "-z", "--", "src", "tests"], {
         encoding: "utf8",
         maxBuffer: 8 * 1024 * 1024,
@@ -75,7 +78,7 @@ const expected =
         .filter((path) => path.endsWith(".test.ts"))
     : [];
 let selection;
-if (selectionSource) {
+if (hasSelection) {
   const comparison = compareTestSelection(
     JSON.parse(selectionSource),
     expected,

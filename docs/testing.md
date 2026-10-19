@@ -1,9 +1,51 @@
-# Testing REA
+# Testing Tekvro
 
 Use this guide when choosing coverage, pruning tests, or running a verification
 lane. Start with the commands below; use [real-toolchain lanes](#real-toolchain-verification-lanes)
 for engine prerequisites and [client verification](client-verification.md) for
 installed-client and agent runs.
+
+## Tekvro 6.7 qualification record
+
+The current product/engine distinction, merged implementation, real execution
+links and platform limitations are maintained in the
+[6.7 integration record](upstream/rea-6.7.0-integration.md). Upstream historical
+verification reports establish upstream observations only. A fake provider test
+or successful bridge compilation does not establish a real engine run.
+
+The opt-in `Tekvro optional provider acceptance` workflow runs Linux x64 Ghidra
+12.1.4, Kuna 1.833, Apktool 3.0.2 and audited JADX 0.7.1 from fixed checksum-verified
+inputs. Select the `ci:providers` PR label or a manual workflow run. The source-owned
+resource-only APK is compiled from default/German/Chinese XML, then decoded through
+both CLI and MCP with exact identity, resource coverage and cleanup assertions.
+JADX uses the fixed Apache-2.0 ApiDemos 6.0.18 release without executing the APK.
+The workflow does not install or bundle these engines in the user product.
+The reporter receives the complete test-selection JSON through an artifact and
+`CI_TEST_SELECTION_PATH`; do not put thousands of paths in one environment value.
+Explicit missing/empty files and conflicting file/legacy inputs fail, and a failed
+report must not leave an older successful timing baseline.
+
+To reproduce with your own existing tools:
+
+```bash
+GHIDRA_INSTALL_DIR=/absolute/ghidra JAVA_HOME=/absolute/jdk npm run verify:ghidra
+GHIDRA_INSTALL_DIR=/absolute/ghidra JAVA_HOME=/absolute/jdk npm run verify:ghidra:aarch64-jump-table
+GHIDRA_INSTALL_DIR=/absolute/ghidra JAVA_HOME=/absolute/jdk npm run verify:ghidra:m68k
+REA_KUNA_COMMAND=/absolute/kuna npm run verify:kuna -- --report /absolute/absent-proof.json
+npm run fixtures:android -- /absolute/fixture-directory
+REA_JADX_MCP_JAR=/absolute/fixture-directory/jadx-headless-mcp-0.7.1-all.jar REA_ANDROID_TEST_APK=/absolute/fixture-directory/ApiDemos-debug.apk npm run verify:android
+python3 scripts/fixtures/tekvro_android_locales.py /absolute/absent-source-directory
+/absolute/apktool build /absolute/absent-source-directory --output /absolute/fixture.apk
+REA_APKTOOL_COMMAND=/absolute/apktool npm run verify:apktool -- --apk /absolute/fixture.apk
+REA_APKTOOL_COMMAND=/absolute/apktool node scripts/verify-tekvro-android-locales.mjs /absolute/fixture.apk
+```
+
+Use a full JDK21 for Ghidra and a JDK17+ for JADX; the hosted lane selects JDK21.
+Ghidra's AArch64 lane also requires clang. These static Android and binary lanes
+do not authorize device changes, dynamic insertion or execution of inspected apps.
+Hopper/IDA/JEB need separately supplied instances and licensing as applicable;
+ADB/Frida require the caller's authorized devices/targets. Missing prerequisites
+must remain unavailable or unknown, with their original diagnostics.
 
 ## Developer commands
 
