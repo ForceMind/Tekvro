@@ -36,6 +36,7 @@ const executeTimingReport = async (
       SOURCE_RESULT: "",
       CI_VERIFY_TEST_INVENTORY: "false",
       CI_TEST_SELECTION: "",
+      CI_TEST_SELECTION_PATH: "",
       ...environment,
       GITHUB_STEP_SUMMARY: summary,
     },
@@ -93,6 +94,7 @@ it("merges available failed-shard diagnostics and skips unavailable shard report
     expect(step.run).toContain(
       "--reporter=./scripts/ci/test-timing-reporter.mjs",
     );
+
     expect(step.if).toContain("!cancelled()");
   }
   expect(steps[upload]?.with?.path).toContain("test-timings.json");
@@ -103,9 +105,15 @@ it("merges available failed-shard diagnostics and skips unavailable shard report
   const summary = steps.find((step) =>
     step.run?.includes("scripts/ci/test-report.mjs"),
   );
-  expect(summary?.env?.CI_TEST_SELECTION).toBe(
-    "${{ needs.changes.outputs.test_selection }}",
+  expect(summary?.env?.CI_TEST_SELECTION).toBeUndefined();
+  expect(summary?.env?.CI_TEST_SELECTION_PATH).toBe(
+    ".cache/ci-test-selection/plan.json",
   );
+  const selectionDownload = steps.find(
+    (step) => step.with?.name === "ci-test-selection-plan",
+  );
+  expect(selectionDownload?.uses).toContain("actions/download-artifact@");
+  expect(selectionDownload?.with?.path).toBe(".cache/ci-test-selection");
   const command = steps[gate]?.run;
   if (command === undefined) throw new Error("Missing shard result gate");
   for (const tier of ["fast", "full"]) {
@@ -628,4 +636,55 @@ it("records failed omissions from full reports without treating partial or unhan
   await expect(
     readFile(join(root, ".cache/ci-test-history/test-results.json")),
   ).rejects.toMatchObject({ code: "ENOENT" });
+});
+
+it("reports a complete large-upgrade selection without putting its JSON in the child environment", async () => {
+  const root = await createTestTempDirectory("tekvro-large-ci-selection-");
+  await workflowGit(root, ["init"]);
+  const name = "src/provider.test.ts";
+  await mkdir(join(root, "src"));
+  await writeFile(join(root, name), "// owned fixture\n");
+  await workflowGit(root, ["add", "src"]);
+  await writeFile(
+    join(root, "test-timings.json"),
+    JSON.stringify({
+      version: 1,
+      success: true,
+      reason: "passed",
+      unhandledErrors: 0,
+      files: [{ name, durationMs: 1, state: "passed" }],
+    }),
+  );
+  const changed = Array.from(
+    { length: 6000 },
+    (_, index) =>
+      `src/upgrade/provider-${index}/retained-relationship-coverage.ts`,
+  );
+  const plan = planTestSelection(changed, "push", "fast");
+  const serialized = JSON.stringify(plan);
+  expect(Buffer.byteLength(serialized)).toBeGreaterThan(128 * 1024);
+  const path = join(root, "selection.json");
+  await writeFile(path, serialized);
+  await executeTimingReport(root, {
+    CI_TEST_SELECTION_PATH: path,
+    CI_VERIFY_TEST_INVENTORY: "true",
+  });
+  const report = JSON.parse(
+    await readFile(join(root, ".cache/ci-test-selection/report.json"), "utf8"),
+  );
+  expect(report.complete).toBe(true);
+  expect(report.plan.changedPaths).toEqual(changed);
+  expect(report.selected).toEqual([name]);
+  expect(report.omitted).toEqual([]);
+  await expect(
+    executeTimingReport(root, {
+      CI_TEST_SELECTION_PATH: path + ".missing",
+    }),
+  ).rejects.toMatchObject({ code: 1 });
+  await expect(
+    executeTimingReport(root, {
+      CI_TEST_SELECTION_PATH: path,
+      CI_TEST_SELECTION: serialized.slice(0, 100),
+    }),
+  ).rejects.toMatchObject({ code: 1 });
 });
