@@ -4,7 +4,7 @@
 
 - 基于现有 6.5.0 集成成果继续开发；文档检查的 languages.json 阻塞已修复。
 - 目标源码：REA 6.7.0，提交 `27dc42d10249f0410904a75c0997842eb03b931c`。
-- 实施 PR：[#24](https://github.com/ForceMind/Tekvro/pull/24)，总任务：[#21](https://github.com/ForceMind/Tekvro/issues/21)。尚未合并主线；最终状态以 PR 检查为准。
+- 实施 PR：[#24](https://github.com/ForceMind/Tekvro/pull/24)，总任务：[#21](https://github.com/ForceMind/Tekvro/issues/21)。合并与资格状态以该 PR 的当前提交检查为准；下列记录区分已执行样本与未验证范围。
 - 生产代码已接入 src、bridge、CLI、MCP、配置编辑、Evidence、Snapshot 与分析提供方；研究分支没有整体合并。
 - 产品包保留兼容版本标记，内核来源单独记录在 engine-metadata.json。private:true、安装器拒绝、源码更新拒绝及发布工作流身份保护保持。
 
