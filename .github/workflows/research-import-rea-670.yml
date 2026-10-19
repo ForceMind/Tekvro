@@ -1,0 +1,43 @@
+name: Snapshot pinned REA 6.7.0 for Tekvro analysis
+
+on:
+  push:
+    branches:
+      - research/rea-6.7.0-source-20261019
+    paths:
+      - .github/workflows/research-import-rea-670.yml
+
+permissions:
+  contents: write
+
+jobs:
+  snapshot:
+    if: github.repository == 'ForceMind/Tekvro'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout research branch only
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: true
+      - name: Import exact upstream source (do not execute upstream)
+        shell: bash
+        env:
+          UPSTREAM_GIT_DIR: ${{ runner.temp }}/rea-670-upstream
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch rea-agents-6.7.0 https://github.com/morluto/rea.git "$UPSTREAM_GIT_DIR"
+          test "$(git -C "$UPSTREAM_GIT_DIR" rev-parse HEAD)" = '27dc42d10249f0410904a75c0997842eb03b931c'
+          mkdir -p upstream/rea-6.7.0
+          git -C "$UPSTREAM_GIT_DIR" archive --format=tar HEAD | tar -xf - -C upstream/rea-6.7.0
+          test -f upstream/rea-6.7.0/package.json
+          test -f upstream/rea-6.7.0/LICENSE
+          PYTHONDONTWRITEBYTECODE=1 python3 scripts/research/audit_rea_670.py
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -f upstream/rea-6.7.0 docs/upstream/rea-6.7.0-delta.md docs/upstream/rea-6.7.0-file-diff.tsv
+          git rm -- .github/workflows/research-import-rea-670.yml
+          git commit -m 'chore(research): archive pinned REA 6.7.0 and file delta'
+          git push origin HEAD:refs/heads/research/rea-6.7.0-source-20261019
+          echo 'Pinned 6.7.0 tracked source imported into isolated research branch.'
