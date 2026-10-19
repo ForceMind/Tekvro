@@ -1,0 +1,84 @@
+name: Tekvro engine acceptance
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "bridge/**"
+      - "scripts/**"
+      - "tests/**"
+      - "package*.json"
+      - "engine-metadata.json"
+      - ".github/workflows/tekvro-engine-acceptance.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tekvro-engine-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  HUSKY: "0"
+
+jobs:
+  h5-wasm:
+    name: Real H5 Evidence and WABT interfaces (Linux x64)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run build:cached
+      - name: Verify real source selection and retained MCP pagination
+        run: >-
+          npm run test:focused --
+          tests/acceptance/applications/javascriptSourceSelectionCli.test.ts
+          tests/boundary/mcp/javascriptFactsViewMcp.test.ts
+          tests/acceptance/applications/electronModuleInteropCli.test.ts
+          tests/acceptance/electronFusesCli.test.ts
+      - name: Prepare fixed WABT release in the fixture workspace
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/wabt"
+          curl --fail --location --retry 3 https://github.com/WebAssembly/wabt/releases/download/1.0.42/wabt-1.0.42-linux-x64.tar.gz -o "$RUNNER_TEMP/wabt.tgz"
+          printf '%s  %s\n' 84895407a6bbb80e918f33b16b2fb2206021c150b6bc9ff6f761263a745ab131 "$RUNNER_TEMP/wabt.tgz" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/wabt.tgz" --strip-components=1 -C "$RUNNER_TEMP/wabt"
+      - name: Verify actual WASM inspection and interface comparison through CLI and MCP
+        env:
+          REA_WABT_BIN_DIRECTORY: ${{ runner.temp }}/wabt/bin
+        run: |
+          npm run verify:wasm:artifact -- --require-tools
+          npm run verify:wasm-interface-comparison
+
+  electron:
+    name: Real Electron lifecycle and IPC (Linux x64)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run build:cached
+      - name: Prepare fixed Electron release in the fixture workspace
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/electron"
+          curl --fail --location --retry 3 https://github.com/electron/electron/releases/download/v44.9.0/electron-v44.9.0-linux-x64.zip -o "$RUNNER_TEMP/electron.zip"
+          printf '%s  %s\n' ecced7ecb55697f92ca870939c5988557faa8acd8c222c232cae5913d318c8b9 "$RUNNER_TEMP/electron.zip" | sha256sum --check
+          unzip -q "$RUNNER_TEMP/electron.zip" -d "$RUNNER_TEMP/electron"
+          sudo chown root:root "$RUNNER_TEMP/electron/chrome-sandbox"
+          sudo chmod 4755 "$RUNNER_TEMP/electron/chrome-sandbox"
+      - name: Verify actual Electron CLI/MCP capture, IPC, reload and cleanup
+        env:
+          REA_ELECTRON_EXECUTABLE: ${{ runner.temp }}/electron/electron
+        run: xvfb-run -a npm run verify:electron
