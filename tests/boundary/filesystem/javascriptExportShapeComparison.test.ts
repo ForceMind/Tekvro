@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import { createTestTempDirectory } from "../../fixtures/temporaryDirectory.js";
 
-import { analyzeJavaScriptApplication } from "../../../src/application/javascript/JavaScriptApplicationService.js";
+import { analyzeJavaScriptApplication } from "../../support/javascriptApplicationScope.js";
 import { parseApplicationGraphEvidence } from "../../../src/application/javascript/JavaScriptApplicationEvidenceGraph.js";
 import { compareJavaScriptExportShapes } from "../../../src/domain/javascript/javascriptExportShapeComparison.js";
 import {
@@ -113,18 +113,20 @@ describe("JavaScript export return-shape comparison", () => {
 });
 
 describe("JavaScript export return-shape pairing limits", () => {
-  it.each([
-    { presence: "absent", side: "left" },
-    { presence: "unknown-coverage", side: "left" },
-    { presence: "absent", side: "right" },
-    { presence: "unknown-coverage", side: "right" },
-  ] as const)(
-    "does not pair an inline $side discriminant whose presence is $presence",
-    async ({ presence, side }) => {
-      const [left, right] = await analyzeSources({
-        left: 'export default () => ({ kind: "result", count: 1 });',
-        right: 'export default () => ({ kind: "result", total: 2 });',
-      });
+  it("does not pair an inline discriminant with absent or unknown presence", async () => {
+    const rows = [
+      { presence: "absent", side: "left" },
+      { presence: "unknown-coverage", side: "left" },
+      { presence: "absent", side: "right" },
+      { presence: "unknown-coverage", side: "right" },
+    ] as const;
+    const [left, right] = await analyzeSources({
+      left: 'export default () => ({ kind: "result", count: 1 });',
+      right: 'export default () => ({ kind: "result", total: 2 });',
+    });
+
+    for (const { presence, side } of rows) {
+      const label = `${side} discriminant presence ${presence}`;
       const selected = side === "left" ? left : right;
       const graph = createJavaScriptApplicationGraph({
         schema: "JavaScriptApplicationGraph",
@@ -165,26 +167,28 @@ describe("JavaScript export return-shape pairing limits", () => {
         side === "left"
           ? compare({ ...left, graph }, right)
           : compare(left, { ...right, graph });
-      expect(result.coverage).toMatchObject({
+      expect(result.coverage, label).toMatchObject({
         status: "partial",
         paired_variants: 0,
         unpaired_left_variants: 1,
         unpaired_right_variants: 1,
       });
-      expect(result.changes).toHaveLength(2);
+      expect(result.changes, label).toHaveLength(2);
       expect(
         result.changes.every(
           ({ status, discriminant }) =>
             status === "unknown" && discriminant === null,
         ),
+        label,
       ).toBe(true);
       expect(
         result.property_inventories.every(
           ({ paired, discriminant }) => !paired && discriminant === null,
         ),
+        label,
       ).toBe(true);
-    },
-  );
+    }
+  });
 
   it("does not pair discriminants that an unknown trailing spread can overwrite", async () => {
     const [left, right] = await analyzeSources({
@@ -256,37 +260,55 @@ describe("JavaScript export return-shape pairing limits", () => {
 });
 
 describe("JavaScript export return-shape uncertain presence", () => {
-  it.each([false, true])(
-    "keeps deleted property presence unknown (reversed: %s)",
-    async (reversed) => {
-      const plain = 'export default () => ({ kind: "result" });';
-      const mutated = `export default function make() {
+  it("keeps deleted property presence unknown in both comparison directions", async () => {
+    const plain = 'export default () => ({ kind: "result" });';
+    const mutated = `export default function make() {
       const result = { kind: "result", count: 1 };
       delete result.count;
       return result;
     }`;
-      const graphs = await analyzeSources({
-        left: reversed ? mutated : plain,
-        right: reversed ? plain : mutated,
-      });
-      const result = compare(...graphs);
-      expect(result.changes).toContainEqual(
+    const graphs = await analyzeSources({ left: plain, right: mutated });
+    for (const direction of [
+      {
+        name: "plain to deleted-property source",
+        result: compare(...graphs),
+        presence: { left: "absent", right: "unknown-coverage" },
+        inventorySide: "right" as const,
+      },
+      {
+        name: "deleted-property to plain source",
+        result: compare(graphs[1], graphs[0]),
+        presence: { left: "unknown-coverage", right: "absent" },
+        inventorySide: "left" as const,
+      },
+    ]) {
+      expect(
+        direction.result.changes,
+        `${direction.name}: /count change`,
+      ).toContainEqual(
         expect.objectContaining({
           path: "/count",
           status: "unknown",
-          presence: reversed
-            ? { left: "unknown-coverage", right: "absent" }
-            : { left: "absent", right: "unknown-coverage" },
+          presence: direction.presence,
         }),
       );
       expect(
-        inventoryProperties(result, reversed ? "left" : "right", 0),
+        inventoryProperties(direction.result, direction.inventorySide, 0),
+        `${direction.name}: uncertain count inventory`,
       ).not.toContain("/count");
-      expect(result.summary.added + result.summary.removed).toBe(0);
-      expect(result.coverage.status).toBe("partial");
-    },
-  );
+      expect(
+        direction.result.summary.added + direction.result.summary.removed,
+        `${direction.name}: added/removed summary`,
+      ).toBe(0);
+      expect(
+        direction.result.coverage.status,
+        `${direction.name}: coverage`,
+      ).toBe("partial");
+    }
+  });
+});
 
+describe("JavaScript export return-shape array presence", () => {
   it("excludes array holes while preserving observed unknown elements", async () => {
     const holes = 'export default () => ({ kind: "result", items: [,] });';
     const empty = await analyzeSources({
@@ -311,6 +333,84 @@ describe("JavaScript export return-shape uncertain presence", () => {
       }),
     );
   });
+});
+
+describe("JavaScript export unpaired return locations", () => {
+  it.each([
+    {
+      description: "two right return variants",
+      left: "export default function f() {}",
+      right: `export default function f(flag) {
+        if (flag) return { count: call() };
+        return { total: call() };
+      }`,
+      side: "right" as const,
+      lines: [2, 3],
+    },
+    {
+      description: "one right return variant",
+      left: "export default function f() {}",
+      right: `export default function f() {
+        return { count: call() };
+      }`,
+      side: "right" as const,
+      lines: [2],
+    },
+    {
+      description: "two left return variants",
+      left: `export default function f(flag) {
+        if (flag) return { count: call() };
+        return { total: call() };
+      }`,
+      right: "export default function f() {}",
+      side: "left" as const,
+      lines: [2, 3],
+    },
+    {
+      description: "one left return variant",
+      left: `export default function f() {
+        return { count: call() };
+      }`,
+      right: "export default function f() {}",
+      side: "left" as const,
+      lines: [2],
+    },
+  ])(
+    "retains each location for $description when the opposite export has no return",
+    async ({ left, right, side, lines }) => {
+      const graphs = await analyzeSources({ left, right });
+      const result = compare(...graphs);
+      expect(result.coverage).toMatchObject({
+        status: "partial",
+        unpaired_left_variants: side === "left" ? lines.length : 0,
+        unpaired_right_variants: side === "right" ? lines.length : 0,
+      });
+      expect(result.changes).toHaveLength(lines.length);
+      expect(
+        result.changes.every(
+          ({ status, left_source_range, right_source_range }) =>
+            status === "unknown" &&
+            (side === "left"
+              ? left_source_range !== null && right_source_range === null
+              : left_source_range === null && right_source_range !== null),
+        ),
+      ).toBe(true);
+      const locations = result.changes
+        .map((change) =>
+          side === "left"
+            ? change.left_source_range?.start.line
+            : change.right_source_range?.start.line,
+        )
+        .sort((first, second) => (first ?? 0) - (second ?? 0));
+      expect(locations).toEqual(lines);
+      expect(result.summary).toMatchObject({
+        added: 0,
+        removed: 0,
+        changed: 0,
+        unknown: lines.length,
+      });
+    },
+  );
 
   it("retains unpaired inventory locations when the opposite export has no return", async () => {
     const graphs = await analyzeSources({
@@ -348,6 +448,64 @@ describe("JavaScript export return-shape uncertain presence", () => {
 });
 
 describe("JavaScript export matching uncertain projections", () => {
+  it.each([
+    ["Object.assign", "Object.assign(result, { extra: 1 });"],
+    ["local helper", "mutate(result);"],
+    ["alias", "const alias = result; mutate(alias);"],
+    ["destructuring", "const { value } = { value: result }; mutate(value);"],
+    ["shared wrapper", "mutate({ value: result });"],
+    ["spread arguments", "mutate(...[result]);"],
+    ["optional call", "mutate?.(result);"],
+    ["constructor", "new Mutator(result);"],
+    ["tagged template", "tag`${result}`;"],
+  ])(
+    "does not infer an addition after %s can mutate the return value",
+    async (_description, invocation) => {
+      const graphs = await analyzeSources({
+        left: `
+        function mutate(value) { (value.value ?? value).extra = 1; }
+        function Mutator(value) { value.extra = 1; }
+        function tag(_strings, value) { value.extra = 1; }
+        export default function make() {
+          const result = { kind: "record" };
+          ${invocation}
+          return result;
+        }
+      `,
+        right: 'export default () => ({ kind: "record", extra: 1 });',
+      });
+      const result = compare(...graphs);
+      expect(result.summary).toMatchObject({
+        added: 0,
+        removed: 0,
+        changed: 0,
+      });
+      expect(result.coverage.status).toBe("partial");
+      expect(result.changes).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ status: "unknown" }),
+        ]),
+      );
+    },
+  );
+
+  it("keeps sibling properties known when a method can mutate its receiver", async () => {
+    const graphs = await analyzeSources({
+      left: `export default function make() {
+        const result = { kind: "record", tokens: [] };
+        result.tokens.push({ extra: 1 });
+        return result;
+      }`,
+      right:
+        'export default () => ({ kind: "record", tokens: [{ extra: 1 }] });',
+    });
+    const result = compare(...graphs);
+    expect(result.summary).toMatchObject({ added: 0, removed: 0, changed: 0 });
+    expect(result.coverage.status).toBe("partial");
+    for (const inventory of result.property_inventories)
+      expect(inventory.properties).toContain("/kind");
+  });
+
   it.each(["delete result.count;", "result.count = query();"])(
     "omits matching uncertain projections after %s",
     async (mutation) => {
@@ -463,7 +621,7 @@ describe("JavaScript export localized mutation uncertainty", () => {
 });
 
 describe("JavaScript export property presence boundaries", () => {
-  it("normalizes omitted legacy presence before comparing identical literals and unions", async () => {
+  it("rejects return-shape observations that omit required slot presence", async () => {
     const source =
       'export default () => ({ kind: "result", count: flag ? 1 : 2, nested: { enabled: true } });';
     const [left, right] = await analyzeSources({ left: source, right: source });
@@ -513,9 +671,14 @@ describe("JavaScript export property presence boundaries", () => {
       [right, { ...left, graph }],
     ] as const) {
       const result = compare(sides[0], sides[1]);
-      expect(result.coverage.paired_variants).toBe(1);
-      expect(result.changes).toEqual([]);
-      expect(result.coverage.status).toBe("complete-within-inputs");
+      expect(result.coverage.paired_variants).toBe(0);
+      expect([result.left.status, result.right.status]).toContain(
+        "unavailable",
+      );
+      expect(result.changes).toEqual([
+        expect.objectContaining({ status: "unknown", path: "" }),
+      ]);
+      expect(result.coverage.status).toBe("partial");
     }
   });
 
@@ -683,35 +846,28 @@ describe("JavaScript export return-shape property presence", () => {
 
 describe("JavaScript export return-shape container presence", () => {
   it.each(["{}", "[]", "{ nested: 1 }"])(
-    "does not report a retained %s container property as removed",
+    "does not report a retained %s container property as added or removed",
     async (container) => {
       const graphs = await analyzeSources({
         left: 'export default () => ({ type: "item", options: false });',
         right: `export default () => ({ type: "item", options: ${container} });`,
       });
-      const result = compare(...graphs);
-      const change = result.changes.find(({ path }) => path === "/options");
-      expect(change).toMatchObject({
+      const forward = compare(...graphs);
+      const reverse = compare(graphs[1], graphs[0]);
+      expect(
+        forward.changes.find(({ path }) => path === "/options"),
+        `${container}: primitive to container`,
+      ).toMatchObject({
         status: "unknown",
         left: { availability: "literal", value: false },
         right: { availability: "unknown" },
       });
       expect(() =>
-        javaScriptExportShapeComparisonResultSchema.parse(result),
+        javaScriptExportShapeComparisonResultSchema.parse(forward),
       ).not.toThrow();
-    },
-  );
-
-  it.each(["{}", "[]", "{ nested: 1 }"])(
-    "does not report a retained %s container becoming a primitive as added",
-    async (container) => {
-      const graphs = await analyzeSources({
-        left: `export default () => ({ type: "item", options: ${container} });`,
-        right: 'export default () => ({ type: "item", options: false });',
-      });
-      const result = compare(...graphs);
       expect(
-        result.changes.find(({ path }) => path === "/options"),
+        reverse.changes.find(({ path }) => path === "/options"),
+        `${container}: container to primitive`,
       ).toMatchObject({
         status: "unknown",
         left: { availability: "unknown" },
@@ -933,7 +1089,9 @@ const analyzeGraph = async (root: string) => {
     input_path: root,
   });
   if (!result.ok) throw result.error;
-  return parseApplicationGraphEvidence(result.value);
+  const parsed = parseApplicationGraphEvidence(result.value);
+  if (!parsed.ok) throw new Error("Analysis Evidence must parse");
+  return parsed.value;
 };
 
 const analyzeSources = async (

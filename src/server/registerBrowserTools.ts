@@ -1,10 +1,12 @@
+import type { ToolResultDelivery } from "./toolResult.js";
+import type { EvidenceMcpServer } from "./EvidenceMcpServer.js";
 import type { EvidenceWriter } from "../application/investigation/InvestigationRecordPort.js";
 import {
   optionalProviderUnavailable,
   type OptionalProviderLoadFailure,
 } from "../application/OptionalObservationProviders.js";
 import { err } from "../domain/result.js";
-import type { McpServer, ServerContext } from "@modelcontextprotocol/server";
+import type { ServerContext } from "@modelcontextprotocol/server";
 
 import type { BrowserObservationPort } from "../application/BrowserObservationPort.js";
 import {
@@ -18,23 +20,25 @@ import {
   observeWebSession,
 } from "../application/BrowserObservationService.js";
 import type { ProgressReporter } from "../application/ProgressReporter.js";
-import { toolContract, type ToolContract } from "../contracts/toolContracts.js";
+import { toolContract } from "../contracts/toolContracts.js";
+import type { ToolContract } from "../contracts/toolContractTypes.js";
 import type { AnalysisError } from "../domain/analysisErrorBase.js";
 import type { Evidence } from "../domain/evidence.js";
-import { analyzeWebBundleInputSchema } from "../domain/webBundleAnalysis.js";
-import { inspectWebPageInputSchema } from "../domain/browserObservation.js";
 import type { Result } from "../domain/result.js";
-import type { Logger } from "../logger.js";
+import type { Logger } from "pino";
 import { mcpProgressReporter } from "./mcpProgress.js";
 import { logToolExecution } from "./toolLogging.js";
 import { toolRegistrationOptions } from "./toolRegistrationOptions.js";
-import { toCallToolResult, toEvidenceToolResult } from "./toolResult.js";
+import type { WithAdmittedAnalysis } from "./analysisAdmission.js";
+import { runAdmittedToolOperation } from "./admittedToolOperation.js";
+import { deliverEvidenceResult } from "./contractToolHandler.js";
 
 interface BrowserToolRegistration {
   readonly logger: Logger;
   readonly loadFailure?: OptionalProviderLoadFailure | undefined;
   readonly browser: BrowserObservationPort | undefined;
   readonly recordEvidence: EvidenceWriter["recordEvidence"] | undefined;
+  readonly withAdmittedAnalysis?: WithAdmittedAnalysis;
 }
 
 interface BrowserToolContext {
@@ -45,9 +49,10 @@ interface BrowserToolContext {
 /** Register browser tools with execution-time provider diagnostics. */
 // oxlint-disable-next-line max-lines-per-function -- direct SDK calls retain each schema-handler type correlation.
 export const registerBrowserTools = (
-  server: McpServer,
+  server: EvidenceMcpServer,
   options: BrowserToolRegistration,
 ): void => {
+  const registration = { ...options, delivery: server.delivery, server };
   const listContract = toolContract("list_browser_targets");
   const inspectContract = toolContract("inspect_web_page");
   const analyzeContract = toolContract("analyze_web_bundle");
@@ -62,7 +67,7 @@ export const registerBrowserTools = (
     toolRegistrationOptions(listContract),
     (input, context) =>
       runBrowserTool(
-        options,
+        registration,
         listContract,
         { input, context },
         (parsed, { signal }) =>
@@ -76,15 +81,11 @@ export const registerBrowserTools = (
     toolRegistrationOptions(inspectContract),
     (input, context) =>
       runBrowserTool(
-        options,
+        registration,
         inspectContract,
         { input, context },
         (parsed, { signal, progress }) =>
-          inspectWebPage(
-            options.browser,
-            inspectWebPageInputSchema.parse(parsed),
-            { signal, progress },
-          ),
+          inspectWebPage(options.browser, parsed, { signal, progress }),
       ),
   );
   server.registerTool(
@@ -92,18 +93,14 @@ export const registerBrowserTools = (
     toolRegistrationOptions(analyzeContract),
     (input, context) =>
       runBrowserTool(
-        options,
+        registration,
         analyzeContract,
         { input, context },
         (parsed, { signal, progress }) =>
-          analyzeWebBundle(
-            options.browser,
-            analyzeWebBundleInputSchema.parse(parsed),
-            {
-              signal,
-              progress,
-            },
-          ),
+          analyzeWebBundle(options.browser, parsed, {
+            signal,
+            progress,
+          }),
       ),
   );
   server.registerTool(
@@ -111,7 +108,7 @@ export const registerBrowserTools = (
     toolRegistrationOptions(sessionContract),
     (input, context) =>
       runBrowserTool(
-        options,
+        registration,
         sessionContract,
         { input, context },
         (parsed, { signal, progress }) =>
@@ -126,7 +123,7 @@ export const registerBrowserTools = (
     toolRegistrationOptions(webMcpContract),
     (input, context) =>
       runBrowserTool(
-        options,
+        registration,
         webMcpContract,
         { input, context },
         (parsed, { signal, progress }) =>
@@ -141,7 +138,7 @@ export const registerBrowserTools = (
     toolRegistrationOptions(captureDiffContract),
     (input, context) =>
       runBrowserTool(
-        options,
+        registration,
         captureDiffContract,
         { input, context },
         (parsed) => compareWebCaptureEvidence(options.browser, parsed),
@@ -152,7 +149,7 @@ export const registerBrowserTools = (
     toolRegistrationOptions(screenshotContract),
     (input, context) =>
       runBrowserTool(
-        options,
+        registration,
         screenshotContract,
         { input, context },
         (parsed, { signal, progress }) =>
@@ -167,7 +164,7 @@ export const registerBrowserTools = (
     toolRegistrationOptions(screenshotDiffContract),
     (input, context) =>
       runBrowserTool(
-        options,
+        registration,
         screenshotDiffContract,
         { input, context },
         (parsed) => compareWebScreenshotEvidence(options.browser, parsed),
@@ -176,7 +173,10 @@ export const registerBrowserTools = (
 };
 
 const runBrowserTool = async <Input>(
-  options: BrowserToolRegistration,
+  options: BrowserToolRegistration & {
+    readonly delivery: ToolResultDelivery;
+    readonly server: EvidenceMcpServer;
+  },
   contract: ToolContract,
   request: { readonly input: Input; readonly context: ServerContext },
   execute: (
@@ -186,25 +186,28 @@ const runBrowserTool = async <Input>(
 ) => {
   const { input, context } = request;
   if (options.loadFailure !== undefined)
-    return toCallToolResult(
+    return options.delivery.toCallToolResult(
       err(optionalProviderUnavailable(options.loadFailure, contract.name)),
       contract,
     );
-  const result = await logToolExecution(options.logger, contract.name, () =>
-    execute(input, {
-      signal: context.mcpReq.signal,
-      progress: mcpProgressReporter(context),
-    }),
+  return runAdmittedToolOperation(
+    options.server,
+    options.withAdmittedAnalysis,
+    contract.name,
+    context.mcpReq.signal,
+    async () => {
+      const result = await logToolExecution(options.logger, contract.name, () =>
+        execute(input, {
+          signal: context.mcpReq.signal,
+          progress: mcpProgressReporter(context),
+        }),
+      );
+      return deliverEvidenceResult(
+        options.server,
+        result,
+        contract,
+        options.recordEvidence,
+      );
+    },
   );
-  if (!result.ok) return toCallToolResult(result, contract);
-  return evidenceResult(options, contract, result.value);
-};
-
-const evidenceResult = (
-  options: BrowserToolRegistration,
-  contract: ToolContract,
-  evidence: Evidence,
-) => {
-  const recorded = options.recordEvidence?.(evidence);
-  return toEvidenceToolResult(evidence, contract, recorded);
 };

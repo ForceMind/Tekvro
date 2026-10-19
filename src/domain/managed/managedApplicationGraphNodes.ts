@@ -2,25 +2,34 @@ import { basename } from "node:path";
 import {
   createJavaScriptApplicationEdge,
   createJavaScriptApplicationNode,
-  type ApplicationGraphEvidence,
-  type ApplicationNode,
 } from "../javascript/javascriptApplicationGraph.js";
+import type { ApplicationGraphEvidence } from "../javascript/javascriptApplicationEvidenceSchemas.js";
+import type { ApplicationNode } from "../javascript/javascriptApplicationGraphSchemas.js";
 import { managedSourceCoverage } from "./managedApplicationGraphCoverage.js";
-import {
-  type ManagedMemberInspection,
-  type ManagedNativeBoundaryInspection,
+import type { Evidence } from "../evidence.js";
+import { managedTokenScopesMatch } from "./managedInspectionEvidence.js";
+import type {
+  ManagedArtifactInspection,
+  ManagedMemberInspection,
+  ManagedNativeBoundaryInspection,
 } from "./managedArtifact.js";
 import type {
   GraphBuildState,
   ParsedManagedGraphInput,
 } from "./managedApplicationGraph.js";
-import { moduleCoverageState } from "./managedApplicationGraphNodeCoverage.js";
 type ManagedMethod = ManagedMemberInspection["methods"][number];
 type ManagedField = ManagedMemberInspection["fields"][number];
 type ManagedType = ManagedMemberInspection["types"][number];
 type PinvokeImport = ManagedNativeBoundaryInspection["pinvoke_imports"][number];
 type NativeImplementation =
   ManagedNativeBoundaryInspection["native_implementations"][number];
+
+/**
+ * Display label for a metadata name. Metadata may hold an empty name; the
+ * graph then has no label, while the node's properties keep the source value.
+ */
+const metadataLabel = (name: string): string | null =>
+  name === "" ? null : name;
 
 /** Options for a managed contains relationship edge. */
 export interface ContainsEdgeOptions {
@@ -44,7 +53,7 @@ export const addArtifactNode = (state: GraphBuildState): ApplicationNode => {
           format: "pe",
           source: "managed-application-graph",
         },
-        evidence: managedEvidence(state, "project-managed-artifact"),
+        evidence: projectedManagedEvidence(state, "project-managed-artifact"),
       },
     ],
   });
@@ -58,77 +67,111 @@ export const addArtifactIdentityNodes = (
   artifactNode: ApplicationNode,
   parsed: ParsedManagedGraphInput,
 ): void => {
-  const artifact = parsed.artifact?.result;
-  const artifactCoverage = managedSourceCoverage(
-    parsed.artifact?.result.coverage.state ?? "complete",
-  );
-  if (artifact?.assembly !== undefined && artifact.assembly !== null) {
+  const artifactInput = parsed.artifact;
+  if (artifactInput !== null && artifactInput.result.assembly !== null) {
+    const assemblyFacts = artifactInput.result.assembly;
+    const artifactEvidence = sourceManagedEvidence(
+      state,
+      artifactInput.evidence,
+      artifactInput.result.coverage.state,
+    );
     const assembly = createJavaScriptApplicationNode({
       kind: "managed-assembly",
       identity: artifactLocalIdentity(
         state.artifactSha256,
         "managed-assembly",
-        artifact.assembly.token,
+        assemblyFacts.token,
       ),
       observations: [
         {
-          label: artifact.assembly.name,
+          label: metadataLabel(assemblyFacts.name),
           properties: {
-            name: artifact.assembly.name,
-            version: artifact.assembly.version,
-            culture: artifact.assembly.culture,
-            public_key_kind: artifact.assembly.public_key.kind,
+            name: assemblyFacts.name,
+            version: assemblyFacts.version,
+            culture: assemblyFacts.culture,
+            public_key_kind: assemblyFacts.public_key.kind,
           },
-          evidence: managedEvidence(
-            state,
-            "inspect_managed_artifact",
-            artifactCoverage,
-          ),
+          evidence: artifactEvidence,
         },
       ],
     });
     state.nodes.push(assembly);
     addContainsEdge(state, artifactNode, assembly, {
       kind: "declares-managed-assembly",
-      coverage: artifactCoverage,
+      coverage: artifactEvidence.coverage,
     });
   }
-  const module =
-    artifact?.module ??
-    parsed.members?.result.module ??
-    parsed.boundaries?.result.module;
-  if (module !== undefined && module !== null) {
-    const moduleCoverage = managedSourceCoverage(moduleCoverageState(parsed));
+  const moduleSource = selectModuleSource(parsed);
+  if (moduleSource !== null) {
+    const { module } = moduleSource;
+    const moduleEvidence = sourceManagedEvidence(
+      state,
+      moduleSource.evidence,
+      moduleSource.coverageState,
+    );
     const moduleNode = createJavaScriptApplicationNode({
       kind: "managed-module",
       identity: artifactLocalIdentity(
         state.artifactSha256,
         "managed-module",
-        module.mvid ?? module.token,
+        module.mvid?.toLowerCase() ?? module.token,
       ),
       observations: [
         {
-          label: module.name,
+          label: metadataLabel(module.name),
           properties: {
             name: module.name,
             mvid: module.mvid,
             generation: module.generation,
             token: module.token,
           },
-          evidence: managedEvidence(
-            state,
-            "inspect_managed_artifact",
-            moduleCoverage,
-          ),
+          evidence: moduleEvidence,
         },
       ],
     });
     state.nodes.push(moduleNode);
     addContainsEdge(state, artifactNode, moduleNode, {
       kind: "declares-managed-module",
-      coverage: moduleCoverage,
+      coverage: moduleEvidence.coverage,
     });
   }
+};
+
+interface ManagedModuleSource {
+  readonly module: NonNullable<ManagedArtifactInspection["module"]>;
+  readonly evidence: Evidence;
+  readonly coverageState: ManagedArtifactInspection["coverage"]["state"];
+}
+
+const selectModuleSource = (
+  parsed: ParsedManagedGraphInput,
+): ManagedModuleSource | null => {
+  const sources = [
+    parsed.artifact?.result.module == null
+      ? null
+      : {
+          module: parsed.artifact.result.module,
+          evidence: parsed.artifact.evidence,
+          coverageState: parsed.artifact.result.coverage.state,
+        },
+    parsed.members?.result.module == null
+      ? null
+      : {
+          module: parsed.members.result.module,
+          evidence: parsed.members.evidence,
+          coverageState: parsed.members.result.coverage.state,
+        },
+    parsed.boundaries?.result.module == null
+      ? null
+      : {
+          module: parsed.boundaries.result.module,
+          evidence: parsed.boundaries.evidence,
+          coverageState: parsed.boundaries.result.coverage.state,
+        },
+  ].filter((source): source is ManagedModuleSource => source !== null);
+  return (
+    sources.find(({ module }) => module.mvid !== null) ?? sources[0] ?? null
+  );
 };
 
 /** Add managed type, method, and field nodes from member evidence. */
@@ -136,15 +179,21 @@ export const addMemberNodes = (
   state: GraphBuildState,
   artifactNode: ApplicationNode,
   parsed: ParsedManagedGraphInput,
-) => {
-  const members = parsed.members?.result;
-  if (members === undefined) return { types: 0, methods: 0, fields: 0 };
+): void => {
+  const memberInput = parsed.members;
+  if (memberInput === null) return;
+  const members = memberInput.result;
   const { types, methods, fields } = members;
   const typeCoverage = managedSourceCoverage(members.coverage.state);
   const methodCoverage = managedSourceCoverage(members.coverage.state);
   const fieldCoverage = managedSourceCoverage(members.coverage.state);
+  const sourceEvidence = sourceManagedEvidence(
+    state,
+    memberInput.evidence,
+    members.coverage.state,
+  );
   for (const type of types) {
-    const node = typeNode(state, type, typeCoverage);
+    const node = typeNode(state, type, sourceEvidence);
     state.nodes.push(node);
     state.typeNodes.set(type.token, node);
     addContainsEdge(state, artifactNode, node, {
@@ -153,7 +202,7 @@ export const addMemberNodes = (
     });
   }
   for (const method of methods) {
-    const node = methodNode(state, method, methodCoverage);
+    const node = methodNode(state, method, sourceEvidence);
     state.nodes.push(node);
     state.methodNodes.set(method.token, node);
     const owner =
@@ -166,7 +215,7 @@ export const addMemberNodes = (
     });
   }
   for (const field of fields) {
-    const node = fieldNode(state, field, fieldCoverage);
+    const node = fieldNode(state, field, sourceEvidence);
     state.nodes.push(node);
     state.fieldNodes.set(field.token, node);
     const owner =
@@ -178,18 +227,13 @@ export const addMemberNodes = (
       coverage: fieldCoverage,
     });
   }
-  return {
-    types: types.length,
-    methods: methods.length,
-    fields: fields.length,
-  };
 };
 
 /** Build a managed type application node. */
 const typeNode = (
   state: GraphBuildState,
   type: ManagedType,
-  coverage: ApplicationGraphEvidence["coverage"],
+  evidence: ApplicationGraphEvidence,
 ): ApplicationNode =>
   createJavaScriptApplicationNode({
     kind: "managed-type",
@@ -200,7 +244,7 @@ const typeNode = (
     ),
     observations: [
       {
-        label: type.full_name,
+        label: metadataLabel(type.full_name),
         properties: {
           token: type.token,
           namespace: type.namespace,
@@ -209,7 +253,7 @@ const typeNode = (
           flags: type.flags,
           extends_token: type.extends_token,
         },
-        evidence: managedEvidence(state, "inspect_managed_members", coverage),
+        evidence,
       },
     ],
   });
@@ -218,7 +262,7 @@ const typeNode = (
 const methodNode = (
   state: GraphBuildState,
   method: ManagedMethod,
-  coverage: ApplicationGraphEvidence["coverage"],
+  evidence: ApplicationGraphEvidence,
 ): ApplicationNode =>
   createJavaScriptApplicationNode({
     kind: "managed-method",
@@ -229,10 +273,11 @@ const methodNode = (
     ),
     observations: [
       {
-        label:
+        label: metadataLabel(
           method.declaring_type === null
             ? method.name
             : `${method.declaring_type}.${method.name}`,
+        ),
         properties: {
           token: method.token,
           declaring_type_token: method.declaring_type_token,
@@ -245,7 +290,7 @@ const methodNode = (
           normalized_il_sha256: method.body.normalized_il_sha256,
           il_size: method.body.il_size,
         },
-        evidence: managedEvidence(state, "inspect_managed_members", coverage),
+        evidence,
       },
     ],
   });
@@ -254,7 +299,7 @@ const methodNode = (
 const fieldNode = (
   state: GraphBuildState,
   field: ManagedField,
-  coverage: ApplicationGraphEvidence["coverage"],
+  evidence: ApplicationGraphEvidence,
 ): ApplicationNode =>
   createJavaScriptApplicationNode({
     kind: "managed-field",
@@ -265,10 +310,11 @@ const fieldNode = (
     ),
     observations: [
       {
-        label:
+        label: metadataLabel(
           field.declaring_type === null
             ? field.name
             : `${field.declaring_type}.${field.name}`,
+        ),
         properties: {
           token: field.token,
           declaring_type_token: field.declaring_type_token,
@@ -278,7 +324,7 @@ const fieldNode = (
           signature_sha256: field.signature.raw_sha256,
           signature_status: field.signature.parse_status,
         },
-        evidence: managedEvidence(state, "inspect_managed_members", coverage),
+        evidence,
       },
     ],
   });
@@ -288,23 +334,39 @@ export const addBoundaryNodes = (
   state: GraphBuildState,
   artifactNode: ApplicationNode,
   parsed: ParsedManagedGraphInput,
-) => {
-  const boundaries = parsed.boundaries?.result;
-  if (boundaries === undefined)
-    return { pinvoke_imports: 0, native_implementations: 0 };
+): void => {
+  const boundaryInput = parsed.boundaries;
+  if (boundaryInput === null) return;
+  const boundaries = boundaryInput.result;
   const { pinvoke_imports: pinvokes, native_implementations: implementations } =
     boundaries;
   const pinvokeCoverage = managedSourceCoverage(boundaries.coverage.state);
   const implementationCoverage = managedSourceCoverage(
     boundaries.coverage.state,
   );
+  const sourceEvidence = sourceManagedEvidence(
+    state,
+    boundaryInput.evidence,
+    boundaries.coverage.state,
+  );
+  const canJoinMemberTokens =
+    parsed.members !== null &&
+    managedTokenScopesMatch(
+      parsed.members.result.identity_scope.requires_mvid,
+      boundaries.identity_scope.requires_mvid,
+    );
   for (const pinvoke of pinvokes) {
-    const node = pinvokeNode(state, pinvoke, pinvokeCoverage);
+    const node = pinvokeNode(state, pinvoke, sourceEvidence);
     state.nodes.push(node);
-    const owner =
-      pinvoke.member_token === null
-        ? artifactNode
-        : (state.methodNodes.get(pinvoke.member_token) ?? artifactNode);
+    const method =
+      pinvoke.member_token === null || !canJoinMemberTokens
+        ? undefined
+        : state.methodNodes.get(pinvoke.member_token);
+    const memberEvidence =
+      method === undefined || parsed.members === null
+        ? undefined
+        : parsed.members.evidence;
+    const owner = method ?? artifactNode;
     state.edges.push(
       createJavaScriptApplicationEdge({
         source_node_id: owner.node_id,
@@ -315,10 +377,11 @@ export const addBoundaryNodes = (
           import_name: pinvoke.import_name,
           import_scope_name: pinvoke.import_scope_name,
         },
-        evidence: managedEvidence(
+        evidence: pinvokeAssociationEvidence(
           state,
-          "inspect_managed_native_boundaries",
+          boundaryInput.evidence,
           pinvokeCoverage,
+          memberEvidence,
         ),
       }),
     );
@@ -327,26 +390,25 @@ export const addBoundaryNodes = (
     const node = nativeImplementationNode(
       state,
       implementation,
-      implementationCoverage,
+      sourceEvidence,
     );
     state.nodes.push(node);
-    const owner = state.methodNodes.get(implementation.token) ?? artifactNode;
+    const owner =
+      (canJoinMemberTokens
+        ? state.methodNodes.get(implementation.token)
+        : undefined) ?? artifactNode;
     addContainsEdge(state, owner, node, {
       kind: "declares-managed-native-implementation",
       coverage: implementationCoverage,
     });
   }
-  return {
-    pinvoke_imports: pinvokes.length,
-    native_implementations: implementations.length,
-  };
 };
 
 /** Build a managed P/Invoke import application node. */
 const pinvokeNode = (
   state: GraphBuildState,
   pinvoke: PinvokeImport,
-  coverage: ApplicationGraphEvidence["coverage"],
+  evidence: ApplicationGraphEvidence,
 ): ApplicationNode =>
   createJavaScriptApplicationNode({
     kind: "managed-pinvoke-import",
@@ -357,7 +419,7 @@ const pinvokeNode = (
     ),
     observations: [
       {
-        label: pinvoke.import_name,
+        label: metadataLabel(pinvoke.import_name),
         properties: {
           token: pinvoke.token,
           member_token: pinvoke.member_token,
@@ -368,11 +430,7 @@ const pinvokeNode = (
           call_convention: pinvoke.call_convention,
           verification: pinvoke.verification,
         },
-        evidence: managedEvidence(
-          state,
-          "inspect_managed_native_boundaries",
-          coverage,
-        ),
+        evidence,
       },
     ],
   });
@@ -381,7 +439,7 @@ const pinvokeNode = (
 const nativeImplementationNode = (
   state: GraphBuildState,
   implementation: NativeImplementation,
-  coverage: ApplicationGraphEvidence["coverage"],
+  evidence: ApplicationGraphEvidence,
 ): ApplicationNode =>
   createJavaScriptApplicationNode({
     kind: "managed-native-implementation",
@@ -392,7 +450,7 @@ const nativeImplementationNode = (
     ),
     observations: [
       {
-        label: implementation.name,
+        label: metadataLabel(implementation.name),
         properties: {
           token: implementation.token,
           name: implementation.name,
@@ -403,11 +461,7 @@ const nativeImplementationNode = (
           boundary_kind: implementation.boundary_kind,
           body_interpretation: implementation.body_interpretation,
         },
-        evidence: managedEvidence(
-          state,
-          "inspect_managed_native_boundaries",
-          coverage,
-        ),
+        evidence,
       },
     ],
   });
@@ -425,7 +479,7 @@ const addContainsEdge = (
       target_node_id: target.node_id,
       relation: "contains",
       properties: { kind: options.kind },
-      evidence: managedEvidence(
+      evidence: projectedManagedEvidence(
         state,
         "project-managed-contains",
         options.coverage,
@@ -448,12 +502,43 @@ const artifactLocalIdentity = (
 });
 
 /** Build managed static-analysis evidence for a graph observation. */
-const managedEvidence = (
+const sourceManagedEvidence = (
+  state: GraphBuildState,
+  source: Evidence,
+  coverageState: ManagedArtifactInspection["coverage"]["state"],
+): ApplicationGraphEvidence =>
+  createManagedEvidence(
+    state,
+    source.operation,
+    managedSourceCoverage(coverageState),
+    [source.evidence_id],
+  );
+
+const projectedManagedEvidence = (
   state: GraphBuildState,
   operation: string,
   coverage: ApplicationGraphEvidence["coverage"] = managedSourceCoverage(
     "complete",
   ),
+): ApplicationGraphEvidence =>
+  createManagedEvidence(state, operation, coverage, state.evidenceLinks);
+
+const pinvokeAssociationEvidence = (
+  state: GraphBuildState,
+  boundaryEvidence: Evidence,
+  coverage: ApplicationGraphEvidence["coverage"],
+  memberEvidence: Evidence | undefined,
+): ApplicationGraphEvidence =>
+  createManagedEvidence(state, boundaryEvidence.operation, coverage, [
+    boundaryEvidence.evidence_id,
+    ...(memberEvidence === undefined ? [] : [memberEvidence.evidence_id]),
+  ]);
+
+const createManagedEvidence = (
+  state: GraphBuildState,
+  operation: string,
+  coverage: ApplicationGraphEvidence["coverage"],
+  evidenceIds: readonly string[],
 ): ApplicationGraphEvidence => ({
   authority: "managed-static-analysis",
   state: "observed",
@@ -483,7 +568,7 @@ const managedEvidence = (
       : [
           "The source managed Evidence slice is incomplete; unreturned or unavailable items remain unobserved.",
         ],
-  evidence_ids: state.evidenceLinks,
+  evidence_ids: [...evidenceIds],
 });
 
 /** Sanitize an artifact path into a managed graph location. */

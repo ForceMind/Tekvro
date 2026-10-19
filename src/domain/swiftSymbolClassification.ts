@@ -42,7 +42,11 @@ export const classifySwiftSymbol = (
     const kind = mangling.charAt(end);
     const nominal = NOMINAL_CATEGORIES.get(kind);
     if (nominal === undefined) {
-      if (kind === "E" && category !== null) category = "extensions";
+      // Current swiftc emits protocol descriptors as `…<Nominal>Mp` without
+      // the nominal `P` marker (e.g. `_$s4main7ScoringMp`). Decode that exact
+      // suffix; unknown substitution encodings stay unclassified, never guessed.
+      if (mangling.slice(end) === "Mp") category = "protocols";
+      else if (kind === "E" && category !== null) category = "extensions";
       break;
     }
     category = nominal;
@@ -50,6 +54,26 @@ export const classifySwiftSymbol = (
   }
   return { category };
 };
+
+/**
+ * Prefixes accepted by Swift's demangler as manglings. This is deliberately
+ * narrower than visible Swift runtime class names (`_Tt…`): those names are
+ * useful metadata symbols but are not themselves demangler manglings.
+ */
+const SWIFT_MANGLING_PREFIXES = [
+  "_T0",
+  "$S",
+  "_$S",
+  "$s",
+  "_$s",
+  "@__swiftmacro_",
+  "$e",
+  "_$e",
+] as const;
+
+/** Recognize names the Swift demangler accepts as mangled symbols. */
+export const isSwiftMangledSymbolName = (name: string): boolean =>
+  SWIFT_MANGLING_PREFIXES.some((prefix) => name.startsWith(prefix));
 
 const identifierEnd = (
   mangling: string,

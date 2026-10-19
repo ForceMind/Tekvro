@@ -1,8 +1,17 @@
+import { parseEvidence } from "../../../src/domain/evidence.js";
+import { ok as resultOk } from "../../../src/domain/result.js";
 import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import { expect, it } from "vitest";
-import { z } from "zod";
 
-import { createTestBinarySession } from "../../fixtures/binarySession.js";
+import {
+  createDeferred,
+  createBinarySessionTargets,
+  createTestBinarySession,
+} from "../../fixtures/binarySession.js";
+import {
+  createAnalysisExecution,
+  type AnalysisOperationPort,
+} from "../../../src/application/AnalysisProvider.js";
 import type { BinarySession } from "../../../src/application/binary/BinarySession.js";
 import { FUNCTION_COMPARISON_EXAMPLE } from "../../../src/contracts/functionComparisonExample.js";
 import { INVESTIGATION_EXAMPLES } from "../../../src/contracts/investigationExamples.js";
@@ -19,6 +28,7 @@ import {
 } from "../../../src/domain/jsonValue.js";
 import { createServer } from "../../../src/server/createServer.js";
 import { observed } from "../../fixtures/analysisExecution.js";
+import type { RelationshipCoverage } from "../../../src/domain/relationshipCoverage.js";
 
 it("aggregates comparison Evidence and records an approved runtime gap", async () => {
   const { session, server, client } = await connected();
@@ -109,6 +119,88 @@ it("builds exact-address paths with qualified callees and dossier citations", as
   }
 });
 
+it("keeps call-path publication ahead of close_binary record draining", async () => {
+  const session = createTestBinarySession(() => ({
+    health: () => Promise.resolve(),
+    execute: () => Promise.resolve(observed(null)),
+    close: () => Promise.resolve(resultOk(null)),
+  }));
+  const server = createServer({ kind: "session", session });
+  const client = new Client({ name: "investigation-close-race", version: "1" });
+  const [clientTransport, serverTransport] =
+    InMemoryTransport.createLinkedPair();
+  const preparationReached = createDeferred<void>();
+  const closeReached = createDeferred<void>();
+  const releasePreparation = createDeferred<void>();
+  const send = serverTransport.send.bind(serverTransport);
+  serverTransport.send = async (message, options) => {
+    await send(message, options);
+    if (
+      "method" in message &&
+      message.method === "notifications/progress" &&
+      "params" in message &&
+      typeof message.params === "object" &&
+      message.params !== null &&
+      "message" in message.params
+    ) {
+      if (message.params.message === "prepare: Preparing build_call_path") {
+        preparationReached.resolve();
+        await releasePreparation.promise;
+      } else if (message.params.message === "close_binary: started") {
+        closeReached.resolve();
+      }
+    }
+  };
+  await server.connect(serverTransport);
+  await client.connect(clientTransport);
+  const settlementOrder: string[] = [];
+  try {
+    const input = INVESTIGATION_EXAMPLES.build_call_path;
+    for (const evidence of input.functions)
+      expect(session.recordEvidence(evidence).ok).toBe(true);
+
+    const request = client
+      .callTool(
+        { name: "build_call_path", arguments: input },
+        { onprogress: () => undefined },
+      )
+      .then((response) => {
+        settlementOrder.push("build_call_path");
+        return response;
+      });
+    await preparationReached.promise;
+
+    let closeSettled = false;
+    const closing = client
+      .callTool(
+        { name: "close_binary", arguments: {} },
+        { onprogress: () => undefined },
+      )
+      .then((response) => {
+        closeSettled = true;
+        settlementOrder.push("close_binary");
+        return response;
+      });
+    await closeReached.promise;
+    expect(closeSettled).toBe(false);
+
+    releasePreparation.resolve();
+    const [response, closed] = await Promise.all([request, closing]);
+    expect(response.isError, JSON.stringify(response)).not.toBe(true);
+    expect(closed.isError, JSON.stringify(closed)).not.toBe(true);
+    expect(settlementOrder).toEqual(["build_call_path", "close_binary"]);
+    const evidence = inlineEvidence(response.structuredContent);
+    expect(evidence).toMatchObject({
+      provider: { id: "rea-call-path" },
+      evidence_links: input.functions.map(({ evidence_id }) => evidence_id),
+    });
+    expect(session.exportEvidenceBundle().records).toHaveLength(0);
+  } finally {
+    releasePreparation.resolve();
+    await close(session, server, client);
+  }
+}, 10_000);
+
 const dossierWithCallees = (addresses: readonly string[]) => {
   const base = FUNCTION_COMPARISON_EXAMPLE.left;
   if (base.subject === null) throw new Error("missing dossier subject");
@@ -128,7 +220,15 @@ const dossierWithCallees = (addresses: readonly string[]) => {
       parameters: base.parameters,
       result: jsonValueSchema.parse({
         ...jsonObjectSchema.parse(base.normalized_result),
-        callees: addresses.map((address) => ({ address, name: "next" })),
+        callees: addresses.map((address) => ({
+          address,
+          name: "next",
+          classification: null,
+          body: {
+            available: false,
+            reason: "The fixture has no callee body-extent observation.",
+          },
+        })),
       }),
       rawResult: base.raw_result,
       confidence: base.confidence,
@@ -139,6 +239,183 @@ const dossierWithCallees = (addresses: readonly string[]) => {
     },
   );
 };
+
+it.each([
+  {
+    label: "complete",
+    coverage: { status: "complete" } as RelationshipCoverage,
+    providerLimitations: ["The provider version identity is unavailable."],
+    dossierLimitations: ["The dossier has no native value-flow observation."],
+    status: "not_found",
+    exhaustive: true,
+  },
+  {
+    label: "partial",
+    coverage: {
+      status: "partial",
+      limitations: ["Callee output was capped."],
+    } as RelationshipCoverage,
+    providerLimitations: [],
+    dossierLimitations: [],
+    status: "unknown",
+    exhaustive: false,
+  },
+  {
+    label: "unknown",
+    coverage: {
+      status: "unknown",
+      reason: "Callee coverage was not established.",
+    } as RelationshipCoverage,
+    providerLimitations: [],
+    dossierLimitations: [],
+    status: "unknown",
+    exhaustive: false,
+  },
+  {
+    label: "legacy limited",
+    coverage: undefined,
+    providerLimitations: [
+      "Legacy relationship completeness was not established.",
+    ],
+    dossierLimitations: [],
+    status: "unknown",
+    exhaustive: false,
+  },
+  {
+    label: "legacy unlimited",
+    coverage: undefined,
+    providerLimitations: [],
+    dossierLimitations: [],
+    status: "not_found",
+    exhaustive: true,
+  },
+])(
+  "preserves $label coverage through public analyze_function then build_call_path",
+  async (scenario) => {
+    const base = FUNCTION_COMPARISON_EXAMPLE.left;
+    if (base.subject === null) throw new Error("missing fixture subject");
+    const provider = {
+      id: "fixture",
+      name: "Fixture analysis provider",
+      version: "1",
+    };
+    const rawResult = { fixture_reply: scenario.label };
+    const execution = createAnalysisExecution(
+      {
+        ...jsonObjectSchema.parse(base.normalized_result),
+        callees: [],
+        limitations: scenario.dossierLimitations,
+      },
+      provider,
+      {
+        rawResult,
+        limitations: scenario.providerLimitations,
+        locations: base.locations,
+        ...(scenario.coverage === undefined
+          ? {}
+          : { relationshipCoverage: scenario.coverage }),
+      },
+    );
+    const { session, server, client } = await connected({
+      execute: async (operation, parameters) => {
+        if (operation === "health") return observed(null);
+        if (operation !== "analyze_function")
+          throw new Error(`Unexpected operation: ${operation}`);
+        expect(parameters.procedure).toBe("0x1000");
+        return resultOk(execution);
+      },
+    });
+    try {
+      const [path] = await createBinarySessionTargets();
+      const opened = await client.callTool({
+        name: "open_binary",
+        arguments: { path },
+      });
+      expect(opened.isError, JSON.stringify(opened)).not.toBe(true);
+      const analyzed = await client.callTool({
+        name: "analyze_function",
+        arguments: { procedure: "0x1000" },
+      });
+      expect(analyzed.isError, JSON.stringify(analyzed)).not.toBe(true);
+      const dossier = inlineEvidence(analyzed.structuredContent);
+      expect(dossier).toMatchObject({
+        operation: "analyze_function",
+        parameters: { procedure: "0x1000" },
+        provider,
+        subject: {
+          local_path: path,
+          digest: { sha256: session.activeTarget()?.sha256 },
+          format: session.activeTarget()?.format,
+        },
+        raw_result: rawResult,
+        limitations: scenario.providerLimitations,
+        locations: base.locations,
+        normalized_result: {
+          callees: [],
+          limitations: scenario.dossierLimitations,
+        },
+      });
+      const response = await client.callTool({
+        name: "build_call_path",
+        arguments: {
+          functions: [dossier],
+          start: { address: "0x1000" },
+          goal: { address: "0x4000" },
+        },
+      });
+      expect(response.isError, JSON.stringify(response)).not.toBe(true);
+      const evidence = inlineEvidence(response.structuredContent);
+      const coverage = scenario.coverage;
+      const reasons =
+        coverage?.status === "partial"
+          ? coverage.limitations
+          : coverage?.status === "unknown"
+            ? [coverage.reason]
+            : [];
+      expect(evidence.normalized_result).toMatchObject({
+        status: scenario.status,
+        shortest_hops: null,
+        paths: [],
+        search_scope: { exhaustive: scenario.exhaustive },
+        limitations: expect.arrayContaining([
+          ...scenario.providerLimitations,
+          ...scenario.dossierLimitations,
+          ...reasons,
+        ]),
+      });
+      expect(evidence.evidence_links).toEqual([dossier.evidence_id]);
+      expect(dossier.relationship_coverage).toEqual(coverage ?? null);
+      if (coverage?.status === "partial") {
+        const tampered = {
+          ...dossier,
+          relationship_coverage: { status: "complete" },
+        };
+        expect(() => parseEvidence(tampered)).toThrow();
+        const rejected = await client.callTool({
+          name: "build_call_path",
+          arguments: {
+            functions: [tampered],
+            start: { address: "0x1000" },
+            goal: { address: "0x4000" },
+          },
+        });
+        expect(rejected.isError, JSON.stringify(rejected)).toBe(true);
+      }
+      if (scenario.exhaustive)
+        expect(session.listUnknowns({ domain: "call-path" })).toEqual([]);
+      else
+        expect(session.listUnknowns({ domain: "call-path" })).toMatchObject([
+          {
+            question:
+              "Can the requested call path be established from complete analysis?",
+            supporting_evidence_ids: [evidence.evidence_id],
+          },
+        ]);
+    } finally {
+      await close(session, server, client);
+    }
+  },
+);
 
 it("records a safe unresolved call-path question", async () => {
   const { session, server, client } = await connected();
@@ -317,13 +594,15 @@ it("cannot omit a session-owned active unknown from reconstruction input", async
   }
 });
 
-const connected = async () => {
+const connected = async (analysis?: AnalysisOperationPort) => {
   const session = createTestBinarySession(() => ({
     health: () => Promise.resolve(),
-    execute: () => Promise.resolve(observed(null)),
-    close: () => Promise.resolve(),
+    execute:
+      analysis?.execute.bind(analysis) ??
+      (() => Promise.resolve(observed(null))),
+    close: () => Promise.resolve(resultOk(null)),
   }));
-  const server = createServer(session, session);
+  const server = createServer({ kind: "session", session });
   const client = new Client({ name: "investigation-test", version: "1" });
   const [clientTransport, serverTransport] =
     InMemoryTransport.createLinkedPair();
@@ -332,20 +611,7 @@ const connected = async () => {
   return { session, server, client };
 };
 
-const inlineEvidence = (value: unknown) => {
-  const parsed = z
-    .object({
-      evidence_id: z.string().regex(/^ev_[a-f0-9]{64}$/u),
-      result: z.unknown(),
-      evidence: z.object({ limitations: z.array(z.string()) }).passthrough(),
-    })
-    .parse(value);
-  return {
-    ...parsed.evidence,
-    evidence_id: parsed.evidence_id,
-    normalized_result: parsed.result,
-  };
-};
+const inlineEvidence = (value: unknown) => parseEvidence(value);
 
 const close = async (
   session: BinarySession,

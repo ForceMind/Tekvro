@@ -4,10 +4,15 @@ import { Ajv2020 } from "ajv/dist/2020.js";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
+import { advertisedInputExamples } from "../../../src/contracts/advertisedInputExamples.js";
 import { TOOL_CONTRACTS } from "../../../src/contracts/toolContracts.js";
 import { emptyArraySchema } from "../../../src/domain/emptyArraySchema.js";
 import { processScenarioSchema } from "../../../src/domain/process/processScenario.js";
-import { GENERATED_MCP_TOOL_CATALOG } from "../../../src/generatedMcpToolCatalog.js";
+import { GENERATED_MCP_TOOL_CATALOG } from "../../fixtures/mcpToolCatalog.js";
+import {
+  arrayItemSchemaError,
+  booleanLiteralSchemaError,
+} from "../../fixtures/mcpClientSchemaConstraints.js";
 import { toolRegistrationOptions } from "../../../src/server/toolRegistrationOptions.js";
 
 interface ToolSchemas {
@@ -18,13 +23,42 @@ interface ToolSchemas {
 }
 
 function schemaErrors(tools: readonly ToolSchemas[]): string[] {
-  const ajv = new Ajv2020({ strict: false, validateFormats: false });
+  // Reuse Ajv's meta-schema validators, then clear each root's reference
+  // namespace, including nested IDs, before validating the next schema.
+  const ajv = new Ajv2020({
+    strict: false,
+    validateFormats: false,
+    addUsedSchema: false,
+  });
   return tools.flatMap((tool) =>
     ["inputSchema", "outputSchema"].flatMap((kind) => {
       const schema =
         kind === "inputSchema" ? tool.inputSchema : tool.outputSchema;
-      if (schema === undefined || ajv.validateSchema(schema)) return [];
-      return [`${tool.name}.${kind}: ${ajv.errorsText(ajv.errors)}`];
+      if (schema === undefined) return [];
+      try {
+        if (!ajv.validateSchema(schema))
+          return [`${tool.name}.${kind}: ${ajv.errorsText(ajv.errors)}`];
+        ajv.compile(schema);
+        const clientError = arrayItemSchemaError(
+          schema,
+          `${tool.name}.${kind}`,
+        );
+        if (clientError !== undefined) return [clientError];
+        if (kind === "inputSchema") {
+          const literalError = booleanLiteralSchemaError(
+            schema,
+            `${tool.name}.${kind}`,
+          );
+          if (literalError !== undefined) return [literalError];
+        }
+        return [];
+      } catch (cause: unknown) {
+        return [
+          `${tool.name}.${kind}: ${cause instanceof Error ? cause.message : String(cause)}`,
+        ];
+      } finally {
+        ajv.removeSchema();
+      }
     }),
   );
 }
@@ -72,7 +106,7 @@ function expectKnownAuthorityHints(tools: readonly ToolSchemas[]): void {
     },
     annotate_native_function: {
       readOnlyHint: false,
-      destructiveHint: false,
+      destructiveHint: true,
       idempotentHint: true,
       openWorldHint: true,
     },
@@ -94,13 +128,62 @@ function expectKnownAuthorityHints(tools: readonly ToolSchemas[]): void {
       idempotentHint: false,
       openWorldHint: false,
     },
+    start_gdb_session: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: true,
+    },
+    export_web_scripts: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: false,
+    },
+    analyze_javascript_application: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true,
+    },
+    capture_process_scenario: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: true,
+    },
+    observe_native_calls: {
+      readOnlyHint: false,
+      destructiveHint: true,
+    },
+    uninstall_adb_package: {
+      readOnlyHint: false,
+      destructiveHint: true,
+    },
+    start_adb_app: {
+      readOnlyHint: false,
+      destructiveHint: true,
+    },
+    export_evidence_bundle: {
+      readOnlyHint: false,
+      destructiveHint: true,
+    },
+    import_evidence_bundle: {
+      readOnlyHint: false,
+      destructiveHint: false,
+    },
+    execute_rizin_command: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: false,
+      openWorldHint: true,
+    },
   } as const;
 
   for (const [name, annotations] of Object.entries(expected))
     expect(advertised.get(name), name).toMatchObject({ annotations });
 }
 
-function expectRecursivePropertyDescriptions(
+function expectMeaningfulPropertyDescriptions(
   schema: unknown,
   path: string,
   root: unknown = schema,
@@ -108,7 +191,7 @@ function expectRecursivePropertyDescriptions(
 ): void {
   if (!isRecord(schema)) return;
   if (typeof schema.$ref === "string" && !active.has(schema.$ref))
-    expectRecursivePropertyDescriptions(
+    expectMeaningfulPropertyDescriptions(
       resolveReference(root, schema.$ref),
       `${path}.${schema.$ref}`,
       root,
@@ -116,10 +199,13 @@ function expectRecursivePropertyDescriptions(
     );
   if (isRecord(schema.properties)) {
     for (const [property, child] of Object.entries(schema.properties)) {
-      expect(child, `${path}.${property}`).toMatchObject({
-        description: expect.any(String),
-      });
-      expectRecursivePropertyDescriptions(
+      // Omit a description rather than restate the property name.
+      const description = isRecord(child) ? child.description : undefined;
+      if (description !== undefined)
+        expect(description, `${path}.${property}`).toEqual(
+          expect.not.stringMatching(/^(?:Value for .*)?$/u),
+        );
+      expectMeaningfulPropertyDescriptions(
         child,
         `${path}.${property}`,
         root,
@@ -130,12 +216,12 @@ function expectRecursivePropertyDescriptions(
 
   for (const key of ["items", "additionalProperties"])
     if (schema[key] !== undefined)
-      expectRecursivePropertyDescriptions(schema[key], path, root, active);
+      expectMeaningfulPropertyDescriptions(schema[key], path, root, active);
   for (const key of ["allOf", "anyOf", "oneOf", "prefixItems"]) {
     const children = schema[key];
     if (Array.isArray(children))
       children.forEach((child: unknown, index: number) =>
-        expectRecursivePropertyDescriptions(
+        expectMeaningfulPropertyDescriptions(
           child,
           `${path}.${key}[${index}]`,
           root,
@@ -196,6 +282,85 @@ function recursiveReferences(tools: readonly ToolSchemas[]): string[] {
     }),
   );
 }
+
+const schemaMapKeywords = new Set([
+  "$defs",
+  "definitions",
+  "properties",
+  "patternProperties",
+  "dependentSchemas",
+  "dependencies",
+]);
+const schemaArrayKeywords = new Set(["allOf", "anyOf", "oneOf", "prefixItems"]);
+const schemaChildKeywords = new Set([
+  "items",
+  "additionalItems",
+  "contains",
+  "additionalProperties",
+  "unevaluatedProperties",
+  "unevaluatedItems",
+  "propertyNames",
+  "not",
+  "if",
+  "then",
+  "else",
+]);
+
+function localInputReferences(tools: readonly ToolSchemas[]): string[] {
+  return tools.flatMap((tool) => {
+    const references: string[] = [];
+    const visit = (node: unknown, path: string): void => {
+      if (!isRecord(node)) return;
+      if (typeof node.$ref === "string") references.push(`${path}.$ref`);
+      for (const [key, value] of Object.entries(node)) {
+        if (schemaMapKeywords.has(key) && isRecord(value)) {
+          for (const [name, schema] of Object.entries(value))
+            visit(schema, `${path}.${key}.${name}`);
+        } else if (schemaArrayKeywords.has(key) && Array.isArray(value)) {
+          value.forEach((schema, index) =>
+            visit(schema, `${path}.${key}[${index}]`),
+          );
+        } else if (schemaChildKeywords.has(key)) {
+          if (Array.isArray(value))
+            value.forEach((schema, index) =>
+              visit(schema, `${path}.${key}[${index}]`),
+            );
+          else visit(value, `${path}.${key}`);
+        }
+      }
+    };
+    visit(tool.inputSchema, `${tool.name}.inputSchema`);
+    return references;
+  });
+}
+
+it("finds references only in input schema positions, not literal data", () => {
+  const schema = {
+    type: "object",
+    properties: {
+      $ref: { type: "string" },
+      default: { type: "array", items: { type: "string" } },
+    },
+    default: { $ref: "literal data" },
+    examples: [{ $defs: { field: { $ref: "literal data" } } }],
+  };
+  expect(
+    localInputReferences([{ name: "literal", inputSchema: schema }]),
+  ).toEqual([]);
+  expect(
+    localInputReferences([
+      {
+        name: "nested",
+        inputSchema: {
+          type: "object",
+          properties: {
+            default: { type: "array", items: { $ref: "#/definitions/value" } },
+          },
+        },
+      },
+    ]),
+  ).toEqual(["nested.inputSchema.properties.default.items.$ref"]);
+});
 
 const advertiseAndEnforceProcessEnvironmentKeyConstraint =
   async (): Promise<void> => {
@@ -308,9 +473,39 @@ describe("MCP JSON Schema validity", () => {
         TOOL_CONTRACTS.map(({ name }) => name).sort(),
       );
       expect(schemaErrors(tools)).toEqual([]);
+      expect(localInputReferences(tools)).toEqual([]);
       expect(recursiveReferences(tools)).toEqual([]);
       expectKnownAuthorityHints(tools);
       const byName = new Map(tools.map((tool) => [tool.name, tool]));
+      for (const side of ["before", "after"])
+        expect(byName.get("compare_web_captures")?.inputSchema).toHaveProperty(
+          [
+            "properties",
+            side,
+            "properties",
+            "inspection",
+            "properties",
+            "scripts",
+            "properties",
+            "items",
+            "items",
+            "properties",
+            "source",
+            "anyOf",
+          ],
+          expect.arrayContaining([
+            expect.objectContaining({
+              properties: expect.objectContaining({
+                reason: { type: "string" },
+              }),
+            }),
+            expect.objectContaining({
+              properties: expect.objectContaining({
+                artifact: expect.objectContaining({ type: "object" }),
+              }),
+            }),
+          ]),
+        );
       const catalogProjection = tools.map((tool) => ({
         name: tool.name,
         title: tool.title,
@@ -333,15 +528,16 @@ describe("MCP JSON Schema validity", () => {
         const tool = byName.get(contract.name);
         expect(tool?.title?.trim(), contract.name).toBeTruthy();
         expect(tool?.description?.trim(), contract.name).toBeTruthy();
+        const examples = advertisedInputExamples(contract);
         expect(tool?.inputSchema.examples, contract.name).toEqual(
-          contract.examples.map(({ input }) => input),
+          examples.length === 0 ? undefined : examples,
         );
         for (const example of contract.examples)
           expect(
             contract.inputSchema.safeParse(example.input).success,
             `${contract.name}: ${example.title}`,
           ).toBe(true);
-        expectRecursivePropertyDescriptions(tool?.inputSchema, contract.name);
+        expectMeaningfulPropertyDescriptions(tool?.inputSchema, contract.name);
       }
     } finally {
       await Promise.allSettled([client.close(), server.close()]);
@@ -379,12 +575,18 @@ describe("MCP root input schemas", () => {
       expect(ajv.compile(graphTool.inputSchema)({ unrelated: true })).toBe(
         false,
       );
+      expect(graphTool.inputSchema.description).toContain(
+        "Provide a complete input group",
+      );
+      expect(graphTool.inputSchema.description).not.toContain("exactly one");
 
       for (const contract of TOOL_CONTRACTS) {
         const inputSchema = advertised.get(contract.name)!.inputSchema;
         expect(inputSchema.type, contract.name).toBe("object");
         expect(inputSchema.properties, contract.name).toBeDefined();
-        expect(inputSchema.anyOf, contract.name).toBeUndefined();
+        // Anthropic tool input schemas reject root combinators.
+        for (const combinator of ["anyOf", "oneOf", "allOf"])
+          expect(inputSchema, contract.name).not.toHaveProperty(combinator);
         const validate = ajv.compile(inputSchema);
         for (const example of contract.examples)
           expect(
@@ -394,6 +596,39 @@ describe("MCP root input schemas", () => {
       }
 
       expectStrictInputSchemaParity(tools, ajv);
+
+      for (const name of ["inspect_web_page", "analyze_web_bundle"]) {
+        const contract = TOOL_CONTRACTS.find((tool) => tool.name === name);
+        const tool = advertised.get(name);
+        if (contract === undefined || tool === undefined)
+          throw new Error(`${name} was not advertised`);
+        const validate = ajv.compile(tool.inputSchema);
+        const base = {
+          cdp_endpoint: "http://127.0.0.1:9222",
+          target_id: "target",
+        };
+        for (const flag of [undefined, false, true, "false", null]) {
+          const input =
+            flag === undefined
+              ? base
+              : { ...base, include_script_sources: flag };
+          const accepted =
+            flag === undefined ||
+            flag === true ||
+            (name === "inspect_web_page" && flag === false);
+          const parsed = contract.inputSchema.safeParse(input);
+          expect(parsed.success, `${name}: ${String(flag)}`).toBe(accepted);
+          // The advertisement relaxes Boolean literals; the canonical parser
+          // still rejects false when this operation requires script sources.
+          expect(validate(input), `${name}: ${String(flag)}`).toBe(
+            flag === undefined || typeof flag === "boolean",
+          );
+          if (parsed.success && flag === undefined)
+            expect(parsed.data).toMatchObject({
+              include_script_sources: name === "analyze_web_bundle",
+            });
+        }
+      }
 
       const nativeObservation = TOOL_CONTRACTS.find(
         ({ name }) => name === "observe_native_ui",
@@ -430,6 +665,95 @@ describe("MCP root input schemas", () => {
 it(
   "advertises and enforces the process-owned environment key constraint",
   advertiseAndEnforceProcessEnvironmentKeyConstraint,
+);
+
+const advertiseAndEnforceItemSelectorCollectionConstraints =
+  async (): Promise<void> => {
+    const contract = TOOL_CONTRACTS.find(
+      ({ name }) => name === "inspect_analysis_view",
+    );
+    if (contract === undefined)
+      throw new Error("inspect_analysis_view contract was not registered");
+
+    const server = new McpServer({
+      name: "item-selector-schema",
+      version: "0",
+    });
+    server.registerTool(
+      contract.name,
+      toolRegistrationOptions(contract),
+      async () => ({
+        content: [],
+      }),
+    );
+    const client = new Client({ name: "item-selector-schema", version: "0" });
+    const [clientTransport, serverTransport] =
+      InMemoryTransport.createLinkedPair();
+    try {
+      await server.connect(serverTransport);
+      await client.connect(clientTransport);
+      const advertised = (await client.listTools()).tools.find(
+        ({ name }) => name === contract.name,
+      );
+      if (advertised === undefined)
+        throw new Error("inspect_analysis_view tool was not advertised");
+
+      const validate = new Ajv2020({
+        strict: false,
+        validateFormats: false,
+      }).compile(advertised.inputSchema);
+      const source = {
+        kind: "retained-evidence",
+        evidence_id: `ev_${"a".repeat(64)}`,
+      };
+      const itemInput = (collection: string, selector: unknown) => ({
+        source,
+        view: { kind: "item", collection, selector },
+      });
+      const nodeId = `jag_node_${"b".repeat(64)}`;
+      // Collection-specific selector constraints must survive JSON Schema
+      // conversion: the advertised schema rejects exactly what runtime
+      // input validation rejects.
+      const invalid: ReadonlyArray<readonly [string, unknown]> = [
+        ["modules", { index: 0 }],
+        ["modules", { name: "entry" }],
+        ["sections", { path: "/src/entry.js" }],
+        ["symbols", { node_id: nodeId }],
+      ];
+      const valid: ReadonlyArray<readonly [string, unknown]> = [
+        ["modules", { path: "/src/entry.js" }],
+        ["modules", { node_id: nodeId }],
+        ["sections", { index: 0 }],
+        ["sections", { name: ".text" }],
+        ["symbols", { index: 0 }],
+        ["symbols", { name: "main" }],
+      ];
+      for (const [collection, selector] of invalid) {
+        const input = itemInput(collection, selector);
+        const label = `${collection}/${Object.keys(selector as object)[0]}`;
+        expect(contract.inputSchema.safeParse(input).success, label).toBe(
+          false,
+        );
+        expect(validate(input), `advertised schema rejects ${label}`).toBe(
+          false,
+        );
+      }
+      for (const [collection, selector] of valid) {
+        const input = itemInput(collection, selector);
+        const label = `${collection}/${Object.keys(selector as object)[0]}`;
+        expect(contract.inputSchema.safeParse(input).success, label).toBe(true);
+        expect(validate(input), `advertised schema accepts ${label}`).toBe(
+          true,
+        );
+      }
+    } finally {
+      await Promise.allSettled([client.close(), server.close()]);
+    }
+  };
+
+it(
+  "advertises and enforces the item selector collection constraints",
+  advertiseAndEnforceItemSelectorCollectionConstraints,
 );
 
 describe("MCP process input JSON Schema", () => {
@@ -496,6 +820,108 @@ it("ships nonrecursive input and output schemas in the generated catalog", () =>
   expect(schemaErrors(GENERATED_MCP_TOOL_CATALOG)).toEqual([]);
   expect(recursiveReferences(GENERATED_MCP_TOOL_CATALOG)).toEqual([]);
 });
+
+it("ships input schemas without local references in the generated catalog", () => {
+  expect(localInputReferences(GENERATED_MCP_TOOL_CATALOG)).toEqual([]);
+});
+
+it("rejects unresolved output-schema references even for uncalled tools", () => {
+  const errors = schemaErrors([
+    {
+      name: "dangling",
+      inputSchema: { type: "object" },
+      outputSchema: { $ref: "#/$defs/missing" },
+    },
+  ]);
+  expect(errors).toHaveLength(1);
+  expect(errors[0]).toContain("dangling.outputSchema");
+});
+
+it("validates each tool independently when output schema IDs repeat", () => {
+  const outputSchema = { $id: "urn:rea:test:shared-output", type: "string" };
+  const errors = schemaErrors([
+    { name: "first", inputSchema: { type: "object" }, outputSchema },
+    {
+      name: "second",
+      inputSchema: { type: "object" },
+      outputSchema: { ...outputSchema },
+    },
+    {
+      name: "broken",
+      inputSchema: { type: "object" },
+      outputSchema: { $id: outputSchema.$id, $ref: "#/$defs/missing" },
+    },
+  ]);
+  expect(errors).toHaveLength(1);
+  expect(errors[0]).toContain("broken.outputSchema");
+  expect(errors[0]).toContain("missing");
+});
+
+it("checks client array constraints in schema positions while preserving literal metadata", () => {
+  const schema = {
+    type: "object",
+    properties: { examples: { type: "array", items: { type: "string" } } },
+    examples: [{ type: "array" }],
+    default: { type: "array" },
+    const: { type: "array" },
+    enum: [{ type: "array" }],
+  };
+  expect(arrayItemSchemaError(schema, "literal")).toBeUndefined();
+  expect(
+    arrayItemSchemaError(
+      { ...schema, properties: { examples: { type: "array" } } },
+      "broken",
+    ),
+  ).toBe(
+    "broken.properties.examples: tool parameters array type must have items",
+  );
+  const booleanMetadata = {
+    type: "object",
+    properties: { default: { type: "boolean", const: false } },
+    default: { const: true },
+    examples: [{ enum: [false] }],
+  };
+  expect(
+    booleanLiteralSchemaError(
+      { ...booleanMetadata, properties: {} },
+      "literal",
+    ),
+  ).toBeUndefined();
+  expect(booleanLiteralSchemaError(booleanMetadata, "literal")).toBe(
+    "literal.properties.default.const is boolean",
+  );
+});
+
+it.each([false, true])(
+  "rejects references to another tool's nested IDs (earlier compilation fails: %s)",
+  (invalidPrevious) => {
+    const nestedId = "urn:rea:test:nested-output";
+    const errors = schemaErrors([
+      {
+        name: "first",
+        inputSchema: { type: "object" },
+        outputSchema: {
+          $defs: { shared: { $id: nestedId, type: "string" } },
+          ...(invalidPrevious ? { pattern: "[" } : {}),
+        },
+      },
+      {
+        name: "broken",
+        inputSchema: { type: "object" },
+        outputSchema: {
+          $ref: nestedId,
+          $defs: { shared: { type: "number" } },
+        },
+      },
+    ]);
+    expect(errors).toHaveLength(invalidPrevious ? 2 : 1);
+    const brokenErrors = errors.filter((error) =>
+      error.startsWith("broken.outputSchema:"),
+    );
+    expect(brokenErrors).toHaveLength(1);
+    expect(brokenErrors[0]).toContain(nestedId);
+  },
+);
 
 it("distinguishes recursive references from shared definitions", () => {
   const diamond = {

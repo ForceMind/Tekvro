@@ -1,11 +1,8 @@
+import { selectHumanText } from "./localization.js";
+import { isAbsolute, resolve, sep } from "node:path";
+
 import { Cli, z } from "incur";
 
-import {
-  inspectElectronPage,
-  listElectronTargets,
-} from "../application/javascript/ElectronObservationService.js";
-import { captureElectronScenario } from "../application/javascript/ElectronActiveObservationService.js";
-import { reconcileJavaScriptRuntimeEvidence } from "../application/javascript/JavaScriptRuntimeReconciliationService.js";
 import { logCliCommand } from "../cliLogging.js";
 import {
   inspectElectronPageInputSchema,
@@ -16,33 +13,79 @@ import { AnalysisInputError } from "../domain/analysisErrorCore.js";
 import { projectAnalysisError } from "../domain/analysisErrorProjection.js";
 import { projectInputIssues } from "../domain/inputIssueProjection.js";
 import type { JsonValue } from "../domain/jsonValue.js";
-import type { Logger } from "../logger.js";
+import type { Logger } from "pino";
 import { CLI_COMMANDS } from "../cliCommandNames.js";
+import { createElectronFuseService } from "../composition/electronFuses.js";
 import { parseCliJsonInput, resolveCliJsonPaths } from "../cliJsonInput.js";
 import {
   electronPageInspectionOptions,
   javascriptApplicationOptions,
 } from "../cliObservationOptions.js";
 import { runCliJavaScriptApplicationAnalysis } from "./javascriptApplicationAnalysis.js";
-import type { CliResultOutput } from "./streamedJsonOutput.js";
 import { withCommandCancellation } from "./commandCancellation.js";
-import { selectHumanText } from "./localization.js";
+import { finishAnalysisCommand } from "./finishAnalysisCommand.js";
 
 /** Register CLI equivalents of the Electron MCP tools. */
 export const registerElectronCommands = (
   cli: ReturnType<typeof Cli.create>,
   logger: Logger,
-  resultOutput?: CliResultOutput,
+  environment: Readonly<Record<string, string | undefined>>,
 ): void => {
   registerElectronObservationCommands(cli, logger);
-  registerElectronActiveCommand(cli, logger);
-  registerJavaScriptApplicationCommand(cli, logger, resultOutput);
+  registerElectronFuseCommand(cli, logger);
+  registerElectronActiveCommand(cli, logger, environment);
+  registerJavaScriptApplicationCommand(cli, logger);
   registerJavaScriptRuntimeReconciliationCommand(cli, logger);
+};
+
+const registerElectronFuseCommand = (
+  cli: ReturnType<typeof Cli.create>,
+  logger: Logger,
+): void => {
+  cli.command(CLI_COMMANDS.inspectElectronFuses, {
+    description:
+      "Inspect packaged Electron fuse bytes without launching the application",
+    args: z.object({
+      path: z
+        .string()
+        .describe(
+          "Local Electron .app, Electron Framework binary, PE executable, or ELF executable",
+        ),
+    }),
+    run: ({ args }) =>
+      withCommandCancellation((signal) =>
+        logCliCommand(logger, CLI_COMMANDS.inspectElectronFuses, async () => {
+          const service = createElectronFuseService();
+          return finishAnalysisCommand(
+            () =>
+              service.inspect(
+                { path: absoluteElectronFusePath(args.path) },
+                { signal },
+              ),
+            service,
+            service.provider.identity.id,
+            "inspect_electron_fuses",
+            signal,
+          );
+        }),
+      ),
+  });
+};
+
+/** Anchor relative input without changing which file symlink/.. selects. */
+const absoluteElectronFusePath = (path: string): string => {
+  if (path === "") return path;
+  // Win32 resolves dot components before directory links, including drive-relative paths.
+  if (sep === "\\") return resolve(path);
+  if (isAbsolute(path)) return path;
+  const base = process.cwd();
+  return `${base}${base.endsWith(sep) ? "" : sep}${path}`;
 };
 
 const registerElectronActiveCommand = (
   cli: ReturnType<typeof Cli.create>,
   logger: Logger,
+  environment: Readonly<Record<string, string | undefined>>,
 ): void => {
   cli.command(CLI_COMMANDS.captureElectronScenario, {
     description: selectHumanText(
@@ -53,10 +96,7 @@ const registerElectronActiveCommand = (
       inputJson: z
         .string()
         .describe(
-          selectHumanText(
-            "Inline JSON or a JSON file matching capture_electron_scenario",
-            "符合 capture_electron_scenario 契约的内联 JSON 或 JSON 文件",
-          ),
+          "Inline JSON or a JSON file matching capture_electron_scenario",
         ),
     }),
     run: ({ args }) =>
@@ -83,14 +123,25 @@ const registerElectronActiveCommand = (
                 parsed.error.issues,
                 input.value,
               );
+            const { captureElectronScenario } =
+              await import("../application/javascript/ElectronActiveObservationService.js");
             const { createElectronScenarioProvider } =
               await import("../composition/electronScenario.js");
-            const result = await captureElectronScenario(
-              createElectronScenarioProvider(),
-              parsed.data,
-              { signal },
+            const provider = createElectronScenarioProvider(environment);
+            const result = await finishAnalysisCommand(
+              () => captureElectronScenario(provider, parsed.data, { signal }),
+              {
+                close: async () => {
+                  await provider.close?.();
+                },
+              },
+              provider.identity().id,
+              "capture_electron_scenario",
+              signal,
             );
-            return result.ok ? result.value : cliError(result.error);
+            return "code" in result
+              ? { error: "Electron analysis failed", ...result }
+              : result;
           },
         ),
       ),
@@ -110,10 +161,7 @@ const registerJavaScriptRuntimeReconciliationCommand = (
       inputJson: z
         .string()
         .describe(
-          selectHumanText(
-            "Inline JSON or a JSON file path matching reconcile_javascript_runtime",
-            "符合 reconcile_javascript_runtime 契约的内联 JSON 或 JSON 文件路径",
-          ),
+          "Inline JSON or a JSON file path matching reconcile_javascript_runtime",
         ),
     }),
     run: ({ args }) =>
@@ -126,6 +174,8 @@ const registerJavaScriptRuntimeReconciliationCommand = (
             "reconcile_javascript_runtime",
           );
           if (!input.ok) return input.error;
+          const { reconcileJavaScriptRuntimeEvidence } =
+            await import("../application/javascript/JavaScriptRuntimeReconciliationService.js");
           const result = reconcileJavaScriptRuntimeEvidence(input.value);
           return result.ok ? result.value : cliError(result.error);
         },
@@ -151,25 +201,32 @@ const registerElectronTargetList = (
       "列出 Electron CDP 端点中的本地文件页面",
     ),
     args: z.object({
-      endpoint: z
-        .string()
-        .describe(
-          selectHumanText(
-            "Literal-loopback Electron CDP endpoint",
-            "仅限本机回环地址的 Electron CDP 端点",
-          ),
-        ),
+      endpoint: z.string().describe("Literal-loopback Electron CDP endpoint"),
     }),
     run: ({ args }) =>
-      logCliCommand(logger, "list-electron-targets", async () => {
-        const context = await electronObservationContext();
-        const parsed = listElectronTargetsInputSchema.safeParse({
-          cdp_endpoint: args.endpoint,
-        });
-        if (!parsed.success) return inputError("list_electron_targets");
-        const result = await listElectronTargets(context.provider, parsed.data);
-        return result.ok ? result.value : cliError(result.error);
-      }),
+      withCommandCancellation((signal) =>
+        logCliCommand(logger, "list-electron-targets", async () => {
+          const context = await electronObservationContext();
+          const parsed = listElectronTargetsInputSchema.safeParse({
+            cdp_endpoint: args.endpoint,
+          });
+          if (!parsed.success) return inputError("list_electron_targets");
+          const { listElectronTargets } =
+            await import("../application/javascript/ElectronObservationService.js");
+          return await finishAnalysisCommand(
+            () =>
+              listElectronTargets(context.provider, parsed.data, { signal }),
+            {
+              close: async () => {
+                await context.provider.close?.();
+              },
+            },
+            "rea-cdp-electron",
+            "list_electron_targets",
+            signal,
+          );
+        }),
+      ),
   });
 };
 
@@ -183,44 +240,43 @@ const registerElectronPageInspection = (
       "被动检查指定的 Electron 本地文件页面",
     ),
     args: z.object({
-      endpoint: z
-        .string()
-        .describe(
-          selectHumanText(
-            "Literal-loopback Electron CDP endpoint",
-            "仅限本机回环地址的 Electron CDP 端点",
-          ),
-        ),
-      targetId: z
-        .string()
-        .describe(
-          selectHumanText(
-            "Target ID from list-electron-targets",
-            "从 list-electron-targets 获取的真实目标 ID",
-          ),
-        ),
+      endpoint: z.string().describe("Literal-loopback Electron CDP endpoint"),
+      targetId: z.string().describe("Target ID from list-electron-targets"),
     }),
     options: electronPageInspectionOptions,
     run: ({ args, options }) =>
-      logCliCommand(logger, "inspect-electron-page", async () => {
-        const context = await electronObservationContext();
-        const parsed = inspectElectronPageInputSchema.safeParse({
-          cdp_endpoint: args.endpoint,
-          target_id: args.targetId,
-          observation_ms: options.observationMs,
-          include_script_sources: options.includeScriptSources,
-        });
-        if (!parsed.success) return inputError("inspect_electron_page");
-        const result = await inspectElectronPage(context.provider, parsed.data);
-        return result.ok ? result.value : cliError(result.error);
-      }),
+      withCommandCancellation((signal) =>
+        logCliCommand(logger, "inspect-electron-page", async () => {
+          const context = await electronObservationContext();
+          const parsed = inspectElectronPageInputSchema.safeParse({
+            cdp_endpoint: args.endpoint,
+            target_id: args.targetId,
+            observation_ms: options.observationMs,
+            include_script_sources: options.includeScriptSources,
+          });
+          if (!parsed.success) return inputError("inspect_electron_page");
+          const { inspectElectronPage } =
+            await import("../application/javascript/ElectronObservationService.js");
+          return await finishAnalysisCommand(
+            () =>
+              inspectElectronPage(context.provider, parsed.data, { signal }),
+            {
+              close: async () => {
+                await context.provider.close?.();
+              },
+            },
+            "rea-cdp-electron",
+            "inspect_electron_page",
+            signal,
+          );
+        }),
+      ),
   });
 };
 
 const registerJavaScriptApplicationCommand = (
   cli: ReturnType<typeof Cli.create>,
   logger: Logger,
-  resultOutput?: CliResultOutput,
 ): void => {
   cli.command(CLI_COMMANDS.analyzeJavaScriptApplication, {
     description: selectHumanText(
@@ -233,23 +289,47 @@ const registerJavaScriptApplicationCommand = (
         .describe(
           selectHumanText(
             "ASAR or extracted application path",
-            "ASAR 文件或已解包的应用目录路径",
+            "ASAR 文件或已解包应用目录的路径",
           ),
         ),
     }),
     options: javascriptApplicationOptions,
-    run: ({ args, options, format }) =>
+    run: ({ args, options }) =>
       withCommandCancellation((signal) =>
         logCliCommand(logger, CLI_COMMANDS.analyzeJavaScriptApplication, () =>
           runCliJavaScriptApplicationAnalysis(
-            { input_path: args.path, format: options.artifactFormat },
-            resultOutput === undefined
-              ? undefined
-              : {
-                  output: resultOutput,
-                  command: CLI_COMMANDS.analyzeJavaScriptApplication,
-                  format,
-                },
+            {
+              input_path: args.path,
+              format: options.artifactFormat,
+              integrity_policy: options.integrityPolicy,
+              ...(options.maxSemanticNodes === undefined
+                ? {}
+                : { max_semantic_nodes: options.maxSemanticNodes }),
+              ...(options.maxSemanticNodesPerFile === undefined
+                ? {}
+                : {
+                    max_semantic_nodes_per_file:
+                      options.maxSemanticNodesPerFile,
+                  }),
+              ...(options.maxSemanticUnknowns === undefined
+                ? {}
+                : { max_semantic_unknowns: options.maxSemanticUnknowns }),
+              ...(options.maxSemanticUnknownsPerFile === undefined
+                ? {}
+                : {
+                    max_semantic_unknowns_per_file:
+                      options.maxSemanticUnknownsPerFile,
+                  }),
+              ...(options.sourcePath === undefined
+                ? {}
+                : { source_paths: options.sourcePath }),
+              ...(options.maxHeapMb === undefined
+                ? {}
+                : { max_heap_mb: options.maxHeapMb }),
+              ...(options.analysisTimeoutMs === undefined
+                ? {}
+                : { analysis_timeout_ms: options.analysisTimeoutMs }),
+            },
             signal,
           ),
         ),

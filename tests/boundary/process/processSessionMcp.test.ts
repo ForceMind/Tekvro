@@ -1,8 +1,10 @@
 import { fileURLToPath } from "node:url";
+import { access } from "node:fs/promises";
+import { join } from "node:path";
 
 import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import { Ajv2020 } from "ajv/dist/2020.js";
-import { afterEach, expect } from "vitest";
+import { afterEach, expect, it } from "vitest";
 import { z } from "zod";
 
 import { toolContract } from "../../../src/contracts/toolContracts.js";
@@ -13,6 +15,7 @@ import {
 import { createServer } from "../../../src/server/createServer.js";
 import { silentLogger } from "../../../src/logger.js";
 import { itWithCaptureCapability } from "./processCaptureCapability.js";
+import { createTestTempDirectory } from "../../fixtures/temporaryDirectory.js";
 
 const processFixture = fileURLToPath(
   new URL("../../fixtures/processFidelity.mjs", import.meta.url),
@@ -23,13 +26,152 @@ afterEach(async () => {
   await Promise.all(resources.splice(0).map((resource) => resource.close()));
 });
 
+it("rejects oversized initial and resize terminal buffers through MCP before launching", async () => {
+  const root = await createTestTempDirectory("rea-terminal-admission-");
+  const marker = join(root, "launched");
+  const session = createTestBinarySession(() => {
+    throw new Error("Terminal admission must not launch a binary provider");
+  });
+  const server = createServer(
+    { kind: "session", session },
+    { logger: silentLogger },
+  );
+  const client = new Client({ name: "terminal-admission", version: "1" });
+  resources.push(client, server, session);
+  const [clientTransport, serverTransport] =
+    InMemoryTransport.createLinkedPair();
+  await server.connect(serverTransport);
+  await client.connect(clientTransport);
+  for (const input of [
+    { terminal: { columns: 1_000, rows: 1, scrollback: 1_000 } },
+    { events: [{ type: "resize", at_ms: 10, columns: 1_000, rows: 1 }] },
+  ] as const) {
+    const result = await client.callTool({
+      name: "capture_process_scenario",
+      arguments: {
+        executable: process.execPath,
+        arguments: [
+          "-e",
+          "require('node:fs').writeFileSync(process.argv[1], 'launched')",
+          marker,
+        ],
+        ...input,
+      },
+    });
+    expect(result.isError).toBe(true);
+    expect(result.content).toContainEqual(
+      expect.objectContaining({
+        type: "text",
+        text: expect.stringContaining("1000000"),
+      }),
+    );
+    await expect(access(marker)).rejects.toMatchObject({ code: "ENOENT" });
+  }
+  await client.ping();
+});
+
+itWithCaptureCapability(
+  "bounds normalized PTY text and preserves equal-size output through MCP",
+  async () => {
+    const root = await createTestTempDirectory(
+      "rea-process-normalized-budget-",
+    );
+    const session = createTestBinarySession(createCacheProvider([]));
+    const server = createServer(
+      { kind: "session", session },
+      { logger: silentLogger },
+    );
+    const client = new Client({
+      name: "process-normalized-budget",
+      version: "1",
+    });
+    resources.push(client, server, session);
+    const [clientTransport, serverTransport] =
+      InMemoryTransport.createLinkedPair();
+    await server.connect(serverTransport);
+    await client.connect(clientTransport);
+
+    const capture = async (replacement: string) => {
+      const result = await client.callTool({
+        name: "capture_process_scenario",
+        arguments: {
+          executable: process.execPath,
+          working_directory: root,
+          arguments: ["-e", 'process.stdout.write("a".repeat(100) + "\\n")'],
+          limits: { output_bytes: 1_000 },
+          normalization: {
+            paths: false,
+            pids: false,
+            ports: false,
+            patterns: [{ pattern: "a", replacement }],
+          },
+          settle_ms: 50,
+        },
+      });
+      expect(result.isError, JSON.stringify(result.content)).not.toBe(true);
+      return toolContract("capture_process_scenario").outputSchema.parse(
+        result.structuredContent,
+      ).normalized_result;
+    };
+
+    const expanded = await capture("x".repeat(500));
+    expect(expanded.frames).toHaveLength(0);
+    expect(expanded.truncated).toBe(true);
+    expect(expanded.truncation_details.normalized_terminal).toMatchObject({
+      budget_bytes: 1_000,
+      retained_bytes: 0,
+      omitted_frames: expect.any(Number),
+    });
+    expect(
+      expanded.truncation_details.normalized_terminal?.omitted_frames,
+    ).toBeGreaterThan(0);
+    expect(expanded.truncation_details.raw_terminal).toMatchObject({
+      budget_bytes: 1_000,
+      observed_bytes: expect.any(Number),
+      retained_bytes: 0,
+      observed_frames: expect.any(Number),
+      retained_frames: 0,
+    });
+    expect(
+      expanded.limitations.some((limitation) =>
+        limitation.includes(
+          "final normalized sizes for the latter omissions are unknown",
+        ),
+      ),
+    ).toBe(true);
+    expect(expanded.cleanup).toMatchObject({
+      owned_process_group: "verified",
+      temporary_root: "removed",
+    });
+
+    const equalSize = await capture("b");
+    expect(equalSize.truncated).toBe(false);
+    expect(equalSize.frames.map(({ data }) => data).join("")).toBe(
+      `${"b".repeat(100)}\r\n`,
+    );
+    expect(equalSize.truncation_details.normalized_terminal).toMatchObject({
+      budget_bytes: 1_000,
+      retained_bytes: Buffer.byteLength(`${"b".repeat(100)}\r\n`),
+      omitted_frames: 0,
+    });
+    expect(equalSize.cleanup).toMatchObject({
+      owned_process_group: "verified",
+      temporary_root: "removed",
+    });
+  },
+  30_000,
+);
+
 itWithCaptureCapability(
   "records process residuals linked to capture Evidence",
   async () => {
     const session = createTestBinarySession(createCacheProvider([]));
-    const server = createServer(session, session, {
-      logger: silentLogger,
-    });
+    const server = createServer(
+      { kind: "session", session },
+      {
+        logger: silentLogger,
+      },
+    );
     const mcp = new Client({ name: "process-unknown", version: "1.0.0" });
     const [clientTransport, serverTransport] =
       InMemoryTransport.createLinkedPair();

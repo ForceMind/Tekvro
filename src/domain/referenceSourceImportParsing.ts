@@ -1,4 +1,3 @@
-import { parse, type ParserPlugin } from "@babel/parser";
 import type {
   CallExpression,
   File,
@@ -6,6 +5,13 @@ import type {
   Node,
   StringLiteral,
 } from "@babel/types";
+import { traverseJavaScriptAst } from "./javascript/javascriptSemanticTraversal.js";
+import {
+  parseRecoveredJavaScript,
+  parserPluginsForPath,
+} from "./javascript/javascriptSourceParser.js";
+import { unshadowedReferenceSourceRequireCalls } from "./referenceSourceRequireBindings.js";
+import { isRelativeJavaScriptModuleSpecifier } from "./javascript/javascriptModuleSpecifier.js";
 import {
   isCallExpression,
   isExportAllDeclaration,
@@ -15,7 +21,6 @@ import {
   isImportDeclaration,
   isImportExpression,
   isMemberExpression,
-  isNode,
   isStringLiteral,
   isTSExternalModuleReference,
   isTSImportEqualsDeclaration,
@@ -42,6 +47,8 @@ interface ReferenceSourceImportRelationship {
   readonly kind: ReferenceSourceImportKind;
   readonly resolution: ReferenceSourceImportResolution;
   readonly parse_state: ReferenceSourceImportParseState;
+  /** Distinguishes call-form CommonJS require from TS import-equals `requires`. */
+  readonly resolutionStrategy?: "runtime-require";
 }
 
 interface ReferenceSourceParseFailure {
@@ -53,9 +60,11 @@ interface ReferenceSourceParseFailure {
 export interface ReferenceSourceImportParseResult {
   readonly relationships: readonly ReferenceSourceImportRelationship[];
   readonly parse_failures: readonly ReferenceSourceParseFailure[];
+  readonly limitations: readonly string[];
 }
 
-const codeSourceLanguages = new Set(["JavaScript", "TypeScript", "JSX", "TSX"]);
+export const PARSEABLE_REFERENCE_SOURCE_LANGUAGES: ReadonlySet<string> =
+  new Set(["JavaScript", "TypeScript", "JSX", "TSX"]);
 
 const safeModuleName = (node: Node | null | undefined): string | undefined => {
   if (isStringLiteral(node)) return node.value;
@@ -65,9 +74,11 @@ const safeModuleName = (node: Node | null | undefined): string | undefined => {
 const resolveSpecifier = (
   specifier: string,
 ): ReferenceSourceImportResolution => {
-  if (specifier.startsWith(".") || specifier.startsWith("/")) return "internal";
-  if (specifier.startsWith("node:") || specifier.startsWith("data:"))
-    return "external";
+  if (
+    isRelativeJavaScriptModuleSpecifier(specifier) ||
+    specifier.startsWith("/")
+  )
+    return "internal";
   return "external";
 };
 
@@ -105,6 +116,7 @@ const appendRelationship = (
     readonly kind: ReferenceSourceImportKind;
     readonly parseState: ReferenceSourceImportParseState;
     readonly resolution?: ReferenceSourceImportResolution;
+    readonly resolutionStrategy?: "runtime-require";
   },
 ): void => {
   if (input.to === undefined) return;
@@ -114,6 +126,9 @@ const appendRelationship = (
     kind: input.kind,
     resolution: input.resolution ?? resolveSpecifier(input.to),
     parse_state: input.parseState,
+    ...(input.resolutionStrategy === undefined
+      ? {}
+      : { resolutionStrategy: input.resolutionStrategy }),
   });
 };
 
@@ -201,50 +216,23 @@ const isRequireCallee = (callee: Node | null | undefined): boolean => {
   return false;
 };
 
-const isImportCallee = (callee: Node | null | undefined): boolean =>
-  isImport(callee);
-
-const collectModuleExpressions = (
-  node: unknown,
-  targets: Array<CallExpression | ImportExpression>,
-): void => {
-  if (node === null || node === undefined) return;
-  if (typeof node !== "object") return;
-  if (Array.isArray(node)) {
-    for (const item of node) collectModuleExpressions(item, targets);
-    return;
-  }
-  if (!isNode(node)) return;
-  if (isCallExpression(node) || isImportExpression(node)) {
-    targets.push(node);
-  }
-  for (const value of Object.values(node)) {
-    if (
-      value !== null &&
-      value !== undefined &&
-      typeof value === "object" &&
-      !isSourceLocation(value)
-    ) {
-      collectModuleExpressions(value, targets);
-    }
-  }
-};
-
-const isSourceLocation = (value: unknown): boolean =>
-  typeof value === "object" &&
-  value !== null &&
-  "start" in value &&
-  "end" in value &&
-  !("type" in value);
-
 const extractRequireAndDynamicImports = (
   body: readonly Node[],
   from_path: string,
   relationships: ReferenceSourceImportRelationship[],
+  unshadowedRequireCalls: ReadonlySet<CallExpression>,
 ): void => {
+  // Single traversal owner: iterative, VISITOR_KEYS-gated, no recursion over
+  // loc/comment objects. Survives deeply nested generated member chains that
+  // overflowed the previous hand-rolled Object.values walker.
   const expressions: Array<CallExpression | ImportExpression> = [];
   for (const statement of body)
-    collectModuleExpressions(statement, expressions);
+    traverseJavaScriptAst(statement, {
+      enter: (node) => {
+        if (isCallExpression(node) || isImportExpression(node))
+          expressions.push(node);
+      },
+    });
 
   for (const call of expressions) {
     if (isImportExpression(call)) {
@@ -259,7 +247,11 @@ const extractRequireAndDynamicImports = (
       continue;
     }
     const first = call.arguments[0];
-    if (isRequireCallee(call.callee) && isModuleExpression(first)) {
+    if (
+      isRequireCallee(call.callee) &&
+      unshadowedRequireCalls.has(call) &&
+      isModuleExpression(first)
+    ) {
       const result = moduleSpecifierFromExpression(first);
       if (result !== undefined) {
         appendRelationship(relationships, {
@@ -267,12 +259,13 @@ const extractRequireAndDynamicImports = (
           to: result.specifier,
           kind: "requires",
           parseState: result.parseState,
+          resolutionStrategy: "runtime-require",
         });
       }
       continue;
     }
 
-    if (isImportCallee(call.callee) && isModuleExpression(first)) {
+    if (isImport(call.callee) && isModuleExpression(first)) {
       const result = moduleSpecifierFromExpression(first);
       if (result !== undefined) {
         appendRelationship(relationships, {
@@ -293,34 +286,35 @@ const parseWithBabel = (
 ): {
   ast: File | undefined;
   reasons: readonly string[];
+  moduleOnlyErrors: readonly string[];
 } => {
-  const plugins: ParserPlugin[] = ["jsx"];
-  if (language === "TypeScript" || language === "TSX") {
-    plugins.push([
-      "typescript",
-      {
-        dts:
-          path.endsWith(".d.ts") ||
-          path.endsWith(".d.mts") ||
-          path.endsWith(".d.cts"),
-      },
-    ]);
-  }
+  // Single parser-mode owner: path-driven plugins (dts/JSX/mts) shared with
+  // the semantic pipeline. `language` only gates non-JS/TS callers upstream;
+  // TypeScript syntax must parse identically here and in semantic analysis.
+  void language;
+  const plugins = parserPluginsForPath(path);
 
   try {
-    const ast = parse(source, {
-      sourceType: "unambiguous",
-      allowImportExportEverywhere: false,
-      allowReturnOutsideFunction: true,
-      allowUndeclaredExports: true,
-      errorRecovery: true,
-      plugins,
-    });
-    return { ast, reasons: ast.errors.map((error) => error.message) };
+    const { file: ast, moduleOnlyErrors } = parseRecoveredJavaScript(
+      source,
+      path,
+      {
+        allowImportExportEverywhere: false,
+        allowReturnOutsideFunction: true,
+        allowUndeclaredExports: true,
+        plugins,
+      },
+    );
+    return {
+      ast,
+      reasons: ast.errors.map((error) => error.message),
+      moduleOnlyErrors,
+    };
   } catch (cause: unknown) {
     return {
       ast: undefined,
       reasons: [cause instanceof Error ? cause.message : "Parse failed"],
+      moduleOnlyErrors: [],
     };
   }
 };
@@ -331,11 +325,37 @@ export const parseReferenceSourceImports = (
   bytes: Uint8Array,
   language: string | null,
 ): ReferenceSourceImportParseResult => {
-  if (language !== null && !codeSourceLanguages.has(language))
-    return { relationships: [], parse_failures: [] };
+  if (language !== null && !PARSEABLE_REFERENCE_SOURCE_LANGUAGES.has(language))
+    return { relationships: [], parse_failures: [], limitations: [] };
 
-  const source = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
-  const { ast, reasons } = parseWithBabel(path, source, language);
+  let source: string;
+  try {
+    source = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    return {
+      relationships: [],
+      parse_failures: [
+        {
+          path,
+          parser: "utf-8",
+          reason:
+            "Source bytes are not valid UTF-8; import targets were not parsed.",
+        },
+      ],
+      limitations: [],
+    };
+  }
+  const { ast, reasons, moduleOnlyErrors } = parseWithBabel(
+    path,
+    source,
+    language,
+  );
+  const limitations =
+    moduleOnlyErrors.length === 0
+      ? []
+      : [
+          `Strict-mode errors apply only if this file is an ES module: ${moduleOnlyErrors.join("; ")}`,
+        ];
   const parseFailures = reasons.map((reason) => ({
     path,
     parser: "babel",
@@ -346,12 +366,18 @@ export const parseReferenceSourceImports = (
     return {
       relationships: [],
       parse_failures: parseFailures,
+      limitations,
     };
   }
 
   const relationships: ReferenceSourceImportRelationship[] = [];
   extractImportDeclarations(ast.program.body, path, relationships);
-  extractRequireAndDynamicImports(ast.program.body, path, relationships);
+  extractRequireAndDynamicImports(
+    ast.program.body,
+    path,
+    relationships,
+    unshadowedReferenceSourceRequireCalls(ast, path),
+  );
 
   return {
     relationships: relationships.map((relationship) => ({
@@ -362,5 +388,6 @@ export const parseReferenceSourceImports = (
           : relationship.parse_state,
     })),
     parse_failures: parseFailures,
+    limitations,
   };
 };

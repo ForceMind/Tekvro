@@ -2,6 +2,7 @@ import type { Evidence } from "../domain/evidence.js";
 import type { ReconstructionObligation } from "../domain/reconstructionObligationLedgerSchemas.js";
 import { evidenceSupportsOriginalAuthority } from "./ReconstructionObligationAuthority.js";
 import type { ReconstructionObligationCandidate } from "./ReconstructionObligationCandidates.js";
+import { compareUnicodeCodePoints } from "../domain/unicodeCodePointOrder.js";
 
 type Binding = NonNullable<ReconstructionObligation["binding"]>;
 type Diagnostic = ReconstructionObligation["diagnostics"][number];
@@ -21,7 +22,8 @@ export const originalCasesFor = (
       ),
     ).values(),
   ].sort((left, right) =>
-    `${left.kind}:${left.evidence_id}:${left.location}`.localeCompare(
+    compareUnicodeCodePoints(
+      `${left.kind}:${left.evidence_id}:${left.location}`,
       `${right.kind}:${right.evidence_id}:${right.location}`,
     ),
   );
@@ -43,6 +45,14 @@ export const originalCaseDiagnostics = (
       });
       continue;
     }
+    // A valid entry for this case kind does not resolve another entry's
+    // reference; every referenced Evidence ID must be in the bundle.
+    for (const { evidence_id: evidenceId } of cases)
+      if (!evidenceById.has(evidenceId))
+        diagnostics.push({
+          code: "missing-original-case",
+          detail: `Original ${caseKind} case references Evidence ${evidenceId}, which is absent from the bundle.`,
+        });
     if (
       !cases.some(({ evidence_id: evidenceId }) => {
         const evidence = evidenceById.get(evidenceId);

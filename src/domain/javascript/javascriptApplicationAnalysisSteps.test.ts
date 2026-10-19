@@ -11,11 +11,13 @@ import {
   createJavaScriptApplicationGraph,
   createImmutableJavaScriptApplicationGraphSteps,
   isValidatedImmutableJavaScriptApplicationGraph,
+  sealTransferredJavaScriptApplicationGraphSteps,
 } from "./javascriptApplicationGraph.js";
 import {
   createJavaScriptSemanticGraph,
   createImmutableJavaScriptSemanticGraphSteps,
   isValidatedImmutableJavaScriptSemanticGraph,
+  sealTransferredJavaScriptSemanticGraphSteps,
 } from "./javascriptSemanticGraph.js";
 
 const complete = <Value>(steps: Iterator<void, Value>): Value => {
@@ -263,5 +265,88 @@ describe("owned JavaScript result bindings", () => {
     ).toEqual(
       issuesFrom(() => javascriptApplicationAnalysisResultSchema.parse(input)),
     );
+  });
+});
+
+describe("graphs transferred to their sealing steps", () => {
+  it("seal the same validated graphs as the copying factories", () => {
+    const input = example();
+    const { graph_id: _applicationId, ...application } = input.graph;
+    const { graph_id: _semanticId, ...semantic } = input.semantic_graph;
+    const expectedApplication = createJavaScriptApplicationGraph(application);
+    const expectedSemantic = createJavaScriptSemanticGraph(semantic);
+    const sealedApplication = complete(
+      sealTransferredJavaScriptApplicationGraphSteps(
+        structuredClone(application),
+      ),
+    );
+    const sealedSemantic = complete(
+      sealTransferredJavaScriptSemanticGraphSteps(structuredClone(semantic)),
+    );
+    expect(sealedApplication).toEqual(expectedApplication);
+    expect(sealedSemantic).toEqual(expectedSemantic);
+    expect(
+      isValidatedImmutableJavaScriptApplicationGraph(sealedApplication),
+    ).toBe(true);
+    expect(isValidatedImmutableJavaScriptSemanticGraph(sealedSemantic)).toBe(
+      true,
+    );
+  });
+
+  it("report the issues a whole-graph parse reports", () => {
+    const input = example();
+    const { graph_id: _applicationId, ...application } = input.graph;
+    const { graph_id: _semanticId, ...semantic } = input.semantic_graph;
+    const node = semantic.nodes[0];
+    const applicationNode = application.nodes[0];
+    if (node === undefined || applicationNode === undefined)
+      throw new Error("Expected semantic and application nodes");
+    const malformed = {
+      ...semantic,
+      nodes: [{ ...node, label: 7 }, ...semantic.nodes.slice(1)],
+    };
+    expect(
+      issuesFrom(() =>
+        complete(sealTransferredJavaScriptSemanticGraphSteps(malformed)),
+      ),
+    ).toEqual(issuesFrom(() => createJavaScriptSemanticGraph(malformed)));
+    const stale = {
+      ...application,
+      nodes: [
+        { ...applicationNode, node_id: `jag_node_${"f".repeat(64)}` },
+        ...application.nodes.slice(1),
+      ],
+    };
+    expect(
+      issuesFrom(() =>
+        complete(sealTransferredJavaScriptApplicationGraphSteps(stale)),
+      ),
+    ).toEqual(issuesFrom(() => createJavaScriptApplicationGraph(stale)));
+  });
+});
+
+describe("skipped_javascript_files backward compatibility", () => {
+  it("preserves omission for saved evidence that predates the skipped counter", () => {
+    const legacy = structuredClone(
+      JAVASCRIPT_APPLICATION_EVIDENCE_EXAMPLE.normalized_result,
+    ) as Record<string, unknown>;
+    const statistics = legacy.statistics as Record<string, unknown>;
+    delete statistics.skipped_javascript_files;
+    const result = javascriptApplicationAnalysisResultSchema.parse(legacy);
+    // A pre-change result can contain the very resource-skipped files this
+    // field reports, but it has no counter: unknown must not become a
+    // measured zero that comparisons would treat as "nothing skipped".
+    expect("skipped_javascript_files" in result.statistics).toBe(false);
+    expect(result.statistics.skipped_javascript_files).toBeUndefined();
+  });
+
+  it("keeps the producer-written skipped count in current evidence", () => {
+    const current = structuredClone(
+      JAVASCRIPT_APPLICATION_EVIDENCE_EXAMPLE.normalized_result,
+    ) as Record<string, unknown>;
+    const statistics = current.statistics as Record<string, unknown>;
+    statistics.skipped_javascript_files = 3;
+    const result = javascriptApplicationAnalysisResultSchema.parse(current);
+    expect(result.statistics.skipped_javascript_files).toBe(3);
   });
 });

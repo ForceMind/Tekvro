@@ -1,8 +1,9 @@
-import { mkdir } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { CATALOG_IDENTITY } from "../dist/catalogIdentity.js";
 
-import { exec } from "./lib/verify-package-core.mjs";
+import { exec, execNpm } from "./lib/verify-package-core.mjs";
+import { parseTarListing } from "./lib/verify-package-listing.mjs";
 import { verifyPackedBridge } from "./verify-packed-bridge.mjs";
 
 /** Create a tarball and assert production packaging constraints. */
@@ -12,16 +13,14 @@ export async function verifyPackagePack({ root, workspace }) {
   const tarball = join(
     packDirectory,
     (
-      await exec(
-        "npm",
-        ["pack", "--silent", "--pack-destination", packDirectory],
-        {
-          cwd: root,
-        },
-      )
+      await execNpm(["pack", "--silent", "--pack-destination", packDirectory], {
+        cwd: root,
+      })
     ).stdout.trim(),
   );
-  const packedFiles = (await exec("tar", ["-tf", tarball])).stdout.split("\n");
+  const packedFiles = parseTarListing(
+    (await exec("tar", ["-tf", tarball])).stdout,
+  );
   const packedManifest = JSON.parse(
     (await exec("tar", ["-xOf", tarball, "package/package.json"])).stdout,
   );
@@ -32,26 +31,27 @@ export async function verifyPackagePack({ root, workspace }) {
   )
     throw new Error("package retained a lifecycle-dependent PTY installation");
   if (
-    packedManifest.name !== "tekvro" ||
-    packedManifest.bin?.tekvro !== "scripts/rea.mjs" ||
     packedManifest.bin?.rea !== "scripts/rea.mjs" ||
     packedManifest.bin?.["rea-agents"] !== "scripts/rea.mjs"
   )
-    throw new Error(
-      "package must expose Tekvro and both compatible rea command entry points",
-    );
-  if (packedManifest.mcpName !== "io.github.forcemind/tekvro")
-    throw new Error("package did not declare the Tekvro MCP Registry identity");
-  if (packedFiles.some((path) => path.startsWith("package/skill-src/")))
+    throw new Error("package did not expose both rea command entry points");
+  const sourceManifest = JSON.parse(
+    await readFile(join(root, "package.json"), "utf8"),
+  );
+  if (
+    packedManifest.name !== "tekvro" ||
+    packedManifest.private !== true ||
+    packedManifest.bin?.tekvro !== "scripts/rea.mjs" ||
+    packedManifest.mcpName !== sourceManifest.mcpName ||
+    packedManifest.mcpName !== "io.github.forcemind/tekvro"
+  )
+    throw new Error("package did not retain its MCP Registry ownership marker");
+  if (packedFiles.some((path) => path.startsWith("package/.agents/")))
     throw new Error(
       "package included authored skill sources instead of only the generated bundle",
     );
-  if (
-    packedFiles.some((path) =>
-      /^package\/(?:dist|src)\/generatedMcpToolCatalog\./u.test(path),
-    )
-  )
-    throw new Error("package included the test-only generated MCP catalog");
+  if (packedFiles.some((path) => path.startsWith("package/.cache/")))
+    throw new Error("package included development cache or test metadata");
   const skill = (
     await exec("tar", [
       "-xOf",
@@ -75,6 +75,6 @@ export async function verifyPackagePack({ root, workspace }) {
   ) {
     throw new Error("package contained generated Python bytecode");
   }
-  await verifyPackedBridge({ workspace, tarball, packedFiles });
+  await verifyPackedBridge({ tarball, packedFiles });
   return { tarball };
 }

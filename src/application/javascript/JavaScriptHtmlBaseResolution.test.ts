@@ -6,6 +6,7 @@ const paths = [
   "assets/app.js",
   "renderer/app.js",
   "renderer/a/app.js",
+  "renderer/assets/app.js",
   "app.js",
 ];
 const files = new Map<string, JavaScriptArtifactFile>(
@@ -33,6 +34,28 @@ const resolve = (declaredPath: string, htmlBaseHref: string) =>
   });
 const documentUrl = "https://artifact.test/renderer/index.html";
 describe("HTML base href URL components", () => {
+  it.each(["?base=1", "#base-fragment"])(
+    "keeps the document pathname for suffix-only base href %s",
+    (base) => {
+      const resolvedBase = new URL(base, documentUrl);
+      expect(new URL("app.js", resolvedBase).pathname).toBe("/renderer/app.js");
+      expect(resolve("app.js", base)).toMatchObject({
+        resolved_path: "renderer/app.js",
+        resolution_status: "resolved",
+      });
+
+      const emptyPathReference = "?script=1#fragment";
+      expect(new URL(emptyPathReference, resolvedBase).pathname).toBe(
+        "/renderer/index.html",
+      );
+      expect(resolve(emptyPathReference, base)).toMatchObject({
+        declared_path: emptyPathReference,
+        resolved_path: "renderer/index.html",
+        resolution_status: "resolved",
+      });
+    },
+  );
+
   it.each([
     "/assets/?cache=/wrong/",
     "/assets/#/wrong/",
@@ -83,6 +106,26 @@ describe("HTML base href dot segments", () => {
     },
   );
 });
+describe("HTML base href empty segments", () => {
+  it("lets the script reference remove an empty segment from the base", () => {
+    // URL resolution keeps the base's empty segment until `..` removes it.
+    expect(
+      new URL("../app.js", new URL("./assets//", documentUrl)).pathname,
+    ).toBe("/renderer/assets/app.js");
+    expect(resolve("../app.js", "./assets//")).toMatchObject({
+      resolution_status: "resolved",
+      resolved_path: "renderer/assets/app.js",
+    });
+  });
+  it("keeps an above-root base escape when the reference also climbs", () => {
+    expect(resolve("../app.js", "../../")).toMatchObject({
+      resolution_status: "rejected",
+      limitations: [
+        "The resolved candidate escapes the canonical artifact root.",
+      ],
+    });
+  });
+});
 describe("HTML base href path syntax", () => {
   it.each(["%2e%2e/secret/", "/a/%2e%2e/", "/a\\b/", "a\0b"])(
     "rejects base href %j with the same admission rules a declared path gets",
@@ -108,4 +151,74 @@ describe("HTML base href path syntax", () => {
       resolved_path: null,
     });
   });
+});
+describe("HTML reference URL text", () => {
+  const urlPath = (declared: string, base: string) =>
+    decodeURIComponent(
+      new URL(declared.trim(), new URL(base.trim(), documentUrl)).pathname,
+    ).replace(/^\/+/, "");
+  it.each([
+    ["%61pp.js", "/assets/", "assets/app.js"],
+    [" app.js ", "/assets/", "assets/app.js"],
+    ["\napp.js\t", "/assets/", "assets/app.js"],
+    ["a\npp.js", "/assets/", "assets/app.js"],
+    ["app.js", "%61/", "renderer/a/app.js"],
+    ["app.js", " /%61ssets/ ", "assets/app.js"],
+    ["/%61ssets/app.js", "", "assets/app.js"],
+  ])(
+    "resolves %j against base %j like the URL parser",
+    (declared, base, expected) => {
+      if (base !== "") expect(urlPath(declared, base)).toBe(expected);
+      expect(resolve(declared, base)).toMatchObject({
+        declared_path: declared,
+        resolution_status: "resolved",
+        resolved_path: expected,
+      });
+    },
+  );
+  it("keeps a literal percent sign that starts no escape", () => {
+    expect(resolve("100%.js", "")).toMatchObject({
+      resolution_status: "not-found",
+      limitations: [
+        "The exact HTML resource renderer/100%.js was not found among the selected application files.",
+      ],
+    });
+  });
+  it.each(["%00app.js", "%ff.js"])(
+    "rejects %j, which decodes to no canonical artifact path",
+    (declared) => {
+      expect(resolve(declared, "")).toMatchObject({
+        resolution_status: "rejected",
+        resolved_path: null,
+      });
+    },
+  );
+  it("rejects a base href whose URL whitespace splits an encoded separator", () => {
+    expect(resolve("app.js", "a%2\nf/")).toMatchObject({
+      resolution_status: "rejected",
+      resolved_path: null,
+    });
+  });
+  it("rejects a base href that decodes to NUL", () => {
+    expect(resolve("app.js", "/a%00/")).toMatchObject({
+      resolution_status: "rejected",
+      resolved_path: null,
+    });
+  });
+  it.each([" https://external.test/app.js", "\t//external.test/app.js"])(
+    "reports %j as external after removing URL whitespace",
+    (declared) => {
+      expect(resolve(declared, "")).toMatchObject({
+        resolution_status: "external",
+      });
+    },
+  );
+  it.each(["%2e%2e/app.js", "a%2fapp.js", "%2\nfapp.js", "%2\ne%2\te/app.js"])(
+    "still rejects encoded dot and separator bytes in %j",
+    (declared) => {
+      expect(resolve(declared, "")).toMatchObject({
+        resolution_status: "rejected",
+      });
+    },
+  );
 });

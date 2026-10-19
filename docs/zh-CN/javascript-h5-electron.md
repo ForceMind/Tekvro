@@ -59,6 +59,20 @@ node scripts/rea.mjs analyze-javascript-application /absolute/path/to/game/dist 
 
 **注意：** 写入本地报告与把结果发送给联网 AI 是两件事。报告中可能包含路径、脚本代码片段或其他需要审查的信息。
 
+### 6.7.0 精确选择与保留证据
+
+大型包可重复传入 `--source-path`，路径必须精确匹配应用清单中的相对路径；不会自动加入依赖或动态 Chunk。未选择的文件与受预算限制的事实仍应在覆盖信息中保留为未检查或部分覆盖。
+
+```bash
+node scripts/rea.mjs analyze-javascript-application /absolute/path/to/game/dist \
+  --source-path package.json --source-path assets/main.js \
+  --max-heap-mb 1024 --analysis-timeout-ms 300000 --json
+```
+
+通过 MCP 分析后，可将真实返回的 Evidence ID 传给 `inspect_analysis_view`，使用 `view.kind: "javascript-facts"`、`where.paths`、`property_keys`、`offset` 和 `limit` 查询保留的观察。CLI `inspect-analysis-view` 使用同一输入契约，也可读取完整 Evidence。沿 `coverage.next_offset` 翻页；空页、没有某属性或没有某条调用关系，均不能证明未检查范围不存在这些事实。详见[查询示例](../javascript-application-workflows.md)。
+
+6.7.0 的 Evidence/Snapshot 要求显式 `relationship_coverage`。旧格式缺少该字段时，应保留原始文件并用当前版本重新采集；不要自行补写 complete 或伪造历史覆盖。WASM 模块使用[独立静态检查和接口比较](../wasm-artifacts.md)，不会实例化或执行模块。完整 Electron 生命周期已在 macOS arm64 的固定样本上验证；Linux 仍存在进程归属校验导致的 `partial/cleanup_incomplete`，详见[实际运行记录](../upstream/rea-6.7.0-integration.md)。
+
 ### 对 H5 小游戏重点看什么？
 
 | 调查问题       | 可以尝试查找的证据                        | 不应直接断言的结论               |

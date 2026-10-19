@@ -1,20 +1,28 @@
 import { ArtifactOperationError } from "./artifactOperationError.js";
+import type { AnalysisErrorOptions } from "./analysisErrorBase.js";
 
 /** Publication failure retaining its input/output target and cleanup state. */
 export class WebScriptExportError extends ArtifactOperationError {
   override readonly userMessage: string;
-  override readonly cleanupIncomplete: boolean;
-  override readonly cleanupResources: readonly string[];
+  override cleanupIncomplete: boolean;
 
   constructor(
     reason: ArtifactOperationError["reason"],
     target: string,
     diagnostic: string,
-    residualPaths: readonly string[] = [],
+    options: AnalysisErrorOptions & {
+      readonly residualPaths?: readonly string[];
+    } = {},
   ) {
-    super("export_web_scripts", reason);
+    super("export_web_scripts", reason, undefined, undefined, options);
     this.userMessage = `Script export failed for ${target}: ${diagnostic}`;
-    this.cleanupResources = residualPaths;
-    this.cleanupIncomplete = residualPaths.length > 0;
+    this.setCleanupResources([
+      ...new Set([
+        ...(options.cleanup?.resources ?? []),
+        ...(options.residualPaths ?? []),
+      ]),
+    ]);
+    this.cleanupIncomplete =
+      options.cleanup !== undefined || (options.residualPaths?.length ?? 0) > 0;
   }
 }

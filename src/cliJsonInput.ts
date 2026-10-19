@@ -1,7 +1,11 @@
-import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
-import { AnalysisInputError } from "./domain/analysisErrorCore.js";
+import { readJsonInputFile } from "./application/JsonInputFile.js";
+import { NonRegularFileReadError } from "./filesystem/RegularFile.js";
+import {
+  AnalysisAccessDeniedError,
+  AnalysisInputError,
+} from "./domain/analysisErrorCore.js";
 import { projectAnalysisError } from "./domain/analysisErrorProjection.js";
 import type { JsonValue } from "./domain/jsonValue.js";
 import { safeParseJson } from "./domain/safeJson.js";
@@ -14,32 +18,66 @@ export const parseCliJsonInput = async (
   | { readonly ok: true; readonly value: unknown }
   | { readonly ok: false; readonly error: JsonValue }
 > => {
-  const inline = parseJson(value);
-  if (inline !== undefined) return { ok: true, value: inline };
+  const inline = safeParseJson(value);
+  if (inline.ok) return { ok: true, value: inline.value };
   try {
-    // Read raw bytes so invalid UTF-8 is rejected by parseJson instead of
-    // being silently replaced by lossy "utf8" decoding.
-    const parsed = parseJson(await readFile(value));
-    return parsed === undefined
-      ? jsonFileError(value, operation, "invalid-json")
-      : { ok: true, value: parsed };
+    const parsed = await readJsonInputFile(value, operation);
+    return parsed.ok
+      ? { ok: true, value: parsed.value }
+      : {
+          ok: false,
+          error: {
+            error: "Application workflow failed",
+            ...projectAnalysisError(parsed.error),
+            input_path: value,
+            input_reason:
+              parsed.error._tag === "AnalysisInputError"
+                ? "invalid-json"
+                : "too-large",
+          },
+        };
   } catch (cause: unknown) {
+    const systemCode = accessDeniedSystemCode(cause);
+    if (systemCode !== undefined)
+      return jsonAccessDeniedError(value, operation, systemCode, cause);
     if (
       ["{", "["].includes(value.trimStart()[0] ?? "") &&
       cannotBeAnExistingFile(cause) &&
       !hasExplicitJsonFileExtension(value)
     )
       return { ok: false, error: inputError(operation) };
+    if (
+      !(cause instanceof Error) ||
+      !("code" in cause) ||
+      typeof cause.code !== "string"
+    )
+      throw cause;
     return jsonFileError(value, operation, "read-failed", cause);
   }
 };
 
+const accessDeniedSystemCode = (
+  cause: unknown,
+): "EACCES" | "EPERM" | undefined => {
+  if (!(cause instanceof Error) || !("code" in cause)) return undefined;
+  return cause.code === "EACCES" || cause.code === "EPERM"
+    ? cause.code
+    : undefined;
+};
+
+/**
+ * A `file:` URL or `scheme://` URL is not an operator-relative filesystem path.
+ * One-letter prefixes stay paths so Windows drive paths resolve normally.
+ */
+const URL_REFERENCE = /^(?:file:|[A-Za-z][A-Za-z0-9+.-]+:\/\/)/iu;
+
 /**
  * Resolve named string fields of CLI-supplied JSON against the operator
  * working directory. Each entry is a key path from the document root; only
- * fields holding nonblank strings are resolved, everything else passes through
- * untouched so shared schemas can reject blank paths. Shared MCP contracts reject
- * relative paths, so CLI workflows resolve operator-relative values before validation.
+ * fields holding nonblank, non-URL strings are resolved, everything else passes
+ * through untouched so shared schemas can reject blank paths and URLs. Shared MCP
+ * contracts reject relative paths, so CLI workflows resolve operator-relative
+ * values before validation.
  */
 export const resolveCliJsonPaths = (
   value: unknown,
@@ -63,7 +101,9 @@ const resolveJsonPath = (
       if (tail.length === 0)
         return [
           key,
-          typeof entry === "string" && entry.trim().length > 0
+          typeof entry === "string" &&
+          entry.trim().length > 0 &&
+          !URL_REFERENCE.test(entry)
             ? resolve(entry)
             : entry,
         ];
@@ -83,26 +123,6 @@ const cannotBeAnExistingFile = (cause: unknown): boolean =>
 
 const hasExplicitJsonFileExtension = (value: string): boolean =>
   value.toLowerCase().endsWith(".json");
-
-const parseJson = (value: string | Uint8Array): unknown => {
-  let text: string;
-  if (typeof value === "string") {
-    text = value;
-  } else {
-    try {
-      text = new TextDecoder("utf-8", {
-        fatal: true,
-        ignoreBOM: true,
-      }).decode(value);
-    } catch (cause: unknown) {
-      // Decoding failure means the bytes are not valid UTF-8 JSON input.
-      void cause;
-      return undefined;
-    }
-  }
-  const parsed = safeParseJson(text);
-  return parsed.ok ? parsed.value : undefined;
-};
 
 const inputError = (operation: string): JsonValue => ({
   error: "Application workflow failed",
@@ -136,7 +156,24 @@ const jsonFileError = (
   },
 });
 
-/** Name the system error so the caller can tell a typo from a permission denial. */
+const jsonAccessDeniedError = (
+  path: string,
+  operation: string,
+  systemCode: "EACCES" | "EPERM",
+  cause: unknown,
+) => ({
+  ok: false as const,
+  error: {
+    error: "Application workflow failed",
+    ...projectAnalysisError(
+      new AnalysisAccessDeniedError(operation, path, systemCode, { cause }),
+    ),
+    input_path: path,
+    input_reason: "read-failed" as const,
+  },
+});
+
+/** Preserve file-selection and system failures alongside the requested path. */
 const readFailureIssue = (path: string | undefined, cause: unknown) => {
   const code =
     typeof cause === "object" &&
@@ -148,6 +185,9 @@ const readFailureIssue = (path: string | undefined, cause: unknown) => {
   return {
     path: [],
     reason: "invalid_value" as const,
-    message: `The JSON input file could not be read${code}: ${path ?? ""}`,
+    message:
+      cause instanceof NonRegularFileReadError && cause.code === "ENOTFILE"
+        ? `The JSON input must be a regular file${code}: ${path ?? ""}`
+        : `The JSON input file could not be read${code}: ${path ?? ""}`,
   };
 };

@@ -7,6 +7,47 @@ export async function startBrowserVerifierSite() {
   let port = 0;
   let sessionGeneration = 0;
   const server = createServer((request, response) => {
+    if (request.url === "/failed-navigation") {
+      response.destroy();
+      return;
+    }
+    const requestUrl = new URL(request.url ?? "/", "http://127.0.0.1");
+    if (requestUrl.pathname === "/scenario-request-language") {
+      response.setHeader("content-type", "application/json");
+      response.setHeader("cache-control", "no-store");
+      response.end(JSON.stringify(request.headers["accept-language"] ?? null));
+      return;
+    }
+    if (requestUrl.pathname === "/scenario-environment") {
+      const requestedRun = requestUrl.searchParams.get("run");
+      const run = ["A", "B", "C"].includes(requestedRun)
+        ? requestedRun
+        : "default";
+      response.setHeader("content-type", "text/html");
+      const requestLanguage = encodeURIComponent(
+        JSON.stringify(request.headers["accept-language"] ?? null),
+      );
+      response.end(`<!doctype html><html><body data-run="${run}" data-request-language="${requestLanguage}"><pre id="environment"></pre><pre id="language"></pre>
+        <button id="refresh-environment">Refresh environment</button><script>
+        const refresh = () => document.querySelector('#environment').textContent = JSON.stringify({
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          locale: Intl.DateTimeFormat().resolvedOptions().locale,
+          dpr: devicePixelRatio, width: innerWidth, height: innerHeight
+        });
+        document.querySelector('#refresh-environment').onclick = refresh;
+        document.querySelector('#language').textContent = JSON.stringify({
+          language: navigator.language, languages: [...navigator.languages],
+          request_language: JSON.parse(decodeURIComponent(document.body.dataset.requestLanguage))
+        });
+        window.releaseScenario = () => {
+          const release = document.createElement('span');
+          release.id = 'release-' + document.body.dataset.run;
+          document.body.append(release);
+        };
+        refresh();
+      </script></body></html>`);
+      return;
+    }
     if (request.url === "/slow-json") {
       response.setHeader("content-type", "application/json");
       response.write('{"pending":');
@@ -156,11 +197,13 @@ export async function startBrowserVerifierSite() {
     async close() {
       for (const client of webSockets.clients) client.terminate();
       await new Promise((resolve) => webSockets.close(resolve));
-      await new Promise((resolve, reject) =>
+      const serverClosed = new Promise((resolve, reject) =>
         server.close((error) =>
           error === undefined ? resolve() : reject(error),
         ),
       );
+      server.closeAllConnections();
+      await serverClosed;
     },
   };
 }

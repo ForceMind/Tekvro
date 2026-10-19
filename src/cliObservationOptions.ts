@@ -1,5 +1,7 @@
 import { z } from "incur";
 import { selectHumanText } from "./cli/localization.js";
+import { javaScriptAnalysisResourceControlsSchema } from "./domain/javascript/javascriptAnalysisResourceControls.js";
+import { javaScriptSourcePathsSchema } from "./domain/javascript/javascriptSourceSelection.js";
 
 /** Accept an agent-selected browser observation duration without an artificial ceiling. */
 export const observationDuration = (fallback: number, minimum = 0) =>
@@ -8,24 +10,14 @@ export const observationDuration = (fallback: number, minimum = 0) =>
     .int()
     .min(minimum)
     .default(fallback)
-    .describe(
-      selectHumanText(
-        "Observation duration in milliseconds",
-        "观察时长（毫秒）",
-      ),
-    );
+    .describe("Observation duration in milliseconds");
 
 /** Shared passive browser origin options. */
 export const browserScopeOptions = {
   allowedOrigins: z
     .array(z.string().min(1))
     .optional()
-    .describe(
-      selectHumanText(
-        "Optional exact-origin filter",
-        "可选：精确匹配的页面来源过滤条件",
-      ),
-    ),
+    .describe("Optional exact-origin filter"),
 };
 
 export const browserPageInspectionOptions = z.object({
@@ -34,60 +26,31 @@ export const browserPageInspectionOptions = z.object({
   includeAccessibilityText: z
     .boolean()
     .default(false)
-    .describe(
-      selectHumanText("Include accessibility text", "包含无障碍界面文本"),
-    ),
+    .describe("Include accessibility text"),
   includeConsoleText: z
     .boolean()
     .default(false)
-    .describe(
-      selectHumanText("Include console message text", "包含控制台消息文本"),
-    ),
+    .describe("Include console message text"),
   includeJsonBodyShapes: z
     .boolean()
     .default(false)
-    .describe(
-      selectHumanText(
-        "Include structural shapes of JSON response bodies",
-        "包含 JSON 响应体的结构形态",
-      ),
-    ),
+    .describe("Include structural shapes of JSON response bodies"),
   includeWebsocketShapes: z
     .boolean()
     .default(false)
-    .describe(
-      selectHumanText(
-        "Include structural shapes of WebSocket payloads",
-        "包含 WebSocket 消息载荷的结构形态",
-      ),
-    ),
+    .describe("Include structural shapes of WebSocket payloads"),
   includeScriptSources: z
     .boolean()
     .default(false)
-    .describe(
-      selectHumanText(
-        "Include JavaScript source text",
-        "包含 JavaScript 源码文本",
-      ),
-    ),
+    .describe("Include JavaScript source text"),
   includeStorageKeys: z
     .boolean()
     .default(false)
-    .describe(
-      selectHumanText(
-        "Include storage key names without values",
-        "仅包含存储键名，不读取值",
-      ),
-    ),
+    .describe("Include storage key names without values"),
   includeStorageFingerprints: z
     .boolean()
     .default(false)
-    .describe(
-      selectHumanText(
-        "Include content-derived storage fingerprints",
-        "包含根据存储内容生成的指纹",
-      ),
-    ),
+    .describe("Include content-derived storage fingerprints"),
 });
 
 export const electronPageInspectionOptions = z.object({
@@ -95,17 +58,65 @@ export const electronPageInspectionOptions = z.object({
   includeScriptSources: z
     .boolean()
     .default(false)
-    .describe(
-      selectHumanText(
-        "Include JavaScript source text",
-        "包含 JavaScript 源码文本",
-      ),
-    ),
+    .describe("Include JavaScript source text"),
 });
 
+const humanResourceOption = <T extends z.ZodType>(
+  schema: T,
+  chinese: string,
+): T =>
+  schema.describe(
+    selectHumanText(
+      schema.description ?? "JavaScript resource control",
+      chinese,
+    ),
+  );
+
 export const javascriptApplicationOptions = z.object({
+  maxSemanticNodes: humanResourceOption(
+    javaScriptAnalysisResourceControlsSchema.shape.max_semantic_nodes,
+    "整个应用保留的语义节点上限，默认 100000；仍受工作进程堆和结果接收预算约束。",
+  ),
+  maxSemanticNodesPerFile: humanResourceOption(
+    javaScriptAnalysisResourceControlsSchema.shape.max_semantic_nodes_per_file,
+    "单个源码文件保留的语义节点上限，默认 20000；同时受应用总上限及内存、传输预算约束。",
+  ),
+  maxSemanticUnknowns: humanResourceOption(
+    javaScriptAnalysisResourceControlsSchema.shape.max_semantic_unknowns,
+    "整个应用保留的语义未知记录上限，默认 100000；按类别和原因记录未保留的发生次数。",
+  ),
+  maxSemanticUnknownsPerFile: humanResourceOption(
+    javaScriptAnalysisResourceControlsSchema.shape
+      .max_semantic_unknowns_per_file,
+    "单个源码文件保留的语义未知记录上限，默认 20000；同时受总上限及内存、传输预算约束。",
+  ),
+  sourcePath: javaScriptSourcePathsSchema
+    .optional()
+    .describe(
+      selectHumanText(
+        "Exact inventoried file path relative to the application root; repeat to select several. No implicit dependencies.",
+        "相对于应用根目录的精确清单路径；可重复选择多个文件，不隐式加入依赖。",
+      ),
+    ),
+  maxHeapMb: humanResourceOption(
+    javaScriptAnalysisResourceControlsSchema.shape.max_heap_mb,
+    "隔离 JavaScript 分析进程的 V8 老生代堆上限（MiB），默认 1024，不改变 CLI/MCP 堆。Bun 忽略 V8 参数：Windows 改用预算加 512 MiB 运行时余量限制提交内存，其他 Bun 平台不施加此限制。",
+  ),
+  analysisTimeoutMs: humanResourceOption(
+    javaScriptAnalysisResourceControlsSchema.shape.analysis_timeout_ms,
+    "每个源码的启动、分析和传输总超时（毫秒），默认 300000；超时保留已采集的部分 Evidence 并停止分析。",
+  ),
   artifactFormat: z
     .enum(["auto", "asar", "directory"])
     .default("auto")
     .describe(selectHumanText("Application artifact format", "应用制品格式")),
+  integrityPolicy: z
+    .enum(["fail", "record-and-continue"])
+    .default("fail")
+    .describe(
+      selectHumanText(
+        "Behavior when declared application integrity does not match",
+        "应用声明的完整性不匹配时的处理策略",
+      ),
+    ),
 });

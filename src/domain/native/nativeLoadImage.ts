@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { nativeMetadataRecoverySummarySchema } from "./nativeMetadataRecovery.js";
 import { jsonValueSchema } from "../jsonValue.js";
+import { binaryArchitectureSchema } from "../rawBinary.js";
 
 const integer = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
 const digest = z.string().regex(/^[a-f0-9]{64}$/u);
@@ -84,7 +85,7 @@ export const nativeLoadImageCheckSchema = z.strictObject({
 });
 
 /** Read-only native image verification; verified applies only to declared coverage. */
-export const nativeLoadImageSchema = z.discriminatedUnion("status", [
+export const nativeLoadImageSchema = z.union([
   z.strictObject({
     status: z.literal("unsupported"),
     reason: z.string().min(1),
@@ -108,6 +109,23 @@ export const nativeLoadImageSchema = z.discriminatedUnion("status", [
     checks: z.array(nativeLoadImageCheckSchema),
     limitations: z.array(z.string().min(1)),
   }),
+  z.strictObject({
+    status: z.enum(["verified", "mismatch"]),
+    format: z.literal("raw-binary"),
+    target_sha256: digest,
+    architecture: binaryArchitectureSchema,
+    language_id: z.string().min(1),
+    compiler_spec_id: z.string().min(1),
+    base_address: address,
+    file_bytes: integer.min(1),
+    entry: z.strictObject({
+      address: address,
+      file_offset: z.literal(0),
+    }),
+    observations: nativeLoadImageObservationSchema,
+    checks: z.array(nativeLoadImageCheckSchema),
+    limitations: z.array(z.string().min(1)),
+  }),
 ]);
 
 /** Provider-neutral native load-image result. */
@@ -118,3 +136,23 @@ export type NativeLoadImageObservation = z.infer<
 >;
 /** One independently compared native import fact. */
 export type NativeLoadImageCheck = z.infer<typeof nativeLoadImageCheckSchema>;
+
+/** Measured provider facts, or a completed comparison retained after interruption. */
+export const nativeLoadImagePartialObservationSchema = z.discriminatedUnion(
+  "stage",
+  [
+    z.strictObject({
+      kind: z.literal("native-load-image"),
+      stage: z.literal("measured"),
+      observations: nativeLoadImageObservationSchema,
+    }),
+    z.strictObject({
+      kind: z.literal("native-load-image"),
+      stage: z.literal("completed"),
+      result: nativeLoadImageSchema,
+    }),
+  ],
+);
+export type NativeLoadImagePartialObservation = z.infer<
+  typeof nativeLoadImagePartialObservationSchema
+>;

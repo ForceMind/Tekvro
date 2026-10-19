@@ -7,11 +7,47 @@ import { workspaceCliTest } from "../../support/cli/workspaceCliFixture.js";
 
 describe("executable dispatcher", () => {
   workspaceCliTest(
+    "does not append recovery output after delegated stdout has begun",
+    async ({ processes, workspace }) => {
+      await workspace.mkdir("scripts");
+      await workspace.mkdir("dist/cli-runtime");
+      await Promise.all([
+        copyFile("scripts/rea.mjs", workspace.path("scripts/rea.mjs")),
+        workspace.write(
+          "package.json",
+          JSON.stringify({ type: "module", version: "1.0.0" }),
+        ),
+        workspace.write(
+          "dist/cli-runtime/cli.js",
+          'export const cliConfigurationError = () => undefined; export const createCli = () => ({ serve: (_args, options) => { options.stdout("first document\\n"); throw new RangeError("Invalid string length"); } });\n',
+        ),
+        workspace.write(
+          "dist/cli-runtime/cliOutput.js",
+          "export const normalizeCliArguments = (args) => args; export const validateCliOutputArguments = () => ({ ok: true }); export const renderCliOutputArgumentError = () => ''; export const renderEmptyFilteredCliOutput = () => undefined;\n",
+        ),
+        workspace.write(
+          "dist/cli-runtime/cliResultOutput.js",
+          'export const createCliResultOutput = () => ({ handled: false, failed: false, recoverFormattingFailure: () => { process.stdout.write("unexpected second document"); return true; } });\n',
+        ),
+      ]);
+      const result = await processes.run(
+        process.execPath,
+        [workspace.path("scripts/rea.mjs"), "fixture"],
+        { cwd: workspace.root },
+      );
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toBe("first document\n");
+      expect(result.stderr).toContain("RangeError: Invalid string length");
+    },
+  );
+
+  workspaceCliTest(
     "reserves production MCP routing for bare mode arguments",
     async ({ processes, workspace }) => {
       const scripts = await workspace.mkdir("scripts");
       await workspace.mkdir("dist");
-      await workspace.mkdir("dist/cli");
+      await workspace.mkdir("dist/cli-runtime");
+      await workspace.mkdir("dist/mcp");
       await Promise.all([
         copyFile("scripts/rea.mjs", join(scripts, "rea.mjs")),
         workspace.write(
@@ -19,23 +55,23 @@ describe("executable dispatcher", () => {
           JSON.stringify({ type: "module", version: "1.0.0" }),
         ),
         workspace.write(
-          "dist/main.js",
+          "dist/mcp/main.js",
           'export const runEntrypoint = () => process.stdout.write(JSON.stringify({ adapter: "mcp" }));\n',
         ),
         workspace.write(
-          "dist/cli.js",
-          'export const createCli = () => ({ serve: (args) => process.stdout.write(JSON.stringify({ adapter: "cli", args })) });\n',
+          "dist/cli-runtime/cli.js",
+          'export const cliConfigurationError = () => undefined; export const createCli = () => ({ serve: (args) => process.stdout.write(JSON.stringify({ adapter: "cli", args })) });\n',
         ),
         workspace.write(
-          "dist/cliOutput.js",
-          "export const sanitizeCliOutput = (output) => output; export const validateCliOutputArguments = () => ({ ok: true }); export const renderCliOutputArgumentError = () => ''; export const renderEmptyFilteredCliOutput = () => undefined;\n",
+          "dist/cli-runtime/cliOutput.js",
+          "export const normalizeCliArguments = (args) => args; export const validateCliOutputArguments = () => ({ ok: true }); export const renderCliOutputArgumentError = () => ''; export const renderEmptyFilteredCliOutput = () => undefined;\n",
         ),
         workspace.write(
-          "dist/cli/streamedJsonOutput.js",
-          "export const createStreamedCliJsonOutput = () => undefined;\n",
+          "dist/cli-runtime/cliResultOutput.js",
+          "export const createCliResultOutput = () => undefined;\n",
         ),
         workspace.write(
-          "dist/mcpDoctor.js",
+          "dist/cli-runtime/mcpDoctor.js",
           'export const runProductionMcpDoctorCli = (args) => Promise.resolve({ output: JSON.stringify({ adapter: "mcp-doctor", args }), exitCode: 0 });\n',
         ),
       ]);
@@ -87,10 +123,12 @@ describe("executable dispatcher", () => {
         );
         expect(result).toMatchObject({
           exitCode: 1,
-          stderr: expect.stringContaining("npm ci && npm run build:cached"),
+          stderr: expect.stringContaining(
+            "Tekvro's compiled runtime is missing. Run `npm ci && npm run build:cached` in",
+          ),
         });
-        expect(result.stderr).toMatch(/Tekvro|探核/u);
-        expect(result.stderr).toContain("rea-agents");
+        expect(result.stderr).not.toContain("reinstall rea-agents");
+        expect(result.stderr).toContain("build Tekvro, then restart it.");
         expect(result).toMatchObject({
           stderr: expect.not.stringContaining("ERR_MODULE_NOT_FOUND"),
         });

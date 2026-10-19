@@ -6,9 +6,12 @@ import { promisify } from "node:util";
 import { expect, it } from "vitest";
 
 import { toolContract } from "../../../src/contracts/toolContracts.js";
-import { parseEvidence } from "../../../src/domain/evidence.js";
+import { createEvidence, parseEvidence } from "../../../src/domain/evidence.js";
+import { EMPTY_PROCESS_CAPTURE_EXAMPLE } from "../../../src/domain/process/processCaptureExample.js";
+import { PROCESS_PROVIDER } from "../../../src/domain/process/processEvidenceProvider.js";
 import { itWithCaptureCapability as captureTest } from "../../boundary/process/processCaptureCapability.js";
 import { connectLocalToolsMcp } from "../../fixtures/localToolsMcp.js";
+import { parseMcpToolError } from "../../fixtures/mcpToolError.js";
 import { createTestTempDirectory } from "../../fixtures/temporaryDirectory.js";
 
 const execute = promisify(execFile);
@@ -18,6 +21,125 @@ const electron = {
   executable_path: "/tmp/Electron",
   application_path: "/tmp/main.js",
 };
+
+it("keeps overall replay verification unknown when capture divergence is unknown", async () => {
+  const { call } = await connectLocalToolsMcp();
+  const captureEvidence = (
+    side: "left" | "right",
+    {
+      environmentUnknown = false,
+      exitCode = 0,
+    }: {
+      readonly environmentUnknown?: boolean;
+      readonly exitCode?: number;
+    } = {},
+  ) =>
+    createEvidence(undefined, PROCESS_PROVIDER, {
+      predicateType: "rea.process-capture",
+      operation: "capture_process_scenario",
+      parameters: { side },
+      result: {
+        ...EMPTY_PROCESS_CAPTURE_EXAMPLE,
+        exit: { ...EMPTY_PROCESS_CAPTURE_EXAMPLE.exit, code: exitCode },
+        residual_unknowns: environmentUnknown
+          ? [
+              {
+                scope: "environment",
+                reason:
+                  "Inherited host environment variables are not recorded.",
+              },
+            ]
+          : [],
+      },
+      confidence: "observed",
+      authority: "controlled-replay",
+      environment: {
+        id: "fixture-process",
+        platform: "fixture",
+        architecture: "fixture",
+        isolation: "process",
+      },
+    });
+  const compare = async (left: unknown, right: unknown) => {
+    const response = await call("compare_process_captures", { left, right });
+    expect(response.isError, JSON.stringify(response)).not.toBe(true);
+    return toolContract("compare_process_captures").outputSchema.parse(
+      response.structuredContent,
+    );
+  };
+  const verify = async (
+    comparison: { readonly evidence_id: string },
+    dimension: "overall" | "terminal",
+  ) => {
+    const response = await call("verify_reconstruction", {
+      specification: {
+        name: "Overall replay compatibility",
+        claims: [
+          {
+            kind: "behavioral",
+            claim_id: dimension,
+            title: "Replay behavior agrees",
+            comparison_evidence_id: comparison.evidence_id,
+            dimension,
+          },
+        ],
+      },
+    });
+    expect(response.isError, JSON.stringify(response)).not.toBe(true);
+    return toolContract("verify_reconstruction").outputSchema.parse(
+      response.structuredContent,
+    ).normalized_result;
+  };
+
+  const complete = await compare(
+    captureEvidence("left"),
+    captureEvidence("right"),
+  );
+  expect((await verify(complete, "overall")).status).toBe("pass");
+
+  const incomplete = await compare(
+    captureEvidence("left", { environmentUnknown: true }),
+    captureEvidence("right", { environmentUnknown: true }),
+  );
+  expect(incomplete.normalized_result).toMatchObject({
+    status: "unchanged",
+    first_divergence: {
+      status: "unknown",
+      reason: "Residual unknowns prevent proving that no divergence occurred.",
+    },
+  });
+  const overall = await verify(incomplete, "overall");
+  expect(overall.status).toBe("unknown");
+  expect(overall.claims.items[0]?.limitations).toContain(
+    "Residual unknowns prevent proving that no divergence occurred.",
+  );
+  expect((await verify(incomplete, "terminal")).status).toBe("pass");
+
+  const changed = await compare(
+    captureEvidence("left", { environmentUnknown: true }),
+    captureEvidence("right", { environmentUnknown: true, exitCode: 1 }),
+  );
+  expect((await verify(changed, "overall")).status).toBe("fail");
+});
+
+const runCliExpectingInputError = async (
+  scenarioPath: string,
+): Promise<unknown> => {
+  const failure = await execute(process.execPath, [
+    cli,
+    "capture-process",
+    scenarioPath,
+    "--json",
+  ]).then(
+    () => undefined,
+    (cause: unknown) => cause,
+  );
+  expect(failure).toMatchObject({ code: 1 });
+  if (!(failure instanceof Error) || !("stdout" in failure))
+    throw new Error("Expected the CLI to report an input error on stdout");
+  return JSON.parse(String(failure.stdout)) as unknown;
+};
+
 const pathRequests: readonly [string, Record<string, unknown>][] = [
   ["open_binary", { path: nul }],
   ["open_binary", { path: process.execPath, snapshot_path: nul }],
@@ -90,6 +212,84 @@ const pathRequests: readonly [string, Record<string, unknown>][] = [
   ),
   ["capture_electron_scenario", { ...electron, args: ["a\0b"] }],
   ["demangle_swift", { symbols: ["abc\0def"] }],
+  ["inspect_web_network_capture", { capture_path: nul, format: "har" }],
+  [
+    "export_web_scripts",
+    { capture_path: nul, output_directory: "/tmp/exported-scripts" },
+  ],
+  ["inspect_pe_resources", { path: nul }],
+  ["inspect_binary_layout", { path: nul }],
+  ["inspect_recorded_crash", { path: nul }],
+  ["inspect_wasm_artifact", { path: nul }],
+  ["inspect_wasm_artifact", { path: "/tmp/sample.wasm", glue_paths: [nul] }],
+  [
+    "inspect_wasm_artifact",
+    { path: "/tmp/sample.wasm", candidate_paths: [nul] },
+  ],
+  ["inspect_evm_interface", { path: nul, encoding: "raw" }],
+  [
+    "export_web_scripts",
+    { capture_path: "/tmp/capture.json", output_directory: nul },
+  ],
+  [
+    "trace_web_source_location",
+    {
+      manifest_path: nul,
+      script_index: 0,
+      source_map: { path: "/tmp/source.map", url: "http://127.0.0.1/a" },
+      generated_position: { line: 1, column: 0 },
+    },
+  ],
+  [
+    "trace_web_source_location",
+    {
+      manifest_path: "/tmp/manifest.json",
+      script_index: 0,
+      source_map: { path: nul, url: "http://127.0.0.1/a" },
+      generated_position: { line: 1, column: 0 },
+    },
+  ],
+  ["trace_web_module_imports", { manifest_path: nul, script_index: 0 }],
+  [
+    "trace_web_module_imports",
+    {
+      manifest_path: "/tmp/manifest.json",
+      script_index: 0,
+      import_map: { path: nul, base_url: "http://127.0.0.1/a" },
+    },
+  ],
+  ["start_frida_session", { mode: "spawn", device_id: "local", program: nul }],
+  [
+    "load_frida_script",
+    {
+      session_id: "00000000-0000-4000-8000-000000000001",
+      source_kind: "file",
+      path: nul,
+    },
+  ],
+  [
+    "instrument_with_frida",
+    {
+      mode: "spawn",
+      device_id: "local",
+      program: nul,
+      source_kind: "inline",
+      source: "send(1);",
+    },
+  ],
+  [
+    "instrument_with_frida",
+    {
+      mode: "spawn",
+      device_id: "local",
+      program: "/bin/true",
+      source_kind: "file",
+      path: nul,
+    },
+  ],
+  ["start_rizin_debug_session", { path: nul, inferior_tty: "/dev/pts/7" }],
+  ["start_rizin_debug_session", { path: "/tmp/program", inferior_tty: nul }],
+  ["start_gdb_session", { inferior_tty: nul }],
 ];
 
 it("rejects OS-invalid local inputs through the real advertised MCP contracts", async () => {
@@ -160,63 +360,123 @@ captureTest(
         }),
       ),
     ];
-    for (const options of invalid) {
-      const request = { ...scenario, ...options };
-      expect(
-        (await call("capture_process_scenario", request)).isError,
-        JSON.stringify(options),
-      ).toBe(true);
-      const path = join(root, "scenario.json");
-      await writeFile(path, JSON.stringify(request));
-      await expect(
-        execute(process.execPath, [cli, "capture-process", path, "--json"]),
-      ).rejects.toMatchObject({
-        code: 1,
-        stdout: expect.stringContaining("invalid_request"),
-      });
-    }
+    // Each CLI case initializes its own runtime. Bound subprocess fanout too,
+    // so one test cannot oversubscribe the host beyond the Vitest workers.
+    for (let start = 0; start < invalid.length; start += 2)
+      await Promise.all(
+        invalid.slice(start, start + 2).map(async (options, offset) => {
+          const request = { ...scenario, ...options };
+          expect(
+            (await call("capture_process_scenario", request)).isError,
+            JSON.stringify(options),
+          ).toBe(true);
+          const path = join(root, `scenario-${String(start + offset)}.json`);
+          await writeFile(path, JSON.stringify(request));
+          await expect(
+            execute(process.execPath, [cli, "capture-process", path, "--json"]),
+            JSON.stringify(options),
+          ).rejects.toMatchObject({
+            code: 1,
+            stdout: expect.stringContaining("invalid_request"),
+          });
+        }),
+      );
     await expect(access(marker)).rejects.toMatchObject({ code: "ENOENT" });
     const missing = join(root, "missing-executable");
     const failed = await call("capture_process_scenario", {
       executable: missing,
     });
-    expect(failed.structuredContent).toMatchObject({
+    expect(parseMcpToolError(failed)).toMatchObject({
       error: {
-        code: "process_capture_failed",
-        message: expect.stringContaining(missing),
-        details: { execution_failure: expect.stringContaining(missing) },
+        code: "invalid_request",
+        details: {
+          operation: "capture_process_scenario",
+          issues: [
+            {
+              path: ["executable"],
+              message: expect.stringContaining(`${missing} (ENOENT)`),
+            },
+          ],
+        },
       },
     });
     await writeFile(
       join(root, "scenario.json"),
       JSON.stringify({ executable: missing }),
     );
-    await expect(
-      execute(process.execPath, [
-        cli,
-        "capture-process",
-        join(root, "scenario.json"),
-        "--json",
-      ]),
-    ).rejects.toMatchObject({
-      code: 1,
-      stdout: expect.stringContaining(missing),
+    const executableCliFailure = await runCliExpectingInputError(
+      join(root, "scenario.json"),
+    );
+    expect(executableCliFailure).toMatchObject({
+      code: "invalid_request",
+      details: {
+        operation: "capture_process_scenario",
+        issues: [
+          {
+            path: ["executable"],
+            message: expect.stringContaining(`${missing} (ENOENT)`),
+          },
+        ],
+      },
+    });
+
+    const missingWorkingDirectory = join(root, "missing-working-directory");
+    const cwdFailure = await call("capture_process_scenario", {
+      executable: process.execPath,
+      working_directory: missingWorkingDirectory,
+    });
+    expect(parseMcpToolError(cwdFailure)).toMatchObject({
+      error: {
+        code: "invalid_request",
+        details: {
+          operation: "capture_process_scenario",
+          issues: [
+            {
+              path: ["working_directory"],
+              message: expect.stringContaining(
+                `${missingWorkingDirectory} (ENOENT)`,
+              ),
+            },
+          ],
+        },
+      },
+    });
+    const cwdScenario = join(root, "missing-working-directory.json");
+    await writeFile(
+      cwdScenario,
+      JSON.stringify({
+        executable: process.execPath,
+        working_directory: missingWorkingDirectory,
+      }),
+    );
+    expect(await runCliExpectingInputError(cwdScenario)).toMatchObject({
+      code: "invalid_request",
+      details: {
+        operation: "capture_process_scenario",
+        issues: [
+          {
+            path: ["working_directory"],
+            message: expect.stringContaining(
+              `${missingWorkingDirectory} (ENOENT)`,
+            ),
+          },
+        ],
+      },
     });
   },
-  // Multiple real CLI subprocess starts are slow under shared CI load.
-  120_000,
+  60_000,
 );
 
-captureTest.each(["unknown", "truncated"] as const)(
+captureTest.each(["untruncated", "truncated"] as const)(
   "captures real process choices and composes a %s self-comparison",
-  async (status) => {
+  async (captureState) => {
     const root = await createTestTempDirectory("rea-local-capture-");
     const { call } = await connectLocalToolsMcp();
     const captured = await call("capture_process_scenario", {
       executable: process.execPath,
       arguments: [
         "-e",
-        `require('node:fs').writeFileSync('state','selected');console.log(process.env['app.setting'],process.env.MY_PASSWORD,process.env['REA_PROCESS_RUN_ID'+String.fromCharCode(10)]);${status === "truncated" ? "console.log('x'.repeat(5000))" : ""}`,
+        `require('node:fs').writeFileSync('state','selected');console.log(process.env['app.setting'],process.env.MY_PASSWORD,process.env['REA_PROCESS_RUN_ID'+String.fromCharCode(10)]);${captureState === "truncated" ? "console.log('x'.repeat(5000))" : ""}`,
       ],
       working_directory: root,
       environment: {
@@ -226,18 +486,18 @@ captureTest.each(["unknown", "truncated"] as const)(
         "REA_PROCESS_RUN_ID\n": "caller-value",
       },
       filesystem_observation_paths: [root],
-      limits: status === "truncated" ? { output_bytes: 128 } : {},
+      limits: captureState === "truncated" ? { output_bytes: 128 } : {},
     });
     expect(captured.isError, JSON.stringify(captured)).not.toBe(true);
     const capture = toolContract("capture_process_scenario").outputSchema.parse(
       captured.structuredContent,
     );
-    const source = capture.evidence;
-    if (status === "unknown")
+    const source = capture;
+    if (captureState === "untruncated")
       expect(
-        capture.result.frames.map((frame) => frame.data).join(""),
+        capture.normalized_result.frames.map((frame) => frame.data).join(""),
       ).toContain("value ordinary-evidence caller-value");
-    else expect(capture.result.truncated).toBe(true);
+    else expect(capture.normalized_result.truncated).toBe(true);
     const environment = await call("capture_process_scenario", {
       executable: "/usr/bin/printenv",
       arguments: ["1"],
@@ -246,15 +506,15 @@ captureTest.each(["unknown", "truncated"] as const)(
     const environmentEnvelope = toolContract(
       "capture_process_scenario",
     ).outputSchema.parse(environment.structuredContent);
-    const received = environmentEnvelope.result.frames
+    const received = environmentEnvelope.normalized_result.frames
       .map((frame) => frame.data)
       .join("");
     expect(received).toBe("numbered\r\n");
     expect(await readFile(join(root, "state"), "utf8")).toBe("selected");
-    expect(capture.result.filesystem_effects).toEqual(
+    expect(capture.normalized_result.filesystem_effects).toEqual(
       expect.arrayContaining([expect.objectContaining({ status: "created" })]),
     );
-    expect(capture.result.cleanup).toMatchObject({
+    expect(capture.normalized_result.cleanup).toMatchObject({
       owned_process_group: "verified",
       temporary_root: "removed",
     });
@@ -266,7 +526,13 @@ captureTest.each(["unknown", "truncated"] as const)(
     const comparison = toolContract(
       "compare_process_captures",
     ).outputSchema.parse(compared.structuredContent);
-    expect(comparison.result.status).toBe(status);
+    expect(comparison.normalized_result).toMatchObject({
+      status: "unknown",
+      terminal: captureState === "truncated" ? "unknown" : "unchanged",
+      interaction: "unchanged",
+      exit: "unchanged",
+      process: "unknown",
+    });
     const verification = await call("verify_reconstruction", {
       specification: {
         name: "Self comparison retains uncertainty",
@@ -283,7 +549,7 @@ captureTest.each(["unknown", "truncated"] as const)(
     });
     expect(verification.isError, JSON.stringify(verification)).not.toBe(true);
     expect(verification.structuredContent).toMatchObject({
-      result: {
+      normalized_result: {
         status: "unknown",
         claims: {
           items: [
@@ -300,11 +566,11 @@ captureTest.each(["unknown", "truncated"] as const)(
       },
     });
     const behavior = await call("find_changed_behavior", {
-      comparisons: [comparison.evidence],
+      comparisons: [comparison],
     });
     expect(behavior.isError, JSON.stringify(behavior)).not.toBe(true);
     expect(behavior.structuredContent).toMatchObject({
-      result: { behavior_status: status },
+      normalized_result: { behavior_status: "unknown" },
     });
     const unknowns = await call("list_unknowns", {
       domain: "process-comparison",
@@ -337,9 +603,7 @@ captureTest.each(["unknown", "truncated"] as const)(
       path,
       "--json",
     ]);
-    expect(parseEvidence(JSON.parse(cliComparison.stdout))).toEqual(
-      comparison.evidence,
-    );
+    expect(parseEvidence(JSON.parse(cliComparison.stdout))).toEqual(comparison);
   },
 );
 
@@ -359,15 +623,15 @@ captureTest(
     const capture = toolContract("capture_process_scenario").outputSchema.parse(
       response.structuredContent,
     );
-    expect(capture.result.frames.map((frame) => frame.data).join("")).toContain(
-      "stdin-byte:0",
-    );
-    expect(capture.result.manifest.scenario).toMatchObject({
+    expect(
+      capture.normalized_result.frames.map((frame) => frame.data).join(""),
+    ).toContain("stdin-byte:0");
+    expect(capture.normalized_result.manifest.scenario).toMatchObject({
       environment: {},
       filesystem_observation_paths: [],
       terminal: { columns: 80, rows: 24, scrollback: 1000 },
     });
-    expect(capture.result.interaction_events).toEqual(
+    expect(capture.normalized_result.interaction_events).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           type: "input",

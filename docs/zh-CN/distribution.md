@@ -33,7 +33,7 @@ node scripts/rea.mjs doctor --json
 ## 旧版注册如何处理
 
 - 对既有 `rea` MCP 配置键不强制重命名，以免丢失用户已有的 Codex、Claude、Cursor、OpenCode 等配置。
-- 旧的 `npx -y rea-agents@版本 mcp` 仅作为迁移时的**已有配置**识别；新安装一律写入本地 `node + Tekvro CLI 绝对路径 + mcp`，不会自动调用原 npm 包。
+- 旧的 `npx -y rea-agents@版本 mcp` 仅作为迁移时的**已有配置**识别；新安装写入本地 Tekvro CLI 绝对路径（Windows 使用 Node.js 启动脚本），不会自动调用原 npm 包。
 - 保留用户的第三方 Agent 配置及备份；先 dry-run 检查，然后再选择应用更改。
 - 私有源码模式的 `update` 禁止使用原项目 npm 自动更新路径。
 

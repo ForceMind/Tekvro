@@ -5,7 +5,8 @@ export type JavaScriptSemanticPrimitive = string | number | boolean | null;
 export type JavaScriptSemanticResourceLimit =
   | "primitive-candidates"
   | "primitive-bytes"
-  | "expression-depth";
+  | "expression-depth"
+  | "getter-expansion";
 
 type JavaScriptSemanticObjectValue = {
   readonly status: "object";
@@ -23,10 +24,7 @@ type JavaScriptSemanticObjectValue = {
 
 type JavaScriptSemanticArrayValue = {
   readonly status: "array";
-  readonly items: readonly JavaScriptSemanticValue[];
-  readonly itemPresence?: Readonly<
-    Record<number, "absent" | "unknown-coverage">
-  >;
+  readonly items: readonly JavaScriptSemanticProperty[];
 } & (
   | {
       readonly unknownItems: false;
@@ -56,9 +54,15 @@ export type JavaScriptSemanticValue =
       readonly resourceLimit?: JavaScriptSemanticResourceLimit;
     };
 
-/** One statically named object-literal property. */
+/** One statically named own slot in an object or array. */
 export interface JavaScriptSemanticProperty {
   readonly name: string;
   readonly value: JavaScriptSemanticValue;
-  readonly presence?: "unknown-coverage";
+  readonly presence: JavaScriptSemanticSlotPresence;
 }
+
+/** Own-slot presence, independent of its value and sibling coverage. */
+export type JavaScriptSemanticSlotPresence =
+  | "present"
+  | "absent"
+  | "unknown-coverage";

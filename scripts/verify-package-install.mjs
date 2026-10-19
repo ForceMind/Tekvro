@@ -2,7 +2,7 @@ import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { exec, json, run } from "./lib/verify-package-core.mjs";
+import { exec, execNpm, json, run } from "./lib/verify-package-core.mjs";
 
 /** Install the packed CLI globally with and without optional dependencies and verify PTY degradation. */
 export async function verifyPackageInstall({
@@ -11,20 +11,23 @@ export async function verifyPackageInstall({
   workspace,
   environment,
 }) {
-  await exec(
-    "npm",
-    ["install", "--global", "--ignore-scripts", "--prefix", prefix, tarball],
+  await execNpm(
+    [
+      "install",
+      "--global",
+      "--ignore-scripts",
+      "--omit=dev",
+      "--install-strategy=nested",
+      "--prefix",
+      prefix,
+      tarball,
+    ],
     { env: environment },
   );
-  const cli = join(prefix, "bin", "tekvro");
-  const legacyCli = join(prefix, "bin", "rea");
+  const cli = join(prefix, "bin", "rea");
   const packageRunnerCli = join(prefix, "bin", "rea-agents");
-  for (const legacy of [legacyCli, packageRunnerCli]) {
-    if (!(await run(legacy, ["--help"], environment)).includes("setup"))
-      throw new Error(
-        `packaged compatibility alias did not expose setup: ${legacy}`,
-      );
-  }
+  if (!(await run(packageRunnerCli, ["--help"], environment)).includes("setup"))
+    throw new Error("packaged rea-agents alias did not expose setup");
   const processCaptureCapabilityUrl = pathToFileURL(
     join(
       prefix,
@@ -49,8 +52,7 @@ export async function verifyPackageInstall({
       `packaged PTY backend failed without lifecycle scripts: ${JSON.stringify(processCaptureCapability)}`,
     );
   const noOptionalPrefix = join(workspace, "prefix-no-optional");
-  await exec(
-    "npm",
+  await execNpm(
     [
       "install",
       "--global",
@@ -62,7 +64,7 @@ export async function verifyPackageInstall({
     ],
     { env: environment },
   );
-  const noOptionalCli = join(noOptionalPrefix, "bin", "tekvro");
+  const noOptionalCli = join(noOptionalPrefix, "bin", "rea");
   await rm(
     join(
       noOptionalPrefix,
@@ -104,7 +106,7 @@ export async function verifyPackageInstall({
 const verifyInstalledPackageCanRepack = async (prefix, environment) => {
   const installedPackageRoot = join(prefix, "lib/node_modules/tekvro");
   const repackedTarball = (
-    await exec("npm", ["pack", "--silent"], {
+    await execNpm(["pack", "--silent"], {
       cwd: installedPackageRoot,
       env: environment,
     })

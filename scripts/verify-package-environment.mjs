@@ -1,5 +1,6 @@
 import { chmod, mkdir, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { supportedClients } from "../dist/application/SupportedClients.js";
 
 /** Create an isolated prefix, fake PATH, client configs, and environment. */
@@ -76,12 +77,22 @@ export async function verifyPackageEnvironment({
     HOME: home,
     USERPROFILE: home,
     APPDATA: join(home, "AppData", "Roaming"),
+    LOCALAPPDATA: join(home, "AppData", "Local"),
     CLAUDE_CONFIG_DIR: home,
     CODEX_HOME: codexDir,
     COPILOT_HOME: join(home, ".copilot"),
     GROK_HOME: join(home, ".grok"),
     SAND_DATA_ROOT: join(home, ".grokbot"),
+    OMP_PROFILE: undefined,
+    PI_CODING_AGENT_DIR: undefined,
+    PI_CONFIG_DIR: undefined,
+    PI_PROFILE: undefined,
+    QWEN_HOME: undefined,
     OPENCODE_CONFIG: undefined,
+    OPENCODE_CONFIG_DIR: undefined,
+    GEMINI_CLI_HOME: undefined,
+    GEMINI_CLI_SYSTEM_SETTINGS_PATH: undefined,
+    GEMINI_CLI_SYSTEM_DEFAULTS_PATH: undefined,
     XDG_CONFIG_HOME: join(home, ".config"),
     PATH: `${fakeBin}:${process.env.PATH ?? ""}`,
     REA_ANALYSIS_PROVIDER: "auto",
@@ -111,6 +122,14 @@ export const packageHopperEnvironment = (root, platform = process.platform) => {
     };
   return {
     HOPPER_LAUNCHER_PATH: "/bin/sh",
+    // Feed availability must not turn this foreign-launcher rejection test into
+    // an unrelated networking failure. Successful vendor verification is real E2E coverage.
+    NODE_OPTIONS: [
+      process.env.NODE_OPTIONS,
+      `--import=${pathToFileURL(join(root, "tests/fixtures/hopperRejectionFeed.mjs")).href}`,
+    ]
+      .filter(Boolean)
+      .join(" "),
     HOPPER_LOADER_ARGS_JSON: JSON.stringify([
       "-c",
       'node_path=$1; shift; "$node_path" "$@"',

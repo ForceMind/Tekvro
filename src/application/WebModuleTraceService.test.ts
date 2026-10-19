@@ -1,15 +1,22 @@
 import { describe, expect, it } from "vitest";
 import { WebModuleTraceService } from "./WebModuleTraceService.js";
-import { ok } from "../domain/result.js";
+import { err, ok } from "../domain/result.js";
 import { projectAnalysisError } from "../domain/analysisErrorProjection.js";
 import {
   webModuleTraceResultSchema,
   type WebModuleResolution,
+  type WebModuleResolutionRequest,
 } from "../domain/webModuleTrace.js";
 import {
   webModuleArtifactsFixture,
   webModuleResolverFixture,
 } from "../../tests/fixtures/webModuleTrace.js";
+
+import {
+  AnalysisCancelledError,
+  AnalysisOutputError,
+} from "../domain/analysisErrorCore.js";
+import { parseEvidence } from "../domain/evidence.js";
 
 const args = { manifest_path: "/analysis/manifest.json", script_index: 0 };
 it.each([
@@ -51,6 +58,8 @@ it("rejects source text changed across the artifact port while retaining the ori
 });
 it("rejects sparse resolver arrays rather than relabeling literal imports as computed unknowns", async () => {
   const artifacts = webModuleArtifactsFixture('import "./dep.js";');
+  const resolutions: WebModuleResolution[] = [];
+  resolutions.length = 1;
   const service = new WebModuleTraceService(
     { load: () => Promise.resolve(ok(artifacts)) },
     {
@@ -58,7 +67,7 @@ it("rejects sparse resolver arrays rather than relabeling literal imports as com
         Promise.resolve(
           ok({
             engine: { id: "fixture", version: "1" },
-            resolutions: new Array<WebModuleResolution>(1),
+            resolutions,
             diagnostics: [],
             rawResult: {},
           }),
@@ -70,40 +79,6 @@ it("rejects sparse resolver arrays rather than relabeling literal imports as com
   if (!result.ok) expect(result.error._tag).toBe("AnalysisOutputError");
 });
 describe("selected module trace workflow", () => {
-  it("composes selected source, derived resolution and explicit computed/execution unknowns", async () => {
-    const artifacts = webModuleArtifactsFixture();
-    const service = new WebModuleTraceService(
-      { load: () => Promise.resolve(ok(artifacts)) },
-      webModuleResolverFixture,
-    );
-    const response = await service.trace(args);
-    if (!response.ok) throw response.error;
-    const result = webModuleTraceResultSchema.parse(
-      response.value.normalized_result,
-    );
-    expect(result.importer).toEqual({
-      url: artifacts.manifest.scripts[0]?.url,
-      basis: "reported-source-url",
-    });
-    expect(result.manifest.capture_completeness).toEqual(
-      artifacts.manifest.capture_completeness,
-    );
-    expect(result.imports[0]?.resolution).toEqual({
-      state: "resolved",
-      url: "https://app.test/dep.js",
-    });
-    expect(result.imports[1]?.resolution).toEqual({
-      state: "unknown",
-      reason: "computed-specifier",
-    });
-    expect(result.imports.every((item) => item.execution === "unknown")).toBe(
-      true,
-    );
-    expect(response.value.subject).toMatchObject({
-      local_path: artifacts.sourceFile.path,
-      digest: { sha256: artifacts.sourceFile.sha256 },
-    });
-  });
   it.each([
     { ...args, manifest_path: "relative.json" },
     {
@@ -133,22 +108,6 @@ describe("selected module trace workflow", () => {
       });
     },
   );
-  it("handles computed-only sources without acquiring the optional engine", async () => {
-    const artifacts = webModuleArtifactsFixture("import(name)");
-    const service = new WebModuleTraceService(
-      { load: () => Promise.resolve(ok(artifacts)) },
-      {
-        resolve: () => {
-          throw new Error("engine must not start");
-        },
-      },
-    );
-    const result = await service.trace(args);
-    if (!result.ok) throw result.error;
-    expect(
-      webModuleTraceResultSchema.parse(result.value.normalized_result).engine,
-    ).toBeNull();
-  });
   it("rejects incomplete resolution rather than fabricating unknown values", async () => {
     const artifacts = webModuleArtifactsFixture();
     const service = new WebModuleTraceService(
@@ -183,7 +142,7 @@ describe("selected module trace workflow", () => {
   });
   it("honors cancellation before any artifacts are acquired", async () => {
     const controller = new AbortController();
-    controller.abort();
+    controller.abort(null);
     const service = new WebModuleTraceService(
       {
         load: () => {
@@ -194,6 +153,219 @@ describe("selected module trace workflow", () => {
     );
     const result = await service.trace(args, { signal: controller.signal });
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error._tag).toBe("AnalysisCancelledError");
+    if (!result.ok) {
+      expect(result.error._tag).toBe("AnalysisCancelledError");
+      expect(result.error.cause).toBeNull();
+    }
+  });
+});
+
+it.each([null, { request: "opaque cancellation" }])(
+  "retains completed module Evidence and the exact late abort reason: %j",
+  async (reason) => {
+    const controller = new AbortController();
+    const artifacts = webModuleArtifactsFixture();
+    const service = new WebModuleTraceService(
+      { load: async () => ok(artifacts) },
+      {
+        resolve: async (input) => {
+          const result = await webModuleResolverFixture.resolve(input);
+          controller.abort(reason);
+          return result;
+        },
+      },
+    );
+    const result = await service.trace(args, { signal: controller.signal });
+    if (result.ok) throw new Error("expected cancelled completion");
+    expect(result.error).toBeInstanceOf(AnalysisCancelledError);
+    expect(result.error.cause).toBe(reason);
+    expect(parseEvidence(result.error.partialObservation)).toMatchObject({
+      operation: "trace_web_module_imports",
+      confidence: "derived",
+      normalized_result: {
+        source: artifacts.sourceFile,
+        imports: [
+          {
+            resolution: { state: "resolved", url: "https://app.test/dep.js" },
+            execution: "unknown",
+          },
+          {
+            resolution: { state: "unknown", reason: "computed-specifier" },
+            execution: "unknown",
+          },
+        ],
+      },
+      raw_result: { fixture: true },
+    });
+  },
+);
+
+it("does not start the native resolver after cancellation during artifact admission", async () => {
+  const controller = new AbortController();
+  const reason = { request: "cancelled local artifact read" };
+  const result = await new WebModuleTraceService(
+    {
+      load: async () => {
+        controller.abort(reason);
+        return ok(webModuleArtifactsFixture());
+      },
+    },
+    {
+      resolve: async () => {
+        throw new Error("must not start resolver");
+      },
+    },
+  ).trace(args, { signal: controller.signal });
+  if (result.ok) throw new Error("expected cancelled admission");
+  expect(result.error).toBeInstanceOf(AnalysisCancelledError);
+  expect(result.error.cause).toBe(reason);
+});
+
+it.each(["incomplete", "provider-failure"])(
+  "keeps resolver %s ahead of late cancellation",
+  async (kind) => {
+    const controller = new AbortController();
+    const primary = new AnalysisOutputError(
+      "trace_web_module_imports",
+      "controlled resolver failure",
+    );
+    const result = await new WebModuleTraceService(
+      { load: async () => ok(webModuleArtifactsFixture()) },
+      {
+        resolve: async () => {
+          controller.abort({ request: "late cancellation" });
+          return kind === "provider-failure"
+            ? err(primary)
+            : ok({
+                engine: { id: "fixture", version: "1" },
+                resolutions: [],
+                diagnostics: [],
+                rawResult: {},
+              });
+        },
+      },
+    ).trace(args, { signal: controller.signal });
+    if (result.ok) throw new Error("expected original failure");
+    expect(result.error).toBeInstanceOf(AnalysisOutputError);
+    if (kind === "provider-failure") expect(result.error).toBe(primary);
+    expect(result.error.partialObservation).toBeUndefined();
+  },
+);
+
+it.each([
+  "matching",
+  "importer",
+  "map-base",
+  "map-value",
+  "specifiers",
+  "missing-resolution",
+])(
+  "adopts only a complete resolution for the exact selected request: %s",
+  async (kind) => {
+    const artifacts = webModuleArtifactsFixture();
+    const importMap = {
+      file: { path: "/analysis/map.json", sha256: "c".repeat(64), bytes: 2 },
+      baseUrl: "https://app.test/maps/",
+      value: { imports: { dep: "./dep.js" } },
+    };
+    let failure: AnalysisCancelledError | undefined;
+    const result = await new WebModuleTraceService(
+      { load: async () => ok({ ...artifacts, importMap }) },
+      {
+        resolve: async (request) => {
+          const resolved = await webModuleResolverFixture.resolve(request);
+          if (!resolved.ok) throw resolved.error;
+          let observed: WebModuleResolutionRequest = request;
+          if (kind === "importer")
+            observed = { ...request, importerUrl: "https://other.test/" };
+          if (kind === "map-base")
+            observed = {
+              ...request,
+              importMap: {
+                baseUrl: "https://other.test/",
+                value: importMap.value,
+              },
+            };
+          if (kind === "map-value")
+            observed = {
+              ...request,
+              importMap: {
+                baseUrl: importMap.baseUrl,
+                value: { imports: { dep: "./other.js" } },
+              },
+            };
+          if (kind === "specifiers")
+            observed = { ...request, specifiers: ["./other.js"] };
+          failure = new AnalysisCancelledError("trace_web_module_imports", {
+            cause: null,
+            partialObservation: {
+              kind: "web-module-resolution",
+              request: observed,
+              batch:
+                kind === "missing-resolution"
+                  ? { ...resolved.value, resolutions: [] }
+                  : resolved.value,
+            },
+          });
+          return err(failure);
+        },
+      },
+    ).trace({
+      ...args,
+      import_map: { path: importMap.file.path, base_url: importMap.baseUrl },
+    });
+    if (result.ok) throw new Error("expected original cancellation");
+    expect(result.error).toBe(failure);
+    expect(result.error.cause).toBeNull();
+    if (kind === "matching") {
+      expect(parseEvidence(result.error.partialObservation)).toMatchObject({
+        operation: "trace_web_module_imports",
+        normalized_result: {
+          import_map: {
+            path: importMap.file.path,
+            base_url: importMap.baseUrl,
+          },
+          imports: [
+            {
+              resolution: { state: "resolved", url: "https://app.test/dep.js" },
+            },
+            { resolution: { state: "unknown", reason: "computed-specifier" } },
+          ],
+        },
+      });
+    } else
+      expect(result.error.partialObservation).toHaveProperty(
+        "kind",
+        "web-module-resolution",
+      );
+  },
+);
+
+it("retains a completed engine-free trace when artifact loading finishes under cancellation", async () => {
+  const controller = new AbortController();
+  const reason = { request: "engine-free completion" };
+  const result = await new WebModuleTraceService(
+    {
+      load: async () => {
+        controller.abort(reason);
+        return ok(webModuleArtifactsFixture("import(name)"));
+      },
+    },
+    {
+      resolve: async () => {
+        throw new Error("no literal imports to resolve");
+      },
+    },
+  ).trace(args, { signal: controller.signal });
+  if (result.ok) throw new Error("expected cancelled completion");
+  expect(result.error.cause).toBe(reason);
+  expect(parseEvidence(result.error.partialObservation)).toMatchObject({
+    operation: "trace_web_module_imports",
+    normalized_result: {
+      engine: null,
+      imports: [
+        { resolution: { state: "unknown", reason: "computed-specifier" } },
+      ],
+    },
   });
 });

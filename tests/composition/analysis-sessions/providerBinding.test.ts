@@ -61,7 +61,7 @@ describe("target-bound provider routing", () => {
     expect(session.activeTarget()).toBeUndefined();
 
     expect((await session.open(target, { providerId: "alpha" })).ok).toBe(true);
-    expect(bindingStatus(session)).toMatchObject({
+    expect(await bindingStatus(session)).toMatchObject({
       analysis_provider_binding: {
         provider: { id: "alpha", version: "1" },
         selection_source: "request",
@@ -100,7 +100,7 @@ describe("target-bound provider routing", () => {
 
     alpha.available = false;
     expect((await session.open(target)).ok).toBe(true);
-    expect(bindingStatus(session)).toMatchObject({
+    expect(await bindingStatus(session)).toMatchObject({
       analysis_provider_binding: { provider: { id: "alpha" } },
     });
 
@@ -108,7 +108,7 @@ describe("target-bound provider routing", () => {
     expect(unknown.ok).toBe(false);
     if (!unknown.ok)
       expect(unknown.error).toMatchObject({ reason: "unknown_provider" });
-    expect(bindingStatus(session)).toMatchObject({
+    expect(await bindingStatus(session)).toMatchObject({
       analysis_provider_binding: { provider: { id: "alpha" } },
     });
 
@@ -119,7 +119,7 @@ describe("target-bound provider routing", () => {
     expect(failed.ok).toBe(false);
     if (!failed.ok) expect(failed.error._tag).toBe("ProviderAdapterError");
     expect(alpha.clients[0]?.calls).toEqual(["address_name"]);
-    expect(bindingStatus(session)).toMatchObject({
+    expect(await bindingStatus(session)).toMatchObject({
       analysis_provider_binding: { provider: { id: "beta" } },
     });
 
@@ -178,7 +178,7 @@ describe("target-bound provider routing", () => {
     });
     expect(alpha.clients[0]?.closed).toBe(false);
     expect(beta.clients).toHaveLength(0);
-    expect(bindingStatus(session)).toMatchObject({
+    expect(await bindingStatus(session)).toMatchObject({
       analysis_provider_binding: { provider: { id: "alpha" } },
     });
 
@@ -188,6 +188,38 @@ describe("target-bound provider routing", () => {
     expect(alpha.clients).toHaveLength(1);
     await session.close();
     expect(alpha.clients[0]?.closed).toBe(true);
+  });
+});
+
+describe("selected provider capability provenance", () => {
+  it("labels selected-provider capabilities with the resolved identity", async () => {
+    const target = await databaseTarget();
+    const alpha = deepProvider("alpha");
+    const session = selectableSession([alpha.provider], auxiliaryProvider());
+
+    expect((await session.open(target, { providerId: "alpha" })).ok).toBe(true);
+    const resolved = { id: "alpha", name: "alpha provider", version: "1" };
+    const status = await bindingStatus(session);
+    expect(status).toMatchObject({
+      analysis_provider_binding: { provider: resolved },
+      analysis_provider_candidates: [
+        {
+          provider: resolved,
+          selected: true,
+          capabilities: [{ provider: resolved }],
+        },
+      ],
+    });
+    expect(
+      z
+        .object({ capabilities: z.array(z.object({ provider: z.unknown() })) })
+        .parse(status)
+        .capabilities.map(({ provider }) => provider),
+    ).toEqual([
+      { id: "alpha", name: "alpha provider", version: "1" },
+      { id: "auxiliary", name: "auxiliary provider", version: "1" },
+    ]);
+    await session.close();
   });
 });
 
@@ -249,7 +281,6 @@ const deepProvider = (id: string): DeepProviderFixture => {
             { id, name: identity.name, version: "1" },
             { provider: id },
           ),
-          compatibility: {},
         }),
       );
     },
@@ -258,6 +289,8 @@ const deepProvider = (id: string): DeepProviderFixture => {
       fixture.clients.push(state);
       return {
         execute: (operation) => {
+          if (operation === "health")
+            return Promise.resolve(successfulExecution(id, profile?.provider));
           state.calls.push(operation);
           if (fixture.fail)
             return Promise.resolve(
@@ -268,7 +301,7 @@ const deepProvider = (id: string): DeepProviderFixture => {
         },
         close: () => {
           state.closed = true;
-          return Promise.resolve();
+          return Promise.resolve(ok(null));
         },
       };
     },
@@ -317,7 +350,7 @@ const auxiliaryProvider = (
             ),
           ),
         ),
-      close: () => Promise.resolve(),
+      close: () => Promise.resolve(ok(null)),
     }),
   };
 };
@@ -358,14 +391,14 @@ const databaseTarget = async (): Promise<string> => {
   return path;
 };
 
-const bindingStatus = (session: BinarySession) =>
+const bindingStatus = async (session: BinarySession) =>
   z
     .object({
       analysis_provider_binding: z.unknown(),
       analysis_provider_candidates: z.array(z.unknown()),
     })
     .passthrough()
-    .parse(session.status());
+    .parse(await session.status());
 
 interface Deferred<Value> {
   readonly promise: Promise<Value>;

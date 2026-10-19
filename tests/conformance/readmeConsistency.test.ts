@@ -1,71 +1,87 @@
 import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
+import { PRODUCT_IDENTITY } from "../../src/identity.js";
 
-const read = (path: string) => readFile(path, "utf8");
+const file = (path: string): Promise<string> => readFile(resolve(path), "utf8");
 
-describe("Tekvro independent onboarding", () => {
-  it("uses a Chinese-first landing page and independent project URL", async () => {
-    const [cn, en] = await Promise.all([
-      read("README.md"),
-      read("README.en.md"),
+describe("Tekvro source-build documentation and distribution boundaries", () => {
+  it("documents the actual CLI entrypoint in both primary readmes", async () => {
+    const [chinese, english] = await Promise.all([
+      file("README.md"),
+      file("README.en.md"),
     ]);
-    expect(cn).toContain("# Tekvro · 探核");
-    expect(cn).toContain("TEKVRO_LANG=zh-CN");
-    expect(en).toContain("# Tekvro");
-    for (const content of [cn, en]) {
-      expect(content).toContain("https://github.com/ForceMind/Tekvro");
-      expect(content).toContain("https://github.com/morluto/rea");
-      expect(content).toContain("LICENSE");
-      expect(content).not.toContain("https://rea.tools/");
-      expect(content).not.toContain("discord.gg");
-      expect(content).not.toMatch(/\bnpx\s+(?:-y\s+)?rea-agents@latest/u);
+    for (const text of [chinese, english]) {
+      expect(text).toContain(
+        "git clone https://github.com/ForceMind/Tekvro.git",
+      );
+      expect(text).toContain("npm run build:cached");
+      expect(text).toContain("node scripts/rea.mjs doctor --json");
+      expect(text).toContain("docs/zh-CN/quick-start.md");
+      expect(text).toContain("THIRD_PARTY_NOTICES.md");
+      expect(text).not.toMatch(/ForceMind 维护|maintained by ForceMind/iu);
     }
   });
 
-  it("retains attribution and fences public publishing until migration", async () => {
-    const [pkg, license, notice] = await Promise.all([
-      read("package.json"),
-      read("LICENSE"),
-      read("THIRD_PARTY_NOTICES.md"),
+  it("does not present an unpublished Tekvro npm package as installable", async () => {
+    const [readme, guide, manifest] = await Promise.all([
+      file("README.md"),
+      file("docs/zh-CN/quick-start.md"),
+      file("package.json"),
     ]);
-    const config = JSON.parse(pkg) as {
+    const pkg = JSON.parse(manifest) as {
       name: string;
       private: boolean;
-      repository: { url: string };
-      bin: Record<string, string>;
+      mcpName: string;
     };
-    expect(config.private).toBe(true);
-    expect(config.name).toBe("tekvro");
-    expect(config.repository.url).toBe(
-      "git+https://github.com/ForceMind/Tekvro.git",
-    );
-    expect(config.bin.tekvro).toBe("scripts/rea.mjs");
-    expect(config.bin["rea-agents"]).toBe("scripts/rea.mjs");
-    expect(config.bin.rea).toBe("scripts/rea.mjs");
-    expect(license).toContain("Copyright (c) 2026 morluto");
-    expect(notice).toContain("f6fe575094658e99ced78d45f385633fbfaaae32");
+    expect(pkg).toMatchObject({
+      name: "tekvro",
+      private: true,
+      mcpName: "io.github.forcemind/tekvro",
+    });
+    expect(readme).toContain("尚未发布");
+    expect(guide).toContain("private");
+    expect(guide).toContain("scripts/rea.mjs");
   });
 
-  it("makes the documentation portal Chinese-first without falsifying translated coverage", async () => {
-    const [config, home, guide] = await Promise.all([
-      read("docs/.vitepress/config.ts"),
-      read("docs/index.md"),
-      read("docs/zh-CN/quick-start.md"),
+  it("keeps product metadata and source distribution instructions aligned", async () => {
+    const metadata = JSON.parse(await file("server.json")) as {
+      name: string;
+      packages: Array<{ identifier: string }>;
+    };
+    expect(metadata.name).toBe("io.github.forcemind/tekvro");
+    expect(metadata.packages[0]?.identifier).toBe(PRODUCT_IDENTITY.packageName);
+    expect(PRODUCT_IDENTITY.displayName).toBe("Tekvro");
+    expect(PRODUCT_IDENTITY.privateSourceBuild).toBe(true);
+    expect(PRODUCT_IDENTITY.legacyPackageName).toBe("rea-agents");
+  });
+
+  it("links to the standalone usage and safety documentation", async () => {
+    const readme = await file("README.md");
+    const links = [
+      "docs/zh-CN/quick-start.md",
+      "docs/zh-CN/architecture.md",
+      "docs/zh-CN/security.md",
+      "docs/zh-CN/javascript-h5-electron.md",
+    ];
+    for (const path of links) {
+      expect(readme).toContain("](" + path + ")");
+      expect((await file(path)).length).toBeGreaterThan(100);
+    }
+  });
+
+  it("preserves actual source licenses rather than rewriting authorship", async () => {
+    const [license, notices, readme] = await Promise.all([
+      file("LICENSE"),
+      file("THIRD_PARTY_NOTICES.md"),
+      file("README.md"),
     ]);
-    expect(config).toContain('lang: "zh-CN"');
-    expect(config).toContain("https://github.com/ForceMind/Tekvro");
-    expect(config).not.toContain("https://github.com/morluto/rea");
-    expect(home).toContain("用证据看懂软件");
-    expect(guide).toContain("npm ci");
-    expect(guide).toContain("npm run build:cached");
-    expect(guide).toContain("TEKVRO_LANG=zh-CN");
-  });
-
-  it("marks upstream npm examples as legacy and not Tekvro commands", async () => {
-    const guide = await read("docs/installation.md");
-    expect(guide).toContain("属于**原上游**");
-    expect(guide).toContain("zh-CN/quick-start.md");
-    expect(guide).toContain("Node.js 22");
+    expect(license).toContain("MIT License");
+    expect(notices).toContain("REA");
+    expect(readme).toContain("[LICENSE](LICENSE)");
+    expect(readme).toContain(
+      "[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)",
+    );
   });
 });

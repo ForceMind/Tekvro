@@ -33,6 +33,11 @@ struct Failure : std::runtime_error {
   DWORD win32;
   std::wstring path;
   std::string constraint;
+  std::string cleanupConstraint;
+  DWORD cleanupWin32 = ERROR_SUCCESS;
+  std::wstring cleanupPath;
+  // Affirmative proof for a failed runtime-parent admission; omission is unknown.
+  bool runtimeDirectoryUnallocated = false;
   Failure(std::string constraint, std::wstring path = L"", DWORD code = GetLastError())
       : std::runtime_error(constraint), win32(code), path(std::move(path)),
         constraint(std::move(constraint)) {}
@@ -86,6 +91,7 @@ struct Runtime : Resource {
   std::vector<Handle> parents;
   Handle directory;
   std::vector<Handle> immutableFiles;
+  bool closing = false;
   // Main-thread admission is single-flight; only the accepted copy owns the
   // atomic cancellation flag consumed by its async worker. ERROR_BUSY rejects
   // another copy before it can reset that flag or replace pending ownership.
@@ -93,8 +99,16 @@ struct Runtime : Resource {
   std::atomic_bool snapshotCancelled{false};
   Runtime() : Resource(Kind::Runtime) {}
 };
+// A failed, not-yet-published runtime remains owned by its N-API environment
+// until a later admission or environment teardown can retry cleanup by handle.
+struct RuntimeContext { std::unique_ptr<Runtime> pending; };
 struct Process : Resource {
-  Handle job, process, stdoutRead, stderrRead;
+  Handle job, process, stdoutRead, stderrRead, stdinWrite;
+  // Present only for a job with a commit limit; receives the job's notifications.
+  Handle notifications;
+  ULONGLONG memoryLimit = 0;
+  bool memoryLimitReached = false;
+  bool inputPending = false;
   DWORD pid = 0;
   Process() : Resource(Kind::Process) {}
 };
@@ -112,19 +126,24 @@ std::wstring wide(napi_env env, napi_value value);
 double numeric(napi_env env, napi_value value);
 std::vector<napi_value> array(napi_env env, napi_value value);
 napi_value wrap(napi_env env, std::unique_ptr<Resource> resource);
+void publishRuntimeHandle(napi_env env, napi_value observation, std::unique_ptr<Runtime>& runtime);
 Resource& resource(napi_env env, napi_value value, Kind kind);
 
 std::unique_ptr<File> openFile(const std::wstring& path, DWORD access = GENERIC_READ,
-                             bool directory = false);
+                             bool directory = false,
+                             DWORD finalSharing = FILE_SHARE_READ);
 napi_value identity(napi_env env, HANDLE handle, const std::wstring& path);
-std::unique_ptr<Runtime> createRuntime(const std::wstring& parent, const std::wstring& prefix);
+void createRuntime(const std::wstring& parent, const std::wstring& prefix,
+                   std::unique_ptr<Runtime>& owner);
+void cleanupFailedRuntime(std::unique_ptr<Runtime>& owner, Failure& primary);
 void closeRuntime(Runtime& runtime);
 napi_value filesystemCall(napi_env env, const std::wstring& operation,
-                          const std::vector<napi_value>& args);
+                          const std::vector<napi_value>& args, RuntimeContext& context);
 std::unique_ptr<Process> spawnProcess(const std::wstring& command, const std::wstring& commandLine,
-                                    const std::wstring& cwd, const std::vector<std::wstring>& environment);
+                                    const std::wstring& cwd, const std::vector<std::wstring>& environment,
+                                    bool protocolStdin = false, ULONGLONG memoryLimit = 0);
 napi_value processCall(napi_env env, const std::wstring& operation,
                        const std::vector<napi_value>& args);
-napi_value inspect(napi_env env);
+napi_value inspect(napi_env env, std::unique_ptr<Runtime>& pending);
 
 } // namespace rea

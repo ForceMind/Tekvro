@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { runDerivedOperation } from "./runDerivedOperation.js";
+import {
+  runDerivedOperation,
+  type DerivedOperationContext,
+} from "./runDerivedOperation.js";
 import { EvidenceIntegrityError } from "../domain/evidenceErrors.js";
 
 const context = (
@@ -55,6 +58,34 @@ describe("derived MCP operation boundary", () => {
     });
   });
 
+  it("lets cancellation win while terminal progress delivery is pending", async () => {
+    const controller = new AbortController();
+    let terminalReached = false;
+    const notifications: DerivedOperationContext = {
+      mcpReq: {
+        ...context(controller).mcpReq,
+        notify: async (notification) => {
+          if (notification.params?.message === "complete: Completed compare") {
+            terminalReached = true;
+            await Promise.resolve();
+            controller.abort();
+          }
+        },
+      },
+    };
+    const result = await runDerivedOperation(
+      notifications,
+      "compare",
+      () => "must-not-publish",
+    );
+
+    expect(terminalReached).toBe(true);
+    expect(result).toMatchObject({
+      ok: false,
+      error: { _tag: "AnalysisCancelledError", operation: "compare" },
+    });
+  });
+
   it("emits bounded monotonic progress with one terminal state", async () => {
     const controller = new AbortController();
     const notifications: Array<{
@@ -67,8 +98,10 @@ describe("derived MCP operation boundary", () => {
     );
 
     expect(result).toEqual({ ok: true, value: "complete" });
-    expect(notifications.map(({ params }) => params?.progress)).toEqual([0, 2]);
-    expect(notifications.every(({ params }) => params?.total === 2)).toBe(true);
+    expect(notifications.map(({ params }) => params?.progress)).toEqual([1, 2]);
+    expect(
+      notifications.every(({ params }) => params?.total === undefined),
+    ).toBe(true);
   });
 
   it("projects synchronous computation failures into a typed result", async () => {

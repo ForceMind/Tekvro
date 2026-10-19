@@ -1,30 +1,32 @@
 import * as t from "@babel/types";
 
-import { semanticBuiltinNamespacePath } from "./javascriptSemanticProvenance.js";
-
 import type {
   JavaScriptSemanticBoundaryOperation,
   JavaScriptSemanticCallable,
   JavaScriptSemanticConfigurationOperation,
   JavaScriptSemanticRequestOperation,
 } from "./javascriptSemanticIr.js";
-import { compareCodePoints } from "../canonicalOrdering.js";
+import { compareUnicodeCodePoints } from "../unicodeCodePointOrder.js";
 import {
+  readExactJavaScriptLiteral,
   semanticStaticPropertyKey,
   semanticStaticPropertyName,
-} from "./javascriptSemanticProjection.js";
+  unwrapJavaScriptExpression,
+} from "./javascriptAstValues.js";
 import {
+  recordSemanticValueLimit,
   resolveSemanticBindingState,
   semanticResolutionBlocked,
+  semanticStableInitializer,
   type JavaScriptSemanticAnalysisState,
+  type JavaScriptSemanticBindingState,
 } from "./javascriptSemanticState.js";
+import { semanticBindingAtRead } from "./javascriptSemanticMutationInitializers.js";
 import {
   builtinDataEffectMethod as builtinMethod,
   dataEffectArgumentBindingId as argumentBindingId,
   dataEffectLiteralString as literalString,
   dataEffectMemberCallee as memberCallee,
-  dataEffectMemberObject as memberObject,
-  dataEffectPrimitive as primitiveValue,
   isSemanticProcessObject as isProcessObject,
   outerDataEffectBinding as outerAssignedBinding,
   assignedSemanticResultBindings,
@@ -33,6 +35,8 @@ import {
   type DataEffectTraversalContext as TraversalContext,
 } from "./javascriptSemanticDataEffectHelpers.js";
 import { range } from "./javascriptStaticAnalysisHelpers.js";
+import { semanticPrimitiveSet } from "./javascriptSemanticPrimitives.js";
+import type { JavaScriptSemanticValue } from "./javascriptSemanticValueTypes.js";
 
 interface DataEffectAnalysis {
   readonly configurationOperations: readonly JavaScriptSemanticConfigurationOperation[];
@@ -82,8 +86,8 @@ const collectConfigurations = (
   context: TraversalContext,
 ): ConfigurationCandidate[] => {
   const output: ConfigurationCandidate[] = [];
-  traverseWithContext(program, context, (node, parent) => {
-    const details = configurationDetails(node, parent, context);
+  traverseWithContext(program, context, (node) => {
+    const details = configurationDetails(node, context);
     if (details === null) return;
     const operation: JavaScriptSemanticConfigurationOperation = {
       configId: `config:${details.kind}:${String(node.start ?? -1)}:${String(node.end ?? -1)}`,
@@ -103,17 +107,13 @@ const collectConfigurations = (
 
 const configurationDetails = (
   node: t.Node,
-  parent: t.Node | null,
   context: TraversalContext,
 ): {
   readonly kind: "environment" | "argv" | "file";
   readonly key: string | null;
   readonly resolution: "complete" | "partial";
 } | null => {
-  if (
-    (t.isMemberExpression(node) || t.isOptionalMemberExpression(node)) &&
-    !(memberObject(parent) === node)
-  ) {
+  if (t.isMemberExpression(node) || t.isOptionalMemberExpression(node)) {
     const processMember = processConfigurationMember(node, context.state);
     if (processMember !== null) return processMember;
   }
@@ -144,12 +144,12 @@ const processConfigurationMember = (
   const object = node.object;
   if (!t.isMemberExpression(object) && !t.isOptionalMemberExpression(object))
     return null;
-  if (!isProcessObject(object.object, state)) return null;
   const family = semanticStaticPropertyName(object.property, object.computed);
   if (family !== "env" && family !== "argv") return null;
   // `process.env[""]` names an exact (empty) key; only a dynamic key is unknown.
   const key = semanticStaticPropertyKey(node.property, node.computed);
   if (family === "argv" && key !== null && !isArrayIndexKey(key)) return null;
+  if (!isProcessObject(object.object, state, family, key)) return null;
   return {
     kind: family === "env" ? "environment" : "argv",
     key,
@@ -178,18 +178,14 @@ const collectDefaults = (
       (node.operator !== "??" && node.operator !== "||")
     )
       return;
-    let source = node.left;
-    while (
-      t.isParenthesizedExpression(source) ||
-      t.isTSAsExpression(source) ||
-      t.isTSTypeAssertion(source) ||
-      t.isTypeCastExpression(source) ||
-      t.isTSSatisfiesExpression(source) ||
-      t.isTSNonNullExpression(source)
-    )
-      source = source.expression;
+    const source = unwrapJavaScriptExpression(node.left).node;
     const candidate = configurationsByNode.get(source);
     if (candidate === undefined) return;
+    const literal = readExactJavaScriptLiteral(node.right);
+    const value: JavaScriptSemanticValue = literal.found
+      ? semanticPrimitiveSet([literal.value])
+      : { status: "unknown", reason: "Default is not an exact primitive." };
+    recordSemanticValueLimit(context.state, value);
     output.push({
       configId: `config:default:${String(node.start ?? -1)}:${String(node.end ?? -1)}`,
       kind: "default",
@@ -198,8 +194,11 @@ const collectDefaults = (
       resultBindingId: outerAssignedBinding(node, context),
       key: candidate.operation.key,
       sourceConfigId: candidate.operation.configId,
-      value: primitiveValue(node.right),
-      resolution: primitiveValue(node.right) === null ? "partial" : "complete",
+      value: value.status === "literal" ? value.value : null,
+      ...(value.status === "unknown" && value.resourceLimit !== undefined
+        ? { valueResourceLimit: value.resourceLimit }
+        : {}),
+      resolution: value.status === "literal" ? "complete" : "partial",
     });
   });
   return output;
@@ -246,6 +245,21 @@ const collectRequests = (
   return output;
 };
 
+/**
+ * Any other write (assignment, update, loop or destructuring target) can
+ * replace the response before this read. A sole write that can be skipped or
+ * runs after the read leaves an incoming value possible.
+ */
+const soleWriteReachesRead = (
+  binding: JavaScriptSemanticBindingState | undefined,
+  read: t.Node,
+  context: TraversalContext,
+): boolean =>
+  binding?.initializers.length === 1 &&
+  (semanticStableInitializer(binding, context.state) !== undefined ||
+    semanticBindingAtRead(binding, read, context.state.parentsByNode)
+      .hasDefiniteInitializer);
+
 const collectResponseConsumers = (
   program: t.Program,
   context: TraversalContext,
@@ -285,6 +299,16 @@ const collectResponseConsumers = (
         ? []
         : (requestsByBinding.get(binding.bindingId) ?? []);
     if (linked.length === 0) return;
+    // A consumer of exactly one request through its own result binding
+    // reads that request's response, so it keeps the request's endpoint.
+    const uniqueRequest =
+      linked.length === 1 &&
+      !linked[0]?.operation.projectedResultBindings.some(
+        ({ bindingId }) => bindingId === binding?.bindingId,
+      )
+        ? linked[0]
+        : undefined;
+    const soleWrite = soleWriteReachesRead(binding, member.object, context);
     output.push({
       requestId: `response:${String(node.start ?? -1)}:${String(node.end ?? -1)}`,
       kind: "response-consumer",
@@ -301,16 +325,10 @@ const collectResponseConsumers = (
       ),
       linkedRequestIds: linked
         .map(({ operation }) => operation.requestId)
-        .sort(compareCodePoints),
-      endpoint: null,
+        .sort(compareUnicodeCodePoints),
+      endpoint: soleWrite ? (uniqueRequest?.operation.endpoint ?? null) : null,
       fields: [],
-      resolution:
-        linked.length === 1 &&
-        !linked[0]?.operation.projectedResultBindings.some(
-          ({ bindingId }) => bindingId === binding?.bindingId,
-        )
-          ? "complete"
-          : "partial",
+      resolution: uniqueRequest === undefined ? "partial" : "complete",
     });
   });
   return output;
@@ -388,22 +406,13 @@ const requestMethod = (
     if (t.isNewExpression(node) && unbound && name === "WebSocket")
       return "WebSocket";
   }
-  const member = memberCallee(node);
-  if (member === null || !t.isIdentifier(member.object)) return null;
-  const method = semanticStaticPropertyName(member.property, member.computed);
-  if (method !== "request" && method !== "get") return null;
-  const binding = resolveSemanticBindingState(
-    state,
-    member.object,
-    member.object.name,
-  );
-  return binding?.directOrigins.some(
-    ({ specifier, importedPath }) =>
-      ["http", "https", "node:http", "node:https"].includes(specifier) &&
-      semanticBuiltinNamespacePath(importedPath),
-  )
-    ? method
-    : null;
+  const method = builtinMethod(node.callee, state, [
+    "http",
+    "https",
+    "node:http",
+    "node:https",
+  ]);
+  return method === "request" || method === "get" ? method : null;
 };
 
 const requestFields = (

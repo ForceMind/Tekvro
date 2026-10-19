@@ -1,6 +1,8 @@
 import { fstatSync } from "node:fs";
 import {
   mkdtemp,
+  mkdir,
+  symlink,
   lstat,
   open,
   readdir,
@@ -35,6 +37,27 @@ const countOpenDescriptorsFor = async (path: string): Promise<number> => {
   return matches.filter(Boolean).length;
 };
 
+it.skipIf(process.platform === "win32")(
+  "omits a captured regular file replaced by a symlink",
+  async () => {
+    const directory = await mkdtemp(join(tmpdir(), "rea-snapshot-symlink-"));
+    const selected = join(directory, "selected");
+    const replacement = join(directory, "replacement");
+    try {
+      await writeFile(selected, "captured bytes");
+      await writeFile(replacement, "unselected bytes");
+      const expected = await lstat(selected);
+      await rm(selected);
+      await symlink(replacement, selected);
+      const outcome = await hashFile(selected, expected, 1_000);
+      expect(outcome.state).toBe("omitted");
+      expect(outcome).not.toHaveProperty("sha256");
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  },
+);
+
 it("does not hash a replacement file using the earlier path metadata", async () => {
   const directory = await mkdtemp(join(tmpdir(), "rea-snapshot-identity-"));
   const path = join(directory, "observed-file");
@@ -44,7 +67,11 @@ it("does not hash a replacement file using the earlier path metadata", async () 
     await rm(path);
     await writeFile(path, "replacement with a different identity and size\n");
 
-    await expect(hashFile(path, expected, 1_000)).resolves.toBeNull();
+    await expect(hashFile(path, expected, 1_000)).resolves.toEqual({
+      state: "omitted",
+      reason: "file_changed_or_short_read",
+      system_code: null,
+    });
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
@@ -76,7 +103,29 @@ it("rejects a same-size rewrite even when its modification time is restored", as
     });
     expect(rewritten.ctimeMs).not.toBe(expected.ctimeMs);
 
-    await expect(hashFile(path, expected, 1_000)).resolves.toBeNull();
+    await expect(hashFile(path, expected, 1_000)).resolves.toMatchObject({
+      state: "omitted",
+      reason: "file_changed_or_short_read",
+      system_code: null,
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+it("reports a file removed between metadata observation and open", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "rea-snapshot-open-race-"));
+  const path = join(directory, "observed-file");
+  try {
+    await writeFile(path, "captured file\n");
+    const expected = await lstat(path);
+    await rm(path);
+
+    await expect(hashFile(path, expected, 1_000)).resolves.toEqual({
+      state: "omitted",
+      reason: "file_unavailable",
+      system_code: "ENOENT",
+    });
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
@@ -116,12 +165,55 @@ it.skipIf(process.platform === "win32")(
       // hashFile reaches `open` synchronously before its first suspension, so
       // this abort is observed after the descriptor is acquired and is handled
       // by the `finally` close path.
-      controller.abort();
+      const reason = Object.assign(new Error("cancelled while opening"), {
+        code: "EACCES",
+      });
+      controller.abort(reason);
 
-      await expect(hashing).rejects.toMatchObject({ name: "AbortError" });
+      await expect(hashing).rejects.toBe(reason);
       expect(await countOpenDescriptorsFor(path)).toBe(0);
     } finally {
       await rm(directory, { recursive: true, force: true });
     }
   },
 );
+
+for (const variant of [
+  "unchanged",
+  "case-alias",
+  "ancestor-junction",
+  "replaced-junction",
+] as const) {
+  it.runIf(process.platform === "win32")(
+    `hashes only the captured Windows file through ${variant}`,
+    async () => {
+      const directory = await mkdtemp(join(tmpdir(), "rea-snapshot-windows-"));
+      try {
+        const original = join(directory, "original");
+        const replacement = join(directory, "replacement");
+        await mkdir(original);
+        await mkdir(replacement);
+        await writeFile(join(original, "TestFile.txt"), "captured bytes");
+        await writeFile(join(replacement, "TestFile.txt"), "replaced bytes");
+        const alias = join(directory, "alias");
+        if (variant === "ancestor-junction" || variant === "replaced-junction")
+          await symlink(original, alias, "junction");
+        const path = join(
+          variant.includes("junction") ? alias : original,
+          variant === "case-alias" ? "testfile.txt" : "TestFile.txt",
+        );
+        const expected = await lstat(path);
+        if (variant === "replaced-junction") {
+          await rm(alias);
+          await symlink(replacement, alias, "junction");
+        }
+        const result = await hashFile(path, expected, 1_000);
+        expect(result.state).toBe(
+          variant === "replaced-junction" ? "omitted" : "hashed",
+        );
+      } finally {
+        await rm(directory, { recursive: true, force: true });
+      }
+    },
+  );
+}

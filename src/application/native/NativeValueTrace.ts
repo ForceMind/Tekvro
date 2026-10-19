@@ -12,6 +12,13 @@ import {
 import { err, ok } from "../../domain/result.js";
 import type { AnalysisOperationPort } from "../AnalysisProvider.js";
 import type { EnhancedResult } from "../EnhancedToolTypes.js";
+import { jsonParts } from "../../domain/jsonSerialization.js";
+import {
+  renderSourceLimitations,
+  type SourceLimitation,
+} from "../SourceLimitations.js";
+
+const NODE_PAYLOAD_BYTES = 8 * 1024 * 1024;
 
 /** Compose bounded high-p-code def-use graphs across exactly referenced call destinations. */
 export const traceNativeValues = async (
@@ -24,6 +31,7 @@ export const traceNativeValues = async (
   const edges: typeof nativeValueTraceSchema._output.edges = [];
   const procedures: typeof nativeValueTraceSchema._output.procedures = [];
   const unknowns: typeof nativeValueTraceSchema._output.unknowns = [];
+  const sourceLimitations: SourceLimitation[] = [];
   const callBindings: {
     caller: string;
     callee: string;
@@ -33,17 +41,46 @@ export const traceNativeValues = async (
     evidence_id: string;
   }[] = [];
   const pending = [{ procedure: input.procedure, depth: 0 }];
+  const attempted = new Set<string>();
   const visited = new Set<string>();
   let targetSha256: string | undefined;
   let truncated = false;
   let decompilations = 0;
   let callSites = 0;
   let bytes = 0;
+  let nodeBudgetReached = false;
+  const retainNode = (value: (typeof nodes)[number]): boolean => {
+    if (nodeBudgetReached) return false;
+    if (nodes.length >= input.max_nodes) {
+      truncated = true;
+      nodeBudgetReached = true;
+      return false;
+    }
+    let size = 0;
+    // Reuse bounded JSON encoding to count escapes and UTF-8 expansion
+    // before allocating a complete serialized node that might not fit.
+    for (const part of jsonParts(value)) {
+      size += Buffer.byteLength(part);
+      if (size > NODE_PAYLOAD_BYTES - bytes) {
+        truncated = true;
+        nodeBudgetReached = true;
+        return false;
+      }
+    }
+    bytes += size;
+    nodes.push(value);
+    return true;
+  };
   while (pending.length > 0) {
     if (signal?.aborted)
       return err(new AnalysisCancelledError("trace_native_values"));
     const next = pending.shift();
-    if (next === undefined || visited.has(next.procedure)) continue;
+    if (
+      next === undefined ||
+      attempted.has(next.procedure) ||
+      visited.has(next.procedure)
+    )
+      continue;
     if (decompilations >= input.max_functions) {
       truncated = true;
       unknowns.push({
@@ -53,10 +90,16 @@ export const traceNativeValues = async (
       });
       break;
     }
+    // An exact selector is attempted once per trace, even on failure. Only
+    // successful dossiers establish canonical procedure identity in visited.
+    attempted.add(next.procedure);
     const execution = await analysis.execute(
       "analyze_function",
       { procedure: next.procedure },
-      signal === undefined ? {} : { signal },
+      {
+        ...(signal === undefined ? {} : { signal }),
+        ...(next.depth > 0 ? { selectorOrigin: "provider" as const } : {}),
+      },
     );
     decompilations++;
     if (!execution.ok) {
@@ -131,6 +174,10 @@ export const traceNativeValues = async (
       });
     }
     const ids = new Set<string>();
+    // Keep generated parameter identity independent of which operations fit
+    // the budget, while preserving every provider-supplied operation ID.
+    const operationIds = new Set(flow.operations.map(({ id }) => id));
+    const parameterIds = new Map<number, string>();
     const qualified = (id: string) => `${address}/${id}`;
     for (const operation of flow.operations) {
       if (
@@ -146,41 +193,37 @@ export const traceNativeValues = async (
         kind: "operation" as const,
         parameter: null,
       };
-      const size = Buffer.byteLength(JSON.stringify(node));
-      if (nodes.length >= input.max_nodes || bytes + size > 8 * 1024 * 1024) {
-        truncated = true;
-        break;
-      }
-      bytes += size;
+      if (!retainNode(node)) break;
       ids.add(operation.id);
-      nodes.push(node);
     }
     for (const parameter of flow.parameters) {
-      if (nodes.length >= input.max_nodes) {
-        truncated = true;
+      const parameterId = `parameter:${parameter.ordinal}`;
+      let localId = parameterId;
+      for (let suffix = 1; operationIds.has(localId); suffix++)
+        localId = `${parameterId}#${suffix}`;
+      const id = qualified(localId);
+      if (
+        !retainNode({
+          id,
+          procedure: address,
+          evidence_id: evidenceId,
+          kind: "parameter",
+          operation: null,
+          parameter,
+        })
+      )
         break;
-      }
-      nodes.push({
-        id: `${address}/parameter:${parameter.ordinal}`,
-        procedure: address,
-        evidence_id: evidenceId,
-        kind: "parameter",
-        operation: null,
-        parameter,
-      });
+      parameterIds.set(parameter.ordinal, id);
     }
     for (const use of flow.parameter_uses) {
-      if (
-        !ids.has(use.use) ||
-        !nodes.some((node) => node.id === `${address}/parameter:${use.ordinal}`)
-      )
-        continue;
+      const source = parameterIds.get(use.ordinal);
+      if (!ids.has(use.use) || source === undefined) continue;
       if (edges.length >= input.max_edges) {
         truncated = true;
         break;
       }
       edges.push({
-        source: `${address}/parameter:${use.ordinal}`,
+        source,
         target: qualified(use.use),
         input_index: use.input_index,
         kind: "parameter-use",
@@ -242,6 +285,13 @@ export const traceNativeValues = async (
             "Invalid static call resolution",
           ),
         );
+      sourceLimitations.push(
+        ...targets.data.limitations.map((limitation) => ({
+          provider: resolved.value.provider,
+          operation: "resolve_native_call_targets" as const,
+          limitation,
+        })),
+      );
       if (targets.data.targets.length === 0)
         unknowns.push({
           procedure: address,
@@ -288,9 +338,10 @@ export const traceNativeValues = async (
     }
     if (
       truncated &&
-      (nodes.length >= input.max_nodes ||
+      (nodeBudgetReached ||
+        nodes.length >= input.max_nodes ||
         edges.length >= input.max_edges ||
-        bytes >= 8 * 1024 * 1024)
+        bytes >= NODE_PAYLOAD_BYTES)
     )
       break;
   }
@@ -301,10 +352,24 @@ export const traceNativeValues = async (
         "No seed function could be analyzed",
       ),
     );
+  const parametersByProcedure = new Map<string, typeof nodes>();
+  const returnsByProcedure = new Map<string, typeof nodes>();
+  for (const node of nodes) {
+    if (node.kind === "parameter") {
+      const parameters = parametersByProcedure.get(node.procedure) ?? [];
+      parameters.push(node);
+      parametersByProcedure.set(node.procedure, parameters);
+    } else if (
+      node.operation?.opcode === "RETURN" &&
+      node.operation.inputs.length > 1
+    ) {
+      const returns = returnsByProcedure.get(node.procedure) ?? [];
+      returns.push(node);
+      returnsByProcedure.set(node.procedure, returns);
+    }
+  }
   for (const binding of callBindings) {
-    const parameters = nodes.filter(
-      (node) => node.procedure === binding.callee && node.kind === "parameter",
-    );
+    const parameters = parametersByProcedure.get(binding.callee) ?? [];
     if (parameters.length === 0)
       unknowns.push({
         procedure: binding.caller,
@@ -335,12 +400,7 @@ export const traceNativeValues = async (
       });
     }
     if (binding.output)
-      for (const node of nodes.filter(
-        (node) =>
-          node.procedure === binding.callee &&
-          node.operation?.opcode === "RETURN" &&
-          node.operation.inputs.length > 1,
-      )) {
+      for (const node of returnsByProcedure.get(binding.callee) ?? []) {
         if (edges.length >= input.max_edges) {
           truncated = true;
           break;
@@ -376,6 +436,7 @@ export const traceNativeValues = async (
       "Static decompiler def-use graphs cover recovered block members; when membership is unavailable they exclude operations marked dead. Logical CALL argument positions bind to recovered HighParam ordinals and RETURN values bind to recovered CALL outputs; these are decompiler-derived dependencies, not original source or runtime observations. Missing parameters, variadic arguments and alias dependencies remain unknown.",
       "LOAD and STORE are memory operations; object fields, persistent state and RNG semantics are not inferred from names or pseudocode.",
       "Traversal caps depth, decompilations, call-site resolutions, nodes, edges and node payloads (8 MiB). Complete serialized output is bounded to 32 MiB. Pagination reruns analysis and returns edges whose source is on the node page; endpoints outside the page retain stable identities.",
+      ...renderSourceLimitations(sourceLimitations),
     ],
   });
   if (Buffer.byteLength(JSON.stringify(result)) > 32 * 1024 * 1024)

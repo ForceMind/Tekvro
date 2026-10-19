@@ -1,4 +1,7 @@
 import type { ServeStdioOptions } from "@modelcontextprotocol/server/stdio";
+import { spawnSync } from "node:child_process";
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import { run, runEntrypoint } from "../../../src/main.js";
@@ -35,6 +38,25 @@ const dependencies = ({
 });
 
 describe("MCP runtime errors", () => {
+  it("imports the compiled runtime when argv[1] is a missing synthetic path", () => {
+    const runtimeUrl = pathToFileURL(resolve("dist/main.js")).href;
+    const script = [
+      'process.argv[1] = "/rea-test-missing-entrypoint/main.js";',
+      `await import(${JSON.stringify(runtimeUrl)});`,
+      'console.log("IMPORT_OK");',
+    ].join("\n");
+    const child = spawnSync(
+      process.execPath,
+      ["--input-type=module", "--eval", script],
+      { cwd: process.cwd(), encoding: "utf8", timeout: 5_000 },
+    );
+
+    expect(child.error).toBeUndefined();
+    expect(child.status).toBe(0);
+    expect(child.stdout).toBe("IMPORT_OK\n");
+    expect(child.stderr).toBe("");
+  });
+
   it("reports connection loss without the transport cause", async () => {
     const output: string[] = [];
     const shutdown: Array<() => void> = [];
@@ -72,7 +94,6 @@ describe("MCP runtime errors", () => {
 
   it("unregisters every process-lifetime handler during idempotent shutdown", async () => {
     const shutdown: Array<() => void> = [];
-    const reload: Array<() => void> = [];
     const unregistrations: string[] = [];
     let closeCalls = 0;
     const runtime: RuntimeDependencies = {
@@ -87,22 +108,17 @@ describe("MCP runtime errors", () => {
         exitCodes: [],
         shutdownUnregistrations: unregistrations,
       }),
-      registerReload: (handler) => {
-        reload.push(handler);
-        return () => unregistrations.push("reload");
-      },
     };
 
     expect(await run(runtime)).toBe(0);
     expect(shutdown).toHaveLength(1);
-    expect(reload).toHaveLength(1);
 
     shutdown[0]?.();
     shutdown[0]?.();
     await nextTurn();
 
     expect(closeCalls).toBe(1);
-    expect([...unregistrations].sort()).toEqual(["reload", "shutdown"]);
+    expect(unregistrations).toEqual(["shutdown"]);
   });
 
   it("reports transport startup failure without its cause", async () => {

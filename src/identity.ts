@@ -5,15 +5,13 @@
  */
 export const PRODUCT_IDENTITY = {
   displayName: "Tekvro",
-  // No independent Tekvro npm/MCP distribution has been published yet.
-  // Disable the registry updater until this fork owns a verified release.
   privateSourceBuild: true,
+  legacyPackageName: "rea-agents",
   packageName: PACKAGE_METADATA.name,
   packageSpecifier: `${PACKAGE_METADATA.name}@latest`,
   registrationPackageSpecifier: `${PACKAGE_METADATA.name}@${PACKAGE_METADATA.version}`,
   packageVersion: PACKAGE_METADATA.version,
-  cliBinary: "rea", // compatible CLI name; npm command "tekvro" also exists
-  legacyPackageName: "rea-agents",
+  cliBinary: "rea",
   mcpCommand: `npx -y ${PACKAGE_METADATA.name}@${PACKAGE_METADATA.version} mcp`,
   mcpServerKey: "rea",
   skillName: "reverse-engineer-anything",

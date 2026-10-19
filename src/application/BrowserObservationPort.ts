@@ -1,10 +1,12 @@
 import type { AnalysisError } from "../domain/analysisErrorBase.js";
 import type {
-  BrowserTargetList,
   InspectWebPageInput,
   ListBrowserTargetsInput,
-  WebPageInspection,
 } from "../domain/browserObservation.js";
+import type {
+  BrowserTargetList,
+  WebPageInspection,
+} from "../domain/browserObservationSchemas.js";
 import type { Result } from "../domain/result.js";
 import type {
   AnalyzeWebBundleInput,
@@ -33,6 +35,8 @@ import type { ExecutionOptions } from "./AnalysisProvider.js";
 
 /** Provider-neutral application boundary for passive browser observation. */
 export interface BrowserObservationPort {
+  /** Release provider-owned transports during command or server shutdown. */
+  close?(): Promise<void>;
   identity(): ProviderIdentity;
   listTargets(
     input: ListBrowserTargetsInput,

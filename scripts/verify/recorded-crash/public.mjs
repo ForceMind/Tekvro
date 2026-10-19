@@ -20,11 +20,21 @@ export async function connectRecordedCrash({ entrypoint, environment }) {
     env: environment,
     stderr: "pipe",
   });
+  let diagnostics = "";
+  transport.stderr?.on("data", (chunk) => {
+    if (diagnostics.length < 16_384)
+      diagnostics += chunk
+        .toString("utf8")
+        .slice(0, 16_384 - diagnostics.length);
+  });
   try {
     await client.connect(transport);
   } catch (cause) {
     await transport.close();
-    throw cause;
+    throw new Error(
+      `Installed recorded-crash MCP launch failed: ${diagnostics}`,
+      { cause },
+    );
   }
   return {
     client,
@@ -47,8 +57,8 @@ export async function connectRecordedCrash({ entrypoint, environment }) {
           return value.error;
         }
         assert.notEqual(response.isError, true, JSON.stringify(value));
-        evidence = parseEvidence(value.evidence);
-        assert.deepEqual(value.result, evidence.normalized_result);
+        evidence = parseEvidence(value);
+        assert.deepEqual(value.normalized_result, evidence.normalized_result);
       } else {
         assert.equal(mode, "cli");
         let response;
@@ -80,7 +90,7 @@ export async function connectRecordedCrash({ entrypoint, environment }) {
         evidence.confidence,
         debuggerContext ? "derived" : "observed",
       );
-      assert.deepEqual(evidence.raw_result, report);
+      assert.equal(evidence.raw_result, null);
       assert.equal(evidence.subject.local_path, path);
       assert.equal(report.artifact.path, path);
       assert.equal(

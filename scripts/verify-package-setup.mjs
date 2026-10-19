@@ -1,3 +1,4 @@
+import { localRegistrationCommandText } from "../dist/application/ClientRegistrationIdentity.js";
 import {
   lstat,
   mkdir,
@@ -22,6 +23,12 @@ import {
 import { parse as parseJsonc } from "jsonc-parser";
 import { skillReferenceIssues } from "./lib/docs-facts.mjs";
 
+export const terminalModesRestored = (termios) => {
+  if (typeof termios !== "string") return false;
+  const modes = new Set(termios.trim().split(/\s+/u));
+  return modes.has("icanon") && modes.has("echo");
+};
+
 const OPENCODE_ORIGINAL = `{
   // OpenCode preferences must survive setup.
   "model": "provider/model",
@@ -42,9 +49,11 @@ const CODEX_ORIGINAL = [
 const verifyMcpAdd = async ({ cli, environment, npxLog }) => {
   await run(cli, ["mcp", "add"], environment);
   const mcpRegistration = await readFile(npxLog, "utf8");
-  const expected = `add-mcp ${process.execPath} ${cli} mcp --name ${PRODUCT_IDENTITY.mcpServerKey}`;
-  if (!mcpRegistration.includes(expected) || mcpRegistration.includes("npx -y"))
-    throw new Error("Incur mcp add did not register the local Tekvro Node CLI");
+  const expected = PRODUCT_IDENTITY.privateSourceBuild
+    ? `add-mcp ${localRegistrationCommandText(cli)} --name rea`
+    : `add-mcp npx -y ${PRODUCT_IDENTITY.registrationPackageSpecifier} mcp --name rea`;
+  if (!mcpRegistration.includes(expected))
+    throw new Error("Incur mcp add did not register the pinned npx command");
 };
 
 const snapshotFiles = async (paths) =>
@@ -131,8 +140,7 @@ const verifyInteractiveSetup = async ({
         childResult?.status !== 0 ||
         !output.includes("\u001b[?25h") ||
         (process.platform !== "win32" &&
-          (!childResult.termios?.includes("icanon") ||
-            !childResult.termios?.includes("echo"))) ||
+          !terminalModesRestored(childResult.termios)) ||
         !output.includes("No changes were made.")
       ) {
         finish(
@@ -285,8 +293,7 @@ const verifyAbsentOpenCodeSetup = async ({ cli, environment, home }) => {
     !result.appliedActions.includes("configured_opencode") ||
     config.mcp?.rea?.type !== "local" ||
     config.mcp.rea.enabled !== true ||
-    JSON.stringify(config.mcp.rea.command) !==
-      JSON.stringify([process.execPath, cli, "mcp"])
+    JSON.stringify(config.mcp.rea.command) !== JSON.stringify([cli, "mcp"])
   )
     throw new Error(
       `packaged setup did not configure explicitly selected OpenCode without a config file: ${JSON.stringify(result)}`,
@@ -327,9 +334,8 @@ const verifyAbsentClaudeCodeSetup = async ({ cli, environment, home }) => {
     firstExecution.status !== 0 ||
     first.status !== "ready" ||
     !first.appliedActions.includes("configured_claude_code") ||
-    config.mcpServers?.rea?.command !== process.execPath ||
-    JSON.stringify(config.mcpServers?.rea?.args) !==
-      JSON.stringify([cli, "mcp"]) ||
+    config.mcpServers?.rea?.command !== cli ||
+    JSON.stringify(config.mcpServers?.rea?.args) !== JSON.stringify(["mcp"]) ||
     (await pathExists(markerPath)) ||
     registration?.state !== "aligned" ||
     registration.config_path !== configPath
@@ -358,9 +364,8 @@ const verifySetupApply = async ({
   hopperSetupSupported,
 }) => {
   const status = "ready";
-  const hopperStatus = hopperSetupSupported
-    ? "needs_confirmation"
-    : "needs_human";
+  const hopperStatus =
+    hopperSetupSupported === true ? "needs_confirmation" : "needs_human";
   const firstExecution = await runWithStatus(
     cli,
     ["setup", "--yes", "--all-detected", "--json"],
@@ -417,18 +422,16 @@ const verifySetupApply = async ({
   };
 };
 
-const assertClientConfig = async (cli, configPath) => {
+/** Verify the live registration and exact pre-setup backup bytes. */
+export const assertClientConfig = async (cli, configPath, original) => {
   const config = json(await readFile(configPath, "utf8"));
   if (
     config.existing !== true ||
-    config.mcpServers?.rea?.command !== process.execPath ||
-    JSON.stringify(config.mcpServers?.rea?.args) !==
-      JSON.stringify([cli, "mcp"])
+    config.mcpServers?.rea?.command !== cli ||
+    JSON.stringify(config.mcpServers?.rea?.args) !== JSON.stringify(["mcp"])
   )
     throw new Error("packaged client readback failed");
-  if (
-    !(await readFile(`${configPath}.rea.backup`, "utf8")).includes("existing")
-  )
+  if (!(await readFile(`${configPath}.rea.backup`)).equals(original))
     throw new Error("packaged client backup failed");
 };
 
@@ -451,8 +454,7 @@ const assertOpenCodeConfig = async ({
     (expectedRegistration &&
       (mcp?.rea?.type !== "local" ||
         mcp.rea.enabled !== true ||
-        JSON.stringify(mcp.rea.command) !==
-          JSON.stringify([process.execPath, cli, "mcp"]))) ||
+        JSON.stringify(mcp.rea.command) !== JSON.stringify([cli, "mcp"]))) ||
     (!expectedRegistration && mcp?.rea !== undefined)
   )
     throw new Error("packaged OpenCode JSONC registration readback failed");
@@ -469,13 +471,10 @@ const assertCodexSymlink = async ({
     !(await lstat(codexConfig)).isSymbolicLink() ||
     !(await lstat(cursorConfig)).isSymbolicLink() ||
     !codex.includes("[mcp_servers.rea]") ||
-    !codex.includes(`command = "${process.execPath}"`) ||
-    !codex.includes(cli) ||
+    !codex.includes(`command = "${cli}"`) ||
     !codex.includes("startup_timeout_sec = 30") ||
     !codex.startsWith(CODEX_ORIGINAL) ||
-    (await readFile(`${codexConfig}.rea.backup`, "utf8")) !== CODEX_ORIGINAL ||
-    (await readFile(`${cursorConfig}.rea.backup`, "utf8")) !==
-      '{"existing":true}\n'
+    (await readFile(`${codexConfig}.rea.backup`, "utf8")) !== CODEX_ORIGINAL
   )
     throw new Error("packaged setup did not preserve config symlinks");
 };
@@ -540,9 +539,11 @@ const verifyConfigReadback = async ({
   siblingSkillPath,
   opencodeConfig,
   opencodeOriginal,
+  claudeOriginal,
+  cursorOriginal,
 }) => {
-  await assertClientConfig(cli, claudeConfig);
-  await assertClientConfig(cli, cursorConfig);
+  await assertClientConfig(cli, claudeConfig, claudeOriginal);
+  await assertClientConfig(cli, cursorConfig, cursorOriginal);
   await assertCodexSymlink({
     cli,
     codexConfig,
@@ -603,8 +604,7 @@ const verifySetupFailureRecovery = async ({
   if (
     recovered.status !== status ||
     recoveredExecution.status !== (status === "ready" ? 0 : 1) ||
-    json(await readFile(cursorConfig, "utf8")).mcpServers?.rea?.command !==
-      process.execPath
+    json(await readFile(cursorConfig, "utf8")).mcpServers?.rea?.command !== cli
   )
     throw new Error("packaged setup did not recover");
 };
@@ -736,6 +736,9 @@ export async function verifyPackageSetup({
     opencodeConfig,
     skillPath,
   ];
+  const [claudeOriginal, cursorOriginal] = supportedSetupHost
+    ? await Promise.all([readFile(claudeConfig), readFile(cursorConfig)])
+    : [];
   await verifyInteractiveSetup({
     command: packageRunnerCli,
     environment,
@@ -779,6 +782,8 @@ export async function verifyPackageSetup({
       siblingSkillPath,
       opencodeConfig,
       opencodeOriginal: OPENCODE_ORIGINAL,
+      claudeOriginal,
+      cursorOriginal,
     });
     await verifySetupFailureRecovery({
       cli,

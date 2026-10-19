@@ -12,9 +12,10 @@ import {
   type ListElectronTargetsInput,
 } from "../domain/javascript/electronObservation.js";
 import { AnalysisError } from "../domain/analysisErrorBase.js";
+import { AnalysisCancelledError } from "../domain/analysisErrorCore.js";
 import { BrowserObservationError } from "../domain/browserObservationError.js";
 import { ProviderAdapterError } from "../domain/providerAdapterError.js";
-import { type BrowserObservationOperation } from "../domain/browserObservationErrors.js";
+import type { BrowserObservationOperation } from "../domain/browserObservationErrors.js";
 import { err, ok, type Result } from "../domain/result.js";
 import {
   discoverCdpEndpoint,
@@ -29,15 +30,24 @@ import {
 import { inspectCdpElectronPage } from "./CdpElectronInspection.js";
 import { authorizedElectronFile } from "./ElectronFileScope.js";
 
-/** Public identity committed by passive Electron observations. */
-export { CDP_ELECTRON_PROVIDER_IDENTITY } from "./providerIdentities.js";
 import { CDP_ELECTRON_PROVIDER_IDENTITY } from "./providerIdentities.js";
-const IDENTITY = CDP_ELECTRON_PROVIDER_IDENTITY;
-
+import { compareUnicodeCodePoints } from "../domain/unicodeCodePointOrder.js";
+import { analysisErrorWithCleanupFailure } from "../domain/analysisErrorCleanup.js";
+import { ProviderCleanupError } from "../domain/providerCleanupError.js";
+import {
+  CdpTargetSessionOwner,
+  bindCdpTransportCleanup,
+} from "./CdpTargetSessionOwner.js";
 /** Passive Electron provider for local file pages exposed by loopback CDP. */
 export class CdpElectronProvider implements ElectronObservationPort {
+  readonly #owner = new CdpTargetSessionOwner();
+
+  close(): Promise<void> {
+    return this.#owner.close();
+  }
+
   identity(): ProviderIdentity {
-    return IDENTITY;
+    return CDP_ELECTRON_PROVIDER_IDENTITY;
   }
 
   async listTargets(
@@ -77,7 +87,7 @@ export class CdpElectronProvider implements ElectronObservationPort {
         });
       }
       allowed.sort((left, right) =>
-        left.target_id.localeCompare(right.target_id),
+        compareUnicodeCodePoints(left.target_id, right.target_id),
       );
       return ok(
         electronTargetListSchema.parse({
@@ -94,6 +104,11 @@ export class CdpElectronProvider implements ElectronObservationPort {
               : [
                   `${String(unconnectable)} otherwise allowed page target(s) lacked a validated direct CDP WebSocket and were excluded.`,
                 ]),
+            ...(allowed.some((target) => target.attached === null)
+              ? [
+                  "CDP discovery omitted attachment state for one or more targets; attached is reported as unknown.",
+                ]
+              : []),
           ],
         }),
       );
@@ -107,6 +122,8 @@ export class CdpElectronProvider implements ElectronObservationPort {
     options: ExecutionOptions = {},
   ): Promise<Result<ElectronPageInspection, AnalysisError>> {
     let targetSession: CdpTargetSession | undefined;
+    let cleanupFailure: AnalysisError | undefined;
+    let result: Result<ElectronPageInspection, AnalysisError>;
     try {
       const discovery = await discoverCdpEndpoint(
         input.cdp_endpoint,
@@ -119,8 +136,10 @@ export class CdpElectronProvider implements ElectronObservationPort {
         target,
         "inspect_electron_page",
         options.signal,
+        undefined,
+        this.#owner,
       );
-      return ok(
+      result = ok(
         electronPageInspectionSchema.parse(
           await inspectCdpElectronPage({
             connection: targetSession.connection,
@@ -136,15 +155,91 @@ export class CdpElectronProvider implements ElectronObservationPort {
         ),
       );
     } catch (cause: unknown) {
-      return err(providerError(cause, "inspect_electron_page"));
+      result = err(providerError(cause, "inspect_electron_page"));
     } finally {
       if (targetSession !== undefined)
-        await closeCdpTargetSession(
-          targetSession,
-          ["Debugger", "Runtime", "Page"],
-          options.signal,
-        );
+        try {
+          await closeCdpTargetSession(
+            targetSession,
+            ["Debugger", "Runtime", "Page"],
+            options.signal,
+            this.#owner,
+          );
+        } catch (cause: unknown) {
+          cleanupFailure =
+            cause instanceof AnalysisError
+              ? cause
+              : new ProviderCleanupError(
+                  CDP_ELECTRON_PROVIDER_IDENTITY.id,
+                  [input.target_id],
+                  {
+                    reason:
+                      cause instanceof Error ? cause.message : String(cause),
+                  },
+                  { operation: "inspect_electron_page", cause },
+                );
+        }
     }
+    const finalCancellation =
+      result.ok && options.signal?.aborted === true
+        ? new AnalysisCancelledError("inspect_electron_page", {
+            cause: options.signal.reason,
+            partialObservation: {
+              kind: "electron-page-observation",
+              inspection: result.value,
+              cleanup:
+                cleanupFailure === undefined
+                  ? "transport-closed"
+                  : "incomplete",
+            },
+          })
+        : undefined;
+    if (cleanupFailure !== undefined) {
+      if (finalCancellation !== undefined)
+        return err(
+          bindCdpTransportCleanup(
+            cleanupFailure,
+            analysisErrorWithCleanupFailure(
+              finalCancellation,
+              cleanupFailure,
+              "inspect_electron_page",
+            ),
+          ),
+        );
+      if (!result.ok)
+        return err(
+          bindCdpTransportCleanup(
+            cleanupFailure,
+            analysisErrorWithCleanupFailure(
+              result.error,
+              cleanupFailure,
+              "inspect_electron_page",
+            ),
+          ),
+        );
+      return err(
+        bindCdpTransportCleanup(
+          cleanupFailure,
+          new ProviderCleanupError(
+            CDP_ELECTRON_PROVIDER_IDENTITY.id,
+            cleanupFailure.cleanupResources,
+            { cleanup_error: cleanupFailure.message },
+            {
+              operation: "inspect_electron_page",
+              cause: cleanupFailure,
+              partialObservation: {
+                kind: "electron-page-observation",
+                inspection: result.value,
+                cleanup: "incomplete",
+              },
+            },
+          ),
+        ),
+      );
+    }
+    if (!result.ok) return result;
+    if (finalCancellation !== undefined) return err(finalCancellation);
+    return result;
   }
 }
 
@@ -171,4 +266,6 @@ const providerError = (
     ? new BrowserObservationError(operation, cause.reason, { cause })
     : cause instanceof AnalysisError
       ? cause
-      : new ProviderAdapterError(IDENTITY.id, operation, { cause });
+      : new ProviderAdapterError(CDP_ELECTRON_PROVIDER_IDENTITY.id, operation, {
+          cause,
+        });

@@ -67,3 +67,6 @@ src/generatedMcpToolCatalog.ts
 /docs/public/product-catalog.json
 /docs/verification/managed-conformance-manifest.json
 /docs/verification/managed-conformance-ledger.json
+
+# Disposable website translation regression staging
+/website/.i18n-regression/

@@ -1,23 +1,13 @@
 import { z } from "zod";
 import { browserNetworkContentSelectionValuesSchema } from "./browserNetworkEvidence.js";
+import { browserScenarioCaptureLimitsValuesSchema } from "./browserScenarioCaptureLimits.js";
 
 import {
   browserScenarioCompletenessSchema,
+  browserScenarioEventFamilySchema,
+  browserScenarioEventOmissionsSchema,
   browserScenarioEventSchema,
   browserScenarioStepSchema,
-} from "./browserScenarioCaptureValues.js";
-
-export {
-  classifyBrowserScenarioCompleteness,
-  browserScenarioEventSchema,
-  browserScenarioStepSchema,
-  browserStepArtifactsSchema,
-  type BrowserScenarioCompleteness,
-  type BrowserScenarioCompletenessSection,
-  type BrowserScenarioEvent,
-  type BrowserScenarioStep,
-  type BrowserScenarioStepOutcome,
-  type BrowserStepArtifacts,
 } from "./browserScenarioCaptureValues.js";
 
 /** Step-indexed browser scenario observation. */
@@ -34,7 +24,9 @@ export const browserScenarioCaptureSchema = z
       start_origin: z.string().min(1),
       action_count: z.number().int().min(1),
       secret_references: z.array(z.string().min(1)),
-      network_content: browserNetworkContentSelectionValuesSchema.optional(),
+      network_content: browserNetworkContentSelectionValuesSchema,
+      event_families: z.array(browserScenarioEventFamilySchema),
+      limits: browserScenarioCaptureLimitsValuesSchema,
     }),
     duration_ms: z.number().int().min(0),
     steps: z.array(browserScenarioStepSchema).min(1),
@@ -42,6 +34,7 @@ export const browserScenarioCaptureSchema = z
       retained: z.number().int().min(0),
       dropped: z.number().int().min(0),
       items: z.array(browserScenarioEventSchema),
+      omissions: browserScenarioEventOmissionsSchema,
     }),
     completeness: browserScenarioCompletenessSchema,
     limitations: z.array(z.string().min(1)),
@@ -77,6 +70,17 @@ export const browserScenarioCaptureSchema = z
         path: ["events", "retained"],
         message: "Retained event count must equal items length",
       });
+    if (
+      capture.events.omissions.by_kind.reduce(
+        (count, omission) => count + omission.count,
+        0,
+      ) !== capture.events.dropped
+    )
+      context.addIssue({
+        code: "custom",
+        path: ["events", "omissions", "by_kind"],
+        message: "Per-kind omission counts must equal the dropped event count",
+      });
     if (capture.steps.length !== capture.scenario.action_count + 1)
       context.addIssue({
         code: "custom",
@@ -108,3 +112,25 @@ export const browserScenarioCaptureSchema = z
 export type BrowserScenarioCapture = z.infer<
   typeof browserScenarioCaptureSchema
 >;
+
+/** Capture fields shared by complete results and retained partial observations. */
+export type BrowserScenarioCaptureData = Omit<
+  BrowserScenarioCapture,
+  "browser" | "steps" | "completeness" | "events"
+> & {
+  readonly browser: Omit<BrowserScenarioCapture["browser"], "cleanup"> & {
+    readonly cleanup:
+      | BrowserScenarioCapture["browser"]["cleanup"]
+      | "incomplete";
+  };
+  readonly steps: readonly BrowserScenarioCapture["steps"][number][];
+  readonly events: Omit<BrowserScenarioCapture["events"], "items"> & {
+    readonly items: readonly BrowserScenarioCapture["events"]["items"][number][];
+  };
+};
+
+/** Browser scenario data retained when an operation fails before a complete result. */
+export interface BrowserScenarioPartialObservation {
+  readonly kind: "browser-scenario-observation";
+  readonly capture: BrowserScenarioCaptureData;
+}

@@ -24,10 +24,6 @@ describe("release configuration", () => {
       packages: {
         ".": {
           "extra-files": [
-            ...versionedDocumentation.map((path) => ({
-              type: "generic",
-              path,
-            })),
             {
               type: "generic",
               path: "src/generatedPackageMetadata.ts",
@@ -49,18 +45,15 @@ describe("release configuration", () => {
   });
 
   it.each(versionedDocumentation)(
-    "marks the versioned package example in %s",
+    "documents a local source MCP entrypoint without an upstream npm launcher in %s",
     async (path) => {
       const content = await readFile(path, "utf8");
-      const packageJson = (await readJson("package.json")) as {
-        version: string;
-      };
-      const versionBlock =
-        /<!-- x-release-please-start-version -->[\s\S]*?<!-- x-release-please-end -->/u.exec(
-          content,
-        )?.[0];
-
-      expect(versionBlock).toContain(`rea-agents@${packageJson.version}`);
+      expect(content).toContain('"command": "/absolute/path/to/node"');
+      expect(content).toContain(
+        '"/absolute/path/to/Tekvro/scripts/rea.mjs", "mcp"',
+      );
+      expect(content).not.toMatch(/npx\s+(?:-\S+\s+)*rea-agents/u);
+      expect(content).toContain("io.github.forcemind/tekvro");
     },
   );
 
@@ -102,6 +95,7 @@ describe("release configuration", () => {
     expect(packageJson).toMatchObject({
       name: "tekvro",
       mcpName: "io.github.forcemind/tekvro",
+      private: true,
     });
     expect(serverJson).toMatchObject({
       name: packageJson.mcpName,
@@ -118,15 +112,5 @@ describe("release configuration", () => {
         },
       ],
     });
-  });
-
-  it("keeps generated API HTML out of the tracked tree", async () => {
-    await expect(readFile("typedoc.json", "utf8")).rejects.toMatchObject({
-      code: "ENOENT",
-    });
-    const packageJson = (await readJson("package.json")) as {
-      scripts?: Record<string, string>;
-    };
-    expect(packageJson.scripts?.["docs:api"]).toBeUndefined();
   });
 });

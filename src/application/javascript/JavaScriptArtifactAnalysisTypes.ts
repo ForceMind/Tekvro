@@ -1,9 +1,15 @@
+import type { JavaScriptSourceMapReference } from "../../domain/javascript/javascriptSourceMapPaths.js";
 import type {
   JavaScriptSourceRange,
   JavaScriptStaticAnalysis,
 } from "../../domain/javascript/javascriptStaticAnalysisTypes.js";
 import type { JavaScriptSemanticIr } from "../../domain/javascript/javascriptSemanticIr.js";
-import type { JavaScriptArtifactFile } from "../../domain/javascript/javascriptArtifactFiles.js";
+import type { JavaScriptModuleSemanticIr } from "../../domain/javascript/javascriptModuleSemanticIr.js";
+import type {
+  JavaScriptArtifactFile,
+  JavaScriptArtifactFileKind,
+} from "../../domain/javascript/javascriptArtifactFiles.js";
+import type { JsonValue } from "../../domain/jsonValue.js";
 
 interface JavaScriptStructuredObservation {
   readonly path: string;
@@ -42,9 +48,23 @@ export interface JavaScriptHtmlScriptObservation {
   readonly location: JavaScriptSourceRange;
 }
 
+/** Bounded source locations for inline JavaScript bodies skipped by analysis. */
+export interface JavaScriptHtmlInlineScriptsObservation {
+  readonly path: string;
+  readonly script_count: number;
+  readonly scripts: readonly {
+    readonly script_type: "classic" | "module";
+    readonly location: JavaScriptSourceRange;
+  }[];
+}
+
 /** One original source declared by a local source map. */
 export interface JavaScriptSourceMapOriginal {
-  readonly source: string;
+  /** Index within the leaf map's sources and sourcesContent arrays. */
+  readonly source_index: number;
+  /** Index across the flattened map's leaf declarations. */
+  readonly declaration_index: number;
+  readonly reference: JavaScriptSourceMapReference | null;
   readonly content: string | null;
   readonly content_sha256: string | null;
 }
@@ -88,15 +108,48 @@ export type JavaScriptJsonModuleObservation = JavaScriptStructuredObservation &
   );
 
 /** Module facts needed after file-local semantic projection has finished. */
-export type JavaScriptModuleSemanticIr = Pick<
-  JavaScriptSemanticIr,
-  | "scopes"
-  | "bindings"
-  | "callables"
-  | "moduleLinks"
-  | "coverage"
-  | "limitations"
+export type { JavaScriptModuleSemanticIr } from "../../domain/javascript/javascriptModuleSemanticIr.js";
+
+/** Applicable processing of inventoried files; native bytes remain metadata-only. */
+export const javascriptArtifactAnalysisScopes = {
+  javascript: {
+    operation: "analyze-javascript-source",
+    authority: "ast-static-analysis",
+  },
+  "package-json": {
+    operation: "parse-package-json",
+    authority: "artifact-bytes",
+  },
+  json: { operation: "parse-json-module", authority: "artifact-bytes" },
+  html: {
+    operation: "parse-html-script-references",
+    authority: "artifact-bytes",
+  },
+  "source-map": {
+    operation: "parse-local-source-map",
+    authority: "artifact-bytes",
+  },
+  "native-addon": null,
+} as const satisfies Record<
+  JavaScriptArtifactFileKind,
+  {
+    readonly operation: string;
+    readonly authority: "artifact-bytes" | "ast-static-analysis";
+  } | null
 >;
+
+export type JavaScriptArtifactAnalysisScope = NonNullable<
+  (typeof javascriptArtifactAnalysisScopes)[JavaScriptArtifactFileKind]
+>;
+
+/** A processing gap preserves applicability and whether the phase was entered. */
+export interface JavaScriptArtifactAnalysisFailure {
+  readonly scope: JavaScriptArtifactAnalysisScope;
+  readonly status: "interrupted" | "not-started";
+  readonly reason: string;
+  readonly error: JsonValue;
+  readonly limits: Readonly<Record<string, JsonValue>> | null;
+}
 
 /** One relevant file plus optional AST-only JavaScript facts. */
 export interface AnalyzedJavaScriptArtifactFile<
@@ -107,7 +160,31 @@ export interface AnalyzedJavaScriptArtifactFile<
   readonly semantic: {
     readonly ir: SemanticIr;
   } | null;
+  /** Operational incompleteness, distinct from a malformed source file. */
+  readonly analysis_failure?: JavaScriptArtifactAnalysisFailure;
+  /** Facts retained inline when their expanded graph exceeds available memory. */
+  readonly application_projection_failure?: {
+    readonly reason: string;
+    readonly error: JsonValue;
+    readonly limits: Readonly<Record<string, JsonValue>> | null;
+  };
 }
+
+/**
+ * A JavaScript source selected for analysis whose worker produced no facts.
+ * The analysis failure carries the reason; the null parse status alone reads
+ * as "nothing there" instead of "not analyzed".
+ */
+export const isSkippedJavaScriptAnalysis = (
+  entry: Pick<
+    AnalyzedJavaScriptArtifactFile,
+    "file" | "javascript" | "analysis_failure"
+  >,
+): boolean =>
+  entry.file.kind === "javascript" &&
+  entry.file.text.included &&
+  entry.javascript === null &&
+  entry.analysis_failure !== undefined;
 
 /** Complete static-analysis projection before graph construction. */
 export interface JavaScriptArtifactAnalysis<
@@ -117,12 +194,12 @@ export interface JavaScriptArtifactAnalysis<
   readonly packages: readonly JavaScriptPackageObservation[];
   readonly json_modules: readonly JavaScriptJsonModuleObservation[];
   readonly html_scripts: readonly JavaScriptHtmlScriptObservation[];
+  readonly html_inline_scripts: readonly JavaScriptHtmlInlineScriptsObservation[];
   readonly source_maps: readonly JavaScriptSourceMapObservation[];
   readonly visited_ast_nodes: number;
   readonly findings: number;
   readonly modules: number;
   readonly parse_failures: number;
-  readonly truncated_scopes: number;
   readonly limitations: readonly string[];
 }
 

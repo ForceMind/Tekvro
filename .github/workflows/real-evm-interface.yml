@@ -2,40 +2,16 @@ name: Real offline EVM interface
 
 on:
   workflow_dispatch:
-  pull_request:
-    paths:
-      - ".github/workflows/real-evm-interface.yml"
-      - "src/evm/**"
-      - "src/domain/evm/**"
-      - "src/application/evm/**"
-      - "src/contracts/evm/**"
-      - "src/composition/evm.ts"
-      - "src/cli/evmCommands.ts"
-      - "src/server/registerEvmTools.ts"
-      - "src/server/createServer.ts"
-      - "src/cli.ts"
-      - "src/cliCommandNames.ts"
-      - "src/contracts/toolContracts.ts"
-      - "src/contracts/toolEffects.ts"
-      - "src/process/OwnedCommand.ts"
-      - "src/process/ProviderProcess.ts"
-      - "src/process/ProcessOwnership*.ts"
-      - "src/process/ProviderDeadline.ts"
-      - "src/process/PrivateRuntimeRoot.ts"
-      - "src/artifacts/readStableArtifact*.ts"
-      - "src/artifacts/ArtifactReader.ts"
-      - "scripts/verify-evm-interface.mjs"
-      - "scripts/fixtures/evm-interface.sol"
-      - "third_party/evmole/**"
-      - "package.json"
-      - "package-lock.json"
+  workflow_call:
+    inputs:
+      build_cache_artifact:
+        description: Portable build cache artifact from the calling CI run.
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: read
-
-concurrency:
-  group: real-evm-interface-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
 
 env:
   NODE_OPTIONS: --max-old-space-size=768
@@ -46,12 +22,17 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version-file: .nvmrc
-          cache: npm
+      - name: Cache npm package downloads
+        id: npm-cache
+        uses: ./.github/actions/npm-cache
       - run: npm ci
+      - uses: ./.github/actions/portable-build-cache
+        with:
+          build_cache_artifact: ${{ inputs.build_cache_artifact }}
       - name: Acquire unchanged fixture compiler in isolated runner storage
         shell: bash
         run: |
@@ -64,3 +45,5 @@ jobs:
           echo "REA_VERIFY_SOLC_MODULE=${evm_fixture_root}/node_modules/solc/index.js" >> "${GITHUB_ENV}"
       - name: Verify source-owned compiled bytecode through public CLI and MCP
         run: npm run verify:evm:interface
+      - name: Verify content-hash-free and CBOR-free owned compiler artifacts
+        run: npm run verify:solidity:metadata

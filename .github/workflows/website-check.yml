@@ -1,21 +1,11 @@
 name: Website checks
 
 on:
-  pull_request:
-    branches: [main, "release/*"]
-    paths:
-      - "website/**"
-      - "scripts/verify-website.py"
-      - "scripts/prepare-website.py"
-      - ".github/workflows/**"
+  workflow_call:
   workflow_dispatch:
 
 permissions:
   contents: read
-
-concurrency:
-  group: website-check-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
 
 jobs:
   check:
@@ -24,7 +14,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Check out the repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Prepare the example download
         run: python3 scripts/prepare-website.py
       - name: Check website links and publishing configuration

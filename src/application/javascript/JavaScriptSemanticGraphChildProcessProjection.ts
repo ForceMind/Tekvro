@@ -1,5 +1,4 @@
-import { createJavaScriptSemanticGraphUnknown } from "../../domain/javascript/javascriptSemanticGraph.js";
-import type { JavaScriptSemanticGraphNode } from "../../domain/javascript/javascriptSemanticGraph.js";
+import type { JavaScriptSemanticGraphNode } from "../../domain/javascript/javascriptSemanticGraphSchemas.js";
 import type {
   JavaScriptSemanticChildProcessInteraction,
   JavaScriptSemanticChildProcessSpawn,
@@ -10,10 +9,7 @@ import {
   addSemanticGraphUnknown,
 } from "./JavaScriptSemanticGraphConstruction.js";
 import { unknownSemanticEvidence } from "./JavaScriptSemanticGraphEvidence.js";
-import {
-  semanticCallSiteAt,
-  type SemanticFlowProjectionContext,
-} from "./JavaScriptSemanticGraphFlowProjection.js";
+import type { SemanticFlowProjectionContext } from "./JavaScriptSemanticGraphFlowProjection.js";
 
 interface ChildUnknownInput {
   readonly context: SemanticFlowProjectionContext;
@@ -24,7 +20,9 @@ interface ChildUnknownInput {
     | "forwards-signal"
     | "listens-exit"
     | "listens-error"
+    | "connects-stdio"
   )[];
+  readonly reason?: "unknown-value";
   readonly detail: string;
   readonly candidateNodeIds: readonly string[];
 }
@@ -75,7 +73,7 @@ const projectSpawn = (
   spawn: JavaScriptSemanticChildProcessSpawn,
   child: JavaScriptSemanticGraphNode,
 ): void => {
-  const callSite = semanticCallSiteAt(context, spawn.location);
+  const callSite = context.callSiteAt(spawn.location);
   addSemanticGraphRelation(context.state, {
     source: callSite,
     target: child,
@@ -116,6 +114,16 @@ const projectSpawn = (
     relation: "connects-stdio",
     resolution: spawn.stdioMode === "dynamic" ? "candidate" : "resolved",
   });
+  if (spawn.stdioMode === "dynamic")
+    addChildUnknown({
+      context,
+      node: child,
+      location: spawn.location,
+      relationKinds: ["connects-stdio"],
+      reason: "unknown-value",
+      detail: `Static ${spawn.method} stdio options remain unresolved.`,
+      candidateNodeIds: [],
+    });
   if (spawn.resolution !== "complete")
     addChildUnknown({
       context,
@@ -224,16 +232,13 @@ const addSignalNode = (
 const addChildUnknown = (input: ChildUnknownInput): void => {
   const { context, node, location, relationKinds, detail, candidateNodeIds } =
     input;
-  addSemanticGraphUnknown(
-    context.state,
-    createJavaScriptSemanticGraphUnknown({
-      node_id: node?.node_id ?? null,
-      family: "child-process",
-      relation_kinds: relationKinds,
-      reason: "ambiguous-target",
-      detail,
-      candidate_node_ids: candidateNodeIds,
-      evidence: unknownSemanticEvidence(context.file, location),
-    }),
-  );
+  addSemanticGraphUnknown(context.state, {
+    node_id: node?.node_id ?? null,
+    family: "child-process",
+    relation_kinds: relationKinds,
+    reason: input.reason ?? "ambiguous-target",
+    detail,
+    candidate_node_ids: candidateNodeIds,
+    evidence: unknownSemanticEvidence(context.file, location),
+  });
 };

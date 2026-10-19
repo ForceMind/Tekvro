@@ -1,5 +1,4 @@
-import { createJavaScriptSemanticGraphUnknown } from "../../domain/javascript/javascriptSemanticGraph.js";
-import type { JavaScriptSemanticGraphNode } from "../../domain/javascript/javascriptSemanticGraph.js";
+import type { JavaScriptSemanticGraphNode } from "../../domain/javascript/javascriptSemanticGraphSchemas.js";
 import type { JavaScriptSemanticIr } from "../../domain/javascript/javascriptSemanticIr.js";
 import { sourceRangesEqual } from "../../domain/javascript/javascriptStaticAnalysisHelpers.js";
 import type { JavaScriptSourceRange } from "../../domain/javascript/javascriptStaticAnalysisTypes.js";
@@ -33,14 +32,6 @@ export interface SemanticFlowProjectionContext {
     range: JavaScriptSourceRange,
   ) => JavaScriptSemanticGraphNode | undefined;
 }
-
-/** Find the retained call-site node at one exact semantic source range. */
-export const semanticCallSiteAt = (
-  context: SemanticFlowProjectionContext,
-  location: JavaScriptSourceRange,
-): JavaScriptSemanticGraphNode | undefined => {
-  return context.callSiteAt(location);
-};
 
 /** Project explicit static Promise/task ownership without runtime claims. */
 export const projectSemanticPromises = (
@@ -96,7 +87,7 @@ const projectPromiseCreation = (
 ): void => {
   if (operation.kind === "awaited-expression") return;
   addSemanticGraphRelation(context.state, {
-    source: semanticCallSiteAt(context, operation.location),
+    source: context.callSiteAt(operation.location),
     target: promise,
     relation: "creates-promise",
     resolution:
@@ -185,21 +176,18 @@ const addPromiseUnknown = (
   promiseNodes: ReadonlyMap<string, JavaScriptSemanticGraphNode>,
 ): void => {
   const relation = operation.kind === "aggregate" ? "aggregates" : "chains";
-  addSemanticGraphUnknown(
-    context.state,
-    createJavaScriptSemanticGraphUnknown({
-      node_id: promise.node_id,
-      family: "promise-ownership",
-      relation_kinds: [relation],
-      reason: "ambiguous-target",
-      detail: `Static ${operation.method} source resolution was ${operation.sourceResolution}.`,
-      candidate_node_ids: operation.sourcePromiseIds.flatMap((identifier) => {
-        const candidate = promiseNodes.get(identifier);
-        return candidate === undefined ? [] : [candidate.node_id];
-      }),
-      evidence: unknownSemanticEvidence(context.file, operation.location),
+  addSemanticGraphUnknown(context.state, {
+    node_id: promise.node_id,
+    family: "promise-ownership",
+    relation_kinds: [relation],
+    reason: "ambiguous-target",
+    detail: `Static ${operation.method} source resolution was ${operation.sourceResolution}.`,
+    candidate_node_ids: operation.sourcePromiseIds.flatMap((identifier) => {
+      const candidate = promiseNodes.get(identifier);
+      return candidate === undefined ? [] : [candidate.node_id];
     }),
-  );
+    evidence: unknownSemanticEvidence(context.file, operation.location),
+  });
 };
 
 /** Link direct return expressions to their retained semantic references. */
@@ -245,10 +233,11 @@ export const projectSemanticClosureCaptures = (
 };
 
 /** Retain bounded unresolved dynamic-call, dynamic-property and dynamic-scope frontiers. */
-export const projectSemanticFrontiers = (
+export function* projectSemanticFrontiers(
   context: SemanticFlowProjectionContext,
-): void => {
-  for (const frontier of context.ir.frontiers) {
+): Generator<void, void> {
+  for (const [index, frontier] of context.ir.frontiers.entries()) {
+    if (index % 64 === 0) yield;
     // Dynamic environments leave identifier reads and writes unresolved.
     const family =
       frontier.kind === "dynamic-call"
@@ -262,7 +251,7 @@ export const projectSemanticFrontiers = (
         : frontier.kind === "dynamic-scope"
           ? (["reads", "writes"] as const)
           : (["reads-property", "writes-property"] as const);
-    const unknown = createJavaScriptSemanticGraphUnknown({
+    addSemanticGraphUnknown(context.state, {
       node_id:
         frontier.callableId === null
           ? context.moduleNode.node_id
@@ -275,6 +264,5 @@ export const projectSemanticFrontiers = (
       candidate_node_ids: [],
       evidence: unknownSemanticEvidence(context.file, frontier.location),
     });
-    addSemanticGraphUnknown(context.state, unknown);
   }
-};
+}

@@ -4,9 +4,16 @@ import * as t from "@babel/types";
 
 import { traverseJavaScriptAst } from "./javascriptSemanticTraversal.js";
 
-import { compareCodePoints } from "../canonicalOrdering.js";
-import { propertyName } from "./javascriptAstValues.js";
+import { compareUnicodeCodePoints } from "../unicodeCodePointOrder.js";
+import {
+  runtimeFunctionParameters,
+  semanticStaticPropertyKey,
+} from "./javascriptAstValues.js";
 import { stringValue } from "./javascriptStaticAnalysisHelpers.js";
+import {
+  resolveSemanticBindingState,
+  type JavaScriptSemanticAnalysisState,
+} from "./javascriptSemanticState.js";
 
 /** Static CommonJS export names. */
 export interface StaticExports {
@@ -26,41 +33,105 @@ export const fingerprintJavaScriptAst = (node: t.Node): string => {
 };
 
 /** Collect statically declared CommonJS/bundler export names from one factory. */
-export const collectJavaScriptExports = (node: t.Node): StaticExports => {
+export const collectJavaScriptExports = (
+  node: t.Node,
+  bindings?: JavaScriptSemanticAnalysisState,
+): StaticExports => {
   const exports = new Set<string>();
+  const parameter = t.isFunction(node)
+    ? runtimeFunctionParameters(node)[1]
+    : undefined;
+  const factoryExports =
+    bindings !== undefined && t.isFunction(node) && t.isIdentifier(parameter)
+      ? resolveSemanticBindingState(bindings, parameter, parameter.name)
+          ?.bindingId
+      : undefined;
+  const isExportsAlias = (reference: t.Node | null): boolean => {
+    if (!t.isIdentifier(reference)) return false;
+    if (factoryExports === undefined) return reference.name === "exports";
+    return (
+      bindings !== undefined &&
+      resolveSemanticBindingState(bindings, reference, reference.name)
+        ?.bindingId === factoryExports
+    );
+  };
   traverseJavaScriptAst(node, {
     enter: (current) => {
       if (t.isAssignmentExpression(current))
-        collectAssignmentExports(current.left, current.right, exports);
-      if (t.isCallExpression(current)) collectCallExports(current, exports);
+        collectAssignmentExports(
+          current.left,
+          current.right,
+          exports,
+          isExportsAlias,
+        );
+      if (t.isCallExpression(current))
+        collectCallExports(current, exports, isExportsAlias);
       return undefined;
     },
   });
   return {
-    values: [...exports].sort(compareCodePoints),
+    values: [...exports].sort(compareUnicodeCodePoints),
   };
 };
 
 const semanticTokens = (node: t.Node): string[] => {
   const tokens = [`node:${node.type}`];
   if (t.isStringLiteral(node)) tokens.push(`string:${node.value}`);
+  else if (t.isBigIntLiteral(node)) tokens.push(`bigint:${String(node.value)}`);
+  else if (t.isDirectiveLiteral(node)) tokens.push(`directive:${node.value}`);
   else if (t.isNumericLiteral(node))
     tokens.push(`number:${String(node.value)}`);
   else if (t.isBooleanLiteral(node))
     tokens.push(`boolean:${String(node.value)}`);
   else if (t.isRegExpLiteral(node))
     tokens.push(`regexp:${node.pattern}/${node.flags}`);
-  else if (t.isBinaryExpression(node) || t.isLogicalExpression(node))
+  else if (t.isTemplateElement(node))
+    tokens.push(`template:${JSON.stringify(node.value)}`);
+  else if (
+    t.isBinaryExpression(node) ||
+    t.isLogicalExpression(node) ||
+    t.isUnaryExpression(node) ||
+    t.isUpdateExpression(node) ||
+    t.isAssignmentExpression(node)
+  )
     tokens.push(`operator:${node.operator}`);
-  else if (t.isUnaryExpression(node) || t.isUpdateExpression(node))
-    tokens.push(`operator:${node.operator}`);
-  if (t.isMemberExpression(node) || t.isOptionalMemberExpression(node)) {
-    const property = propertyName(node.property);
-    if (property !== "") tokens.push(`property:${property}`);
+  if (t.isUpdateExpression(node)) tokens.push(`prefix:${String(node.prefix)}`);
+  if (t.isVariableDeclaration(node)) tokens.push(`kind:${node.kind}`);
+  if (t.isFunction(node)) {
+    tokens.push(`async:${String(node.async)}`);
+    tokens.push(`generator:${String(node.generator)}`);
   }
-  if ((t.isObjectProperty(node) || t.isObjectMethod(node)) && !node.computed) {
-    const key = propertyName(node.key);
-    if (key !== "") tokens.push(`key:${key}`);
+  if (t.isObjectMethod(node)) tokens.push(`kind:${node.kind}`);
+  if (t.isClassMethod(node) || t.isClassPrivateMethod(node)) {
+    tokens.push(`kind:${node.kind}`);
+    tokens.push(`static:${String(node.static)}`);
+  }
+  if (
+    t.isClassProperty(node) ||
+    t.isClassPrivateProperty(node) ||
+    t.isClassAccessorProperty(node)
+  )
+    tokens.push(`static:${String(node.static)}`);
+  if (t.isMemberExpression(node) || t.isOptionalMemberExpression(node)) {
+    // A computed identifier names a local binding, not a fixed member.
+    tokens.push(`computed:${String(node.computed)}`);
+    if (!node.computed) {
+      const property = semanticStaticPropertyKey(node.property, false);
+      if (property !== null) tokens.push(`property:${property}`);
+    }
+  }
+  if (
+    t.isObjectProperty(node) ||
+    t.isObjectMethod(node) ||
+    t.isClassMethod(node) ||
+    t.isClassProperty(node) ||
+    t.isClassAccessorProperty(node)
+  ) {
+    tokens.push(`computed:${String(node.computed)}`);
+    if (!node.computed) {
+      const key = semanticStaticPropertyKey(node.key, false);
+      if (key !== null) tokens.push(`key:${key}`);
+    }
   }
   return tokens;
 };
@@ -69,38 +140,72 @@ const collectAssignmentExports = (
   left: t.LVal | t.OptionalMemberExpression,
   right: t.Expression,
   output: Set<string>,
+  isExportsAlias: (root: t.Node | null) => boolean,
 ): void => {
   const path = memberPath(left);
-  if (path === "exports" || path === "module.exports") {
+  if (path === null) return;
+  const root = memberRoot(left);
+  const exportsAlias = isExportsAlias(root);
+  // Rebinding the CommonJS alias does not replace module.exports.
+  if (path.length === 1 && exportsAlias) return;
+  const exportOffset = exportsAlias
+    ? 1
+    : path[0] === "module" && path[1] === "exports"
+      ? 2
+      : null;
+  if (exportOffset === null) return;
+  if (path.length === exportOffset) {
     if (t.isObjectExpression(right)) collectObjectKeys(right, output);
     else addExport(output, "default");
     return;
   }
-  if (path.startsWith("exports."))
-    addExport(output, path.slice("exports.".length));
-  if (path.startsWith("module.exports."))
-    addExport(output, path.slice("module.exports.".length));
+  // A CommonJS export assignment exposes the first property below the
+  // exports object. Deeper writes mutate that exported value, rather than
+  // creating an export whose name is the dotted member path.
+  addExport(output, path[exportOffset]!);
 };
 
 const collectCallExports = (
   call: t.CallExpression,
   output: Set<string>,
+  isExportsAlias: (root: t.Node | null) => boolean,
 ): void => {
   const callee = memberPath(call.callee);
-  if (callee === "Object.defineProperty") {
-    const target = memberPath(call.arguments[0]);
+  if (callee === null) return;
+  const definePropertyCall =
+    callee.length === 2 &&
+    callee[0] === "Object" &&
+    callee[1] === "defineProperty";
+  const declarationCall = callee.length >= 2 && callee.at(-1) === "d";
+  if (!definePropertyCall && !declarationCall) return;
+  const targetNode = call.arguments[0];
+  const target = memberPath(targetNode);
+  const exportTarget =
+    isExportsAlias(targetNode ?? null) ||
+    (target !== null &&
+      target.length === 2 &&
+      target[0] === "module" &&
+      target[1] === "exports");
+  if (!exportTarget) return;
+  if (definePropertyCall) {
     const name = stringValue(call.arguments[1]);
-    if ((target === "exports" || target === "module.exports") && name)
-      addExport(output, name);
+    if (name !== undefined) addExport(output, name);
+    return;
   }
-  if (!callee.endsWith(".d")) return;
-  const target = memberPath(call.arguments[0]);
   const declarations = call.arguments[1];
-  if (
-    (target === "exports" || target === "module.exports") &&
-    t.isObjectExpression(declarations)
-  )
+  if (t.isObjectExpression(declarations))
     collectObjectKeys(declarations, output);
+};
+
+const memberRoot = (node: t.Node | null | undefined): t.Node | null => {
+  let current = node;
+  while (
+    current !== null &&
+    current !== undefined &&
+    (t.isMemberExpression(current) || t.isOptionalMemberExpression(current))
+  )
+    current = current.object;
+  return current ?? null;
 };
 
 const collectObjectKeys = (
@@ -109,8 +214,20 @@ const collectObjectKeys = (
 ): void => {
   for (const property of object.properties) {
     if (!t.isObjectProperty(property) && !t.isObjectMethod(property)) continue;
-    const name = propertyName(property.key);
-    if (name !== "") addExport(output, name);
+    const name = semanticStaticPropertyKey(property.key, property.computed);
+    // In an object literal, a non-computed `__proto__: value` sets the
+    // prototype instead of creating an own property. Shorthand, computed,
+    // and method forms do create own properties.
+    if (
+      name !== null &&
+      !(
+        t.isObjectProperty(property) &&
+        !property.computed &&
+        !property.shorthand &&
+        name === "__proto__"
+      )
+    )
+      addExport(output, name);
   }
 };
 
@@ -118,7 +235,9 @@ const addExport = (output: Set<string>, name: string): void => {
   output.add(name);
 };
 
-const memberPath = (node: t.Node | null | undefined): string => {
+const memberPath = (
+  node: t.Node | null | undefined,
+): readonly string[] | null => {
   const properties: string[] = [];
   let current = node;
   while (
@@ -126,23 +245,19 @@ const memberPath = (node: t.Node | null | undefined): string => {
     current !== null &&
     (t.isMemberExpression(current) || t.isOptionalMemberExpression(current))
   ) {
-    properties.push(propertyName(current.property));
-    current = t.isNode(current.object) ? current.object : undefined;
+    const property = semanticStaticPropertyKey(
+      current.property,
+      current.computed,
+    );
+    if (property === null) return null;
+    properties.push(property);
+    current = current.object;
   }
-
-  const root =
-    current !== undefined && t.isIdentifier(current)
-      ? current.name
-      : current !== undefined && t.isThisExpression(current)
-        ? "this"
-        : "";
-  if (properties.length === 0) return root;
-
-  properties.reverse();
-  const path = root === "" ? [] : [root];
-  for (const property of properties) {
-    if (path.length === 0 && property === "") continue;
-    path.push(property);
-  }
-  return path.join(".");
+  if (current === undefined || current === null) return null;
+  const root = t.isIdentifier(current)
+    ? current.name
+    : t.isThisExpression(current)
+      ? "this"
+      : null;
+  return root === null ? null : [root, ...properties.reverse()];
 };

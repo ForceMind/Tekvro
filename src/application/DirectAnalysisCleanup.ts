@@ -6,7 +6,7 @@ import { ProviderAdapterError } from "../domain/providerAdapterError.js";
 import { err, type Result } from "../domain/result.js";
 import type { AnalysisExecution } from "./AnalysisProvider.js";
 import type { BinarySession } from "./binary/BinarySession.js";
-import { analysisErrorWithCleanupFailure } from "./binary/AnalysisClientCleanup.js";
+import { analysisErrorWithCleanupFailure } from "../domain/analysisErrorCleanup.js";
 
 /** Await one-shot cleanup and retain either the outcome or both failures. */
 export const withSessionCleanup = async <Value>(
@@ -46,16 +46,18 @@ export const directAnalysisCleanupFailure = (
         ...primary.data,
         code: "cleanup_incomplete",
         retryable: false,
+        remediation: cleanup.remediation,
         details: {
+          // Primary fields describe the original failure; the later close
+          // assessment, including its resources, belongs to cleanup_error.
+          resources: error.cleanupResources.slice(),
           ...primary.data.details,
           cleanup: "incomplete",
-          resources: error.cleanupResources.slice(),
           execution_failure:
             primary.data.details !== undefined &&
             "execution_failure" in primary.data.details
               ? (primary.data.details.execution_failure ?? primary.data.code)
               : primary.data.code,
-          primary_error: projection,
           cleanup_error: cleanup,
         },
       };
@@ -87,6 +89,7 @@ export const managedAnalysisCleanupFailure = (
       "close_binary",
       {
         cause: error,
+        remediationAction: cleanup.remediation.action,
         cleanup: { reason: cleanup.message, resources: error.cleanupResources },
         diagnostics: {
           cleanup_error: cleanup,

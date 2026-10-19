@@ -12,7 +12,14 @@ import {
 } from "./javascriptSemanticGraph.js";
 import { digestSchema } from "../digests.js";
 import { prefixedDigestSchema } from "../digests.js";
+import { integrityContradictionSchema } from "../artifactGraph.js";
+import { artifactIntegrityPolicySchema } from "../artifactIntegrityPolicy.js";
 import { localPathStringSchema } from "../localPath.js";
+import { javaScriptAnalysisResourceControlsSchema } from "./javascriptAnalysisResourceControls.js";
+import {
+  javaScriptSourcePathsSchema,
+  javaScriptSourceSelectionSchema,
+} from "./javascriptSourceSelection.js";
 
 const countSchema = z.number().int().min(0);
 
@@ -20,6 +27,9 @@ const countSchema = z.number().int().min(0);
 export const analyzeJavaScriptApplicationInputSchema = z.strictObject({
   input_path: localPathStringSchema,
   format: z.enum(["auto", "asar", "directory"]).default("auto"),
+  integrity_policy: artifactIntegrityPolicySchema,
+  source_paths: javaScriptSourcePathsSchema.optional(),
+  ...javaScriptAnalysisResourceControlsSchema.shape,
 });
 
 /** Compact counts for the high-level Electron architecture/security surface. */
@@ -53,11 +63,14 @@ const reconstructionStatisticsSchema = z.strictObject({
   text_bytes_read: countSchema,
   invalid_utf8_files: countSchema,
   parsed_javascript_files: countSchema,
+  // Old saved evidence predates this field: absence must stay unknown, not
+  // become a measured zero. The producer always writes it (required by the
+  // application-layer result type); readers treat a missing value as unknown.
+  skipped_javascript_files: countSchema.exactOptional(),
   visited_ast_nodes: countSchema,
   findings: countSchema,
   modules: countSchema,
   parse_failures: countSchema,
-  truncated_scopes: countSchema,
 });
 
 const applicationAnalysisResultShape = z.strictObject({
@@ -66,6 +79,8 @@ const applicationAnalysisResultShape = z.strictObject({
   root_artifact_sha256: digestSchema,
   inventory_manifest_id: prefixedDigestSchema("agm"),
   inventory_graph_sha256: digestSchema,
+  integrity_contradictions: z.array(integrityContradictionSchema),
+  source_selection: javaScriptSourceSelectionSchema.exactOptional(),
   graph: javascriptApplicationGraphSchema,
   summary: electronBoundarySummarySchema,
   statistics: reconstructionStatisticsSchema,

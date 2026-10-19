@@ -1,3 +1,4 @@
+import { ArtifactReaderFailure } from "../artifacts/ArtifactReader.js";
 import { randomUUID } from "node:crypto";
 import { access, realpath, stat } from "node:fs/promises";
 import { constants } from "node:fs";
@@ -19,9 +20,8 @@ import {
 import { cleanupOwnedProcessGroup } from "../process/ProcessOwnership.js";
 import { FIRMWARE_LIMITS } from "./FirmwareRelease.js";
 import {
-  hashFirmwareFile,
+  FirmwareFileAccess,
   inventoryFirmwareOutput,
-  readFirmwareReport,
 } from "./FirmwareFiles.js";
 
 /** Injectable owned launcher for production protocol and lifecycle tests. */
@@ -44,6 +44,8 @@ export const resolveFirmwareCommand = async (
   environment: Readonly<Record<string, string | undefined>>,
   engine: "binwalk" | "unblob",
   operation: string,
+  files: FirmwareFileAccess,
+  signal?: AbortSignal,
 ) => {
   const variable =
     engine === "binwalk" ? "REA_BINWALK_COMMAND" : "REA_UNBLOB_COMMAND";
@@ -70,8 +72,9 @@ export const resolveFirmwareCommand = async (
     await access(command, constants.R_OK | constants.X_OK);
     if (!(await stat(command)).isFile())
       throw new TypeError("Configured path is not a regular file");
-    sha256 = await hashFirmwareFile(command);
+    sha256 = await files.hash(command, signal);
   } catch (cause: unknown) {
+    if (cause instanceof ArtifactReaderFailure) throw cause;
     throw firmwareToolUnavailable(
       engine,
       operation,
@@ -113,9 +116,11 @@ export const runFirmwareCommand = async (context: {
   launcher?: FirmwareLauncher;
   outputBudget?: { root: string; bytes: number; entries: number };
   acceptReportedExtractionFailure?: boolean;
+  retainCleanup(supervisor: ProviderProcessSupervisor): void;
 }) => {
   const { engine, operation, signal } = context;
-  signal.throwIfAborted();
+  if (signal.aborted)
+    throw new AnalysisCancelledError(operation, { cause: signal.reason });
   const runId = `rea-firmware-${randomUUID()}`;
   const spawned = await (context.launcher ?? spawnOwnedProviderProcess)({
     command: context.limiter,
@@ -141,18 +146,46 @@ export const runFirmwareCommand = async (context: {
       NO_COLOR: "1",
     },
   });
-  const supervisor = new ProviderProcessSupervisor({
-    ...spawned,
-    ownsProcessLifetime: true,
-    cleanup:
-      spawned.cleanup ?? (() => cleanupOwnedProcessGroup(spawned.ownership)),
-  });
+  let diagnosticTruncated = false;
+  const supervisor = new ProviderProcessSupervisor(
+    {
+      ...spawned,
+      ownsProcessLifetime: true,
+      cleanup:
+        spawned.cleanup ?? (() => cleanupOwnedProcessGroup(spawned.ownership)),
+    },
+    {
+      maxDiagnosticBytes: FIRMWARE_LIMITS.diagnosticBytes,
+      onDiagnostic: (event) => {
+        if (event.type === "output" && event.truncated === true)
+          diagnosticTruncated = true;
+      },
+    },
+  );
+  const checkDiagnostics = () => {
+    if (diagnosticTruncated) {
+      const snapshot = supervisor.snapshot();
+      throw new AnalysisOutputError(
+        operation,
+        `Tool diagnostics exceeded the ${FIRMWARE_LIMITS.diagnosticBytes}-byte capture budget`,
+        {
+          capturedOutput: {
+            stdout: snapshot.stdout.text,
+            stderr: snapshot.stderr.text,
+            truncated: true,
+          },
+        },
+      );
+    }
+  };
   let failure: unknown;
   try {
-    const deadline = Date.now() + FIRMWARE_LIMITS.timeoutMs;
-    while (!(await supervisor.waitForExit(100))) {
-      if (signal.aborted) throw new AnalysisCancelledError(operation);
-      if (Date.now() >= deadline)
+    const deadline = performance.now() + FIRMWARE_LIMITS.timeoutMs;
+    while (!(await supervisor.waitForOutputClose(100))) {
+      checkDiagnostics();
+      if (signal.aborted)
+        throw new AnalysisCancelledError(operation, { cause: signal.reason });
+      if (performance.now() >= deadline)
         throw new AnalysisTimeoutError(operation, FIRMWARE_LIMITS.timeoutMs);
       if (context.outputBudget !== undefined)
         await inventoryFirmwareOutput(
@@ -163,14 +196,16 @@ export const runFirmwareCommand = async (context: {
           signal,
         );
     }
-    if (signal.aborted) throw new AnalysisCancelledError(operation);
+    checkDiagnostics();
+    if (signal.aborted)
+      throw new AnalysisCancelledError(operation, { cause: signal.reason });
   } catch (cause: unknown) {
     failure = cause;
   }
   const stopped = await supervisor.stop();
   const snapshot = supervisor.snapshot();
-  supervisor.dispose();
-  if (stopped.status === "incomplete")
+  if (stopped.status === "incomplete") {
+    context.retainCleanup(supervisor);
     throw new ProviderCleanupError(engine, [runId, context.cwd], {
       reason: stopped.reason,
       leader_pid: spawned.ownership.leaderPid,
@@ -183,6 +218,7 @@ export const runFirmwareCommand = async (context: {
       stderr_bytes: snapshot.stderr.bytes,
       previous_error: failure instanceof Error ? failure.message : null,
     });
+  }
   if (failure !== undefined) throw failure;
   if (
     snapshot.exitCode !== 0 &&
@@ -220,10 +256,17 @@ export const readFirmwareCommandReport = async (context: {
   engine: string;
   operation: string;
   execution: Awaited<ReturnType<typeof runFirmwareCommand>>;
+  files: FirmwareFileAccess;
+  signal?: AbortSignal;
 }): Promise<unknown> => {
   try {
-    return await readFirmwareReport(context.path, context.operation);
+    return await context.files.report(
+      context.path,
+      context.operation,
+      context.signal,
+    );
   } catch (cause: unknown) {
+    if (cause instanceof ArtifactReaderFailure) throw cause;
     if (context.execution.exit_code === 1)
       throw new ProviderAdapterError(context.engine, context.operation, {
         cause,

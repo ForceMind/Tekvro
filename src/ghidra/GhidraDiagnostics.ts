@@ -1,7 +1,11 @@
 import type { JsonValue } from "../domain/jsonValue.js";
+import { redactCapturedTransportCredential } from "../process/ProviderDiagnosticRedaction.js";
 import type { ProviderProcessSnapshot } from "../process/ProviderProcess.js";
 import type { GhidraLaunch } from "./GhidraLauncher.js";
 import type { GhidraTransportKind } from "./GhidraTransport.js";
+
+/** Aggregate in-memory retention budget for this provider's launcher output. */
+export const GHIDRA_PROCESS_DIAGNOSTIC_BYTES = 8 * 1024 * 1024;
 
 /** Inputs needed to project bounded diagnostics for one Ghidra runtime. */
 export interface GhidraDiagnosticsOptions {
@@ -19,6 +23,7 @@ export interface GhidraDiagnosticsOptions {
   readonly snapshot?: ProviderProcessSnapshot;
   readonly token?: string;
   readonly previous: Readonly<Record<string, JsonValue>>;
+  readonly failure_output?: JsonValue;
 }
 
 /** Preserve actionable runtime coordinates after cleanup and redact bearer data. */
@@ -29,12 +34,11 @@ export const createGhidraDiagnostics = (
     options.runtimeRoot === undefined &&
     options.launch === undefined &&
     Object.keys(options.previous).length > 0
-  )
-    return options.previous;
-  const redacted = (value: string): string =>
-    options.token === undefined
-      ? value
-      : value.replaceAll(options.token, "[REDACTED]");
+  ) {
+    const history: Record<string, JsonValue> = { ...options.previous };
+    delete history.failure_output;
+    return history;
+  }
   return {
     target_path: options.targetPath,
     target_sha256: options.targetSha256,
@@ -61,22 +65,46 @@ export const createGhidraDiagnostics = (
           ghidra_log_path: options.launch.ghidraLogPath,
           script_log_path: options.launch.scriptLogPath,
           process_id: options.launch.process.pid ?? null,
+          ...(options.launch.launchSupport === undefined
+            ? {}
+            : {
+                launch_support: options.launch.launchSupport.map((output) => ({
+                  ...output,
+                })),
+              }),
         }),
+    ...(options.launch?.configuredMaxHeap === undefined
+      ? {}
+      : { configured_jvm_max_heap: options.launch.configuredMaxHeap }),
     ...(options.snapshot === undefined
       ? {}
       : {
           exit_code: options.snapshot.exitCode ?? null,
           exit_signal: options.snapshot.signal ?? null,
-          stdout: boundedStream(options.snapshot.stdout, redacted),
-          stderr: boundedStream(options.snapshot.stderr, redacted),
+          diagnostic_truncated: options.snapshot.diagnosticTruncated === true,
+          output_incomplete: options.snapshot.outputIncomplete === true,
+          stdout: ghidraDiagnosticStream(
+            options.snapshot.stdout,
+            options.token,
+          ),
+          stderr: ghidraDiagnosticStream(
+            options.snapshot.stderr,
+            options.token,
+          ),
         }),
+    ...(options.failure_output === undefined
+      ? {}
+      : { failure_output: options.failure_output }),
   };
 };
 
-const boundedStream = (
+export const ghidraDiagnosticStream = (
   stream: ProviderProcessSnapshot["stdout"],
-  redact: (value: string) => string,
+  token: string | undefined,
 ): JsonValue => ({
-  text: redact(stream.text),
-  bytes: stream.bytes,
+  text: redactCapturedTransportCredential(stream, token, "[REDACTED]"),
+  // Preserve the historical total-byte counter; text is now bounded separately.
+  bytes: stream.observedBytes,
+  retained_bytes: stream.bytes,
+  ...(stream.invalidUtf8 === true ? { invalid_utf8: true } : {}),
 });

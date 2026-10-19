@@ -8,12 +8,14 @@ import type {
   DoctorCheck,
   DoctorProviderInspection,
   DoctorScope,
+  DoctorSkillState,
 } from "./Doctor.js";
 
 /** Normalized readiness boundary included in every doctor response. */
 export interface DoctorScopeReport {
   readonly mode: "audit-wide" | "explicit";
   readonly clients: readonly string[];
+  readonly skill_clients?: readonly string[];
   readonly providers: readonly string[];
   readonly skill: boolean;
   readonly target: string | null;
@@ -28,7 +30,7 @@ interface DoctorProviderState {
 interface DoctorScopeInput {
   readonly checks: readonly DoctorCheck[];
   readonly registrations: readonly ClientRegistrationStatus[];
-  readonly skillState: "aligned" | "stale" | "missing";
+  readonly skillState: DoctorSkillState;
   readonly providers: DoctorProviderState;
   readonly scope: DoctorScopeReport;
 }
@@ -40,6 +42,9 @@ export const normalizeDoctorScope = (
 ): DoctorScopeReport => ({
   mode: requested === undefined ? "audit-wide" : "explicit",
   clients: uniqueSorted(requested?.clients ?? []),
+  ...(requested?.skillClients === undefined
+    ? {}
+    : { skill_clients: uniqueSorted(requested.skillClients) }),
   providers: uniqueSorted(requested?.providers ?? []),
   skill: requested?.skill === true,
   target: target ?? null,
@@ -169,7 +174,7 @@ const registrationCheck = (
 ): DoctorCheck => ({
   name: `registration:${status.client}`,
   ok: false,
-  classification: "config_drift",
+  classification: status.state === "unknown" ? "unknown" : "config_drift",
   detail: status.config_path,
   remediation: status.remediation,
 });
@@ -184,7 +189,14 @@ const selectedSkillCheck = (
     classification: state === "aligned" ? "healthy" : "config_drift",
     ...(state === "aligned"
       ? { detail: "Installed REA skill identity is aligned." }
-      : { remediation: "Run rea setup to update the installed REA skill." }),
+      : {
+          remediation:
+            state === "unmanaged"
+              ? "Use regular skill directories, or run rea setup with --skill=false to configure the client without installing the skill."
+              : state === "unknown"
+                ? "Verify access to the reported skill files before retrying."
+                : "Run rea setup to update the installed REA skill.",
+        }),
   };
 
 const doctorProviderCheckName = (providerId: string, name: string): boolean =>

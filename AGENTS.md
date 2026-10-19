@@ -1,5 +1,9 @@
 # Repository Guidelines
 
+## Tekvro product constraints
+
+This repository is Tekvro (`tekvro`, MCP `io.github.forcemind/tekvro`). Keep `TEKVRO_LANG`, Chinese human CLI help, legacy command/configuration compatibility, MIT notices, `private: true`, source-update refusal, and repository guards on every publication entrypoint. New registrations must launch this local checkout; do not install public `rea-agents`. Product package version and inherited engine provenance are separate; see `engine-metadata.json` and `docs/upstream/rea-6.7.0-integration.md` for actual validation. Inherited provider descriptions below are upstream capability boundaries; only recorded Tekvro executions establish platform support. Do not add scheduled jobs or publish artifacts as part of engine integration.
+
 ## Product Direction
 
 REA exposes reverse-engineering tools through a CLI and MCP server. Hopper, the bring-your-own Ghidra adapter, and the bring-your-own IDA MCP adapter are operation-capable deep binary-analysis providers. Ghidra is supported on Linux x64/arm64 and macOS x64/arm64 with matching native decompiler tools, and has an experimental Windows x64 P0 boundary for approved native x86 and x86-64 PE applications; on Linux and macOS it supplies inventory, function analysis, and atomic function annotation edits in an ephemeral database, without modifying executable bytes or controlling a GUI. Windows P0 has no mutation authority. IDA adapts upstream legacy attached GUI and modern headless database-supervisor profiles for live read-only analysis; initial real verification covers Windows, and an attached GUI database is never saved or closed. Keep provider-specific code out of the domain and application layers.

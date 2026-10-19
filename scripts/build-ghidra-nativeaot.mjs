@@ -78,7 +78,7 @@ const classes = await mkdtemp(join(output, "classes-"));
 try {
   const sources = [
     ...(await files(join(source, "src/main/java"), ".java")),
-    ...(await files(join(root, "bridge/ghidra/extensions/nativeaot"), ".java")),
+    ...(await files(join(root, "bridge/nativeaot"), ".java")),
   ];
   const jars = await files(join(install, "Ghidra"), ".jar");
   const args = [
@@ -157,7 +157,7 @@ function propertyValue(content, name) {
   return null;
 }
 
-/** Same 12.1 line as GhidraInstallationPolicy, including a distro suffix. */
+/** Release line supported by the separately pinned NativeAOT integration. */
 function ghidraReleaseLineAccepted(raw) {
   const match = /^(\d+)\.(\d+)(?:\.(\d+))?([-+].*)?$/u.exec(raw ?? "");
   return match !== null && Number(match[1]) === 12 && Number(match[2]) === 1;

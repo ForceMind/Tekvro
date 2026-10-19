@@ -1,19 +1,19 @@
-import type { WebPageInspection } from "../domain/browserObservation.js";
+import type { WebPageInspection } from "../domain/browserObservationSchemas.js";
 import {
-  reconcileCapturedWebScript,
+  createCapturedWebScriptReconciler,
   stableWebScriptKey,
 } from "../domain/webInventory.js";
 import type { CapturedResource } from "./CdpCaptureDocuments.js";
 import type { CdpCaptureEvents } from "./CdpCaptureEvents.js";
 import type { CapturedScript } from "./CdpCaptureEventTypes.js";
 import {
-  requiredRecord,
+  requiredScriptSource,
   sourceExcluded,
   sourceResult,
-  cdpStringValue,
 } from "./CdpCaptureValues.js";
 import type { CaptureContext } from "./CdpPageCapture.js";
 import type { WebSourceMapRequest } from "./WebSourceMapFetcher.js";
+import { compareUnicodeCodePoints } from "../domain/unicodeCodePointOrder.js";
 
 export interface CapturedScripts {
   readonly inventory: WebPageInspection["scripts"];
@@ -32,8 +32,9 @@ interface ScriptDraftState {
   readonly context: CaptureContext;
   readonly events: CdpCaptureEvents;
   readonly frameIds: ReadonlySet<string>;
-  readonly rawResources: readonly CapturedResource[];
-  readonly resources: WebPageInspection["resources"];
+  readonly reconcileResource: ReturnType<
+    typeof createCapturedWebScriptReconciler
+  >;
 }
 
 type ScriptDraftItem = Omit<
@@ -45,19 +46,23 @@ export const captureScripts = async (
   options: CaptureScriptsOptions,
 ): Promise<CapturedScripts> => {
   const { context, events, rawResources, resources, frameIds } = options;
-  const state: ScriptDraftState = {
-    context,
-    events,
-    frameIds,
-    rawResources,
-    resources,
-  };
+  let state: ScriptDraftState | undefined;
   const drafts: {
     readonly item: ScriptDraftItem;
     readonly sourceMapRawUrl: string | null;
   }[] = [];
-  for (const script of events.scripts.values())
+  for (const script of events.scripts.values()) {
+    state ??= {
+      context,
+      events,
+      frameIds,
+      reconcileResource: createCapturedWebScriptReconciler(
+        rawResources,
+        resources,
+      ),
+    };
     drafts.push(await buildScriptDraft(script, state));
+  }
   if (!context.input.include_script_sources)
     events.completeness.exclude(
       "script_sources",
@@ -91,11 +96,10 @@ const buildScriptDraft = async (
     item: {
       ...inventoryScript,
       origin: script.origin,
-      resource_reconciliation: reconcileCapturedWebScript(
-        { ...inventoryScript, rawUrl: script.rawUrl },
-        state.rawResources,
-        state.resources,
-      ),
+      resource_reconciliation: state.reconcileResource({
+        ...inventoryScript,
+        rawUrl: script.rawUrl,
+      }),
       source,
     },
     sourceMapRawUrl: script.sourceMapRawUrl,
@@ -107,15 +111,15 @@ const captureScriptSource = async (
   state: ScriptDraftState,
 ): Promise<WebPageInspection["scripts"]["items"][number]["source"]> => {
   const { context } = state;
-  const result = requiredRecord(
+  const content = requiredScriptSource(
     await context.connection.send(
       "Debugger.getScriptSource",
       { scriptId: script.scriptId },
       context.sessionId,
       context.signal,
     ),
+    context.operation,
   );
-  const content = cdpStringValue(result.scriptSource) ?? "";
   return sourceResult(content);
 };
 
@@ -132,11 +136,15 @@ const keyAndBuildInventory = (
   }));
   keyed.sort(
     (left, right) =>
-      left.base.localeCompare(right.base) ||
-      sourceDigest(left.item.source).localeCompare(
+      compareUnicodeCodePoints(left.base, right.base) ||
+      compareUnicodeCodePoints(
+        sourceDigest(left.item.source),
         sourceDigest(right.item.source),
       ) ||
-      (left.item.frame_id ?? "").localeCompare(right.item.frame_id ?? ""),
+      compareUnicodeCodePoints(
+        left.item.frame_id ?? "",
+        right.item.frame_id ?? "",
+      ),
   );
   const totals = new Map<string, number>();
   for (const { base } of keyed) totals.set(base, (totals.get(base) ?? 0) + 1);

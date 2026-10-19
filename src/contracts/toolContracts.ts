@@ -1,4 +1,10 @@
+import { CAPTURE_TOOL_CONTRACTS } from "./captures/captureToolContracts.js";
+import { SIGNAL_TOOL_CONTRACTS } from "./signals/signalToolContracts.js";
+import { WASM_TOOL_CONTRACTS } from "./wasm/wasmToolContracts.js";
 import { EVM_TOOL_CONTRACTS } from "./evm/evmToolContracts.js";
+import { GO_TOOL_CONTRACTS } from "./go/goToolContracts.js";
+import { RUST_TOOL_CONTRACTS } from "./rust/rustToolContracts.js";
+import { SQLITE_TOOL_CONTRACTS } from "./sqlite/sqliteToolContracts.js";
 import { ANALYSIS_VIEW_TOOL_CONTRACTS } from "./analysisViewToolContracts.js";
 import { BINARY_DIAGNOSTICS_TOOL_CONTRACTS } from "./native/binaryDiagnosticsToolContracts.js";
 import { NATIVE_TOOL_CONTRACTS } from "./native/nativeToolContracts.js";
@@ -6,6 +12,11 @@ import { ARTIFACT_TOOL_CONTRACTS } from "./artifactToolContracts.js";
 import { MANAGED_TOOL_CONTRACTS } from "./managed/managedToolContracts.js";
 import { FIRMWARE_TOOL_CONTRACTS } from "./firmware/firmwareToolContracts.js";
 import { ANDROID_TOOL_CONTRACTS } from "./android/androidToolContracts.js";
+import { APKTOOL_TOOL_CONTRACTS } from "./apktool/apktoolToolContracts.js";
+import { PCAP_TOOL_CONTRACTS } from "./pcap/pcapToolContracts.js";
+import { FLUTTER_TOOL_CONTRACTS } from "./flutter/flutterToolContracts.js";
+import { JEB_TOOL_CONTRACTS } from "./jeb/jebToolContracts.js";
+import { ADB_TOOL_CONTRACTS } from "./adb/adbToolContracts.js";
 import { MANAGED_WORKFLOW_TOOL_CONTRACTS } from "./managed/managedWorkflowToolContracts.js";
 import { BROWSER_PROVIDER_TOOL_CONTRACTS } from "./browserProviderToolContracts.js";
 import { ELECTRON_TOOL_CONTRACTS } from "./javascript/electronToolContracts.js";
@@ -18,8 +29,11 @@ import { JAVASCRIPT_RECOVERY_TOOL_CONTRACTS } from "./javascript/javascriptRecov
 import { OFFICIAL_TOOL_CONTRACTS } from "./officialToolContracts.js";
 import { ENHANCED_TOOL_CONTRACTS } from "./enhancedToolContracts.js";
 import { SESSION_TOOL_CONTRACTS } from "./sessionToolContracts.js";
-
-export type { ToolContract } from "./toolContractTypes.js";
+import { CUTTER_TOOL_CONTRACTS } from "./cutterToolContracts.js";
+import { REVERSE_ENGINEERING_TOOL_CONTRACTS } from "./reverseEngineeringToolContracts.js";
+import { GDB_TOOL_CONTRACTS } from "./gdbToolContracts.js";
+import { RIZIN_DEBUG_TOOL_CONTRACTS } from "./rizinDebugToolContracts.js";
+import { FRIDA_TOOL_CONTRACTS } from "./fridaToolContracts.js";
 
 /** Complete ordered public inventory used by registration and verification. */
 export const TOOL_CONTRACTS = [
@@ -30,8 +44,19 @@ export const TOOL_CONTRACTS = [
   ...ANALYSIS_VIEW_TOOL_CONTRACTS,
   ...ARTIFACT_TOOL_CONTRACTS,
   ...EVM_TOOL_CONTRACTS,
+  ...GO_TOOL_CONTRACTS,
+  ...RUST_TOOL_CONTRACTS,
+  ...WASM_TOOL_CONTRACTS,
+  ...SQLITE_TOOL_CONTRACTS,
+  ...CAPTURE_TOOL_CONTRACTS,
+  ...SIGNAL_TOOL_CONTRACTS,
   ...MANAGED_TOOL_CONTRACTS,
   ...ANDROID_TOOL_CONTRACTS,
+  ...APKTOOL_TOOL_CONTRACTS,
+  ...PCAP_TOOL_CONTRACTS,
+  ...FLUTTER_TOOL_CONTRACTS,
+  ...JEB_TOOL_CONTRACTS,
+  ...ADB_TOOL_CONTRACTS,
   ...FIRMWARE_TOOL_CONTRACTS,
   ...MANAGED_WORKFLOW_TOOL_CONTRACTS,
   ...BROWSER_PROVIDER_TOOL_CONTRACTS,
@@ -43,6 +68,11 @@ export const TOOL_CONTRACTS = [
   ...WEB_NETWORK_CAPTURE_TOOL_CONTRACTS,
   ...JAVASCRIPT_RECOVERY_TOOL_CONTRACTS,
   ...SESSION_TOOL_CONTRACTS,
+  ...CUTTER_TOOL_CONTRACTS,
+  ...REVERSE_ENGINEERING_TOOL_CONTRACTS,
+  ...GDB_TOOL_CONTRACTS,
+  ...RIZIN_DEBUG_TOOL_CONTRACTS,
+  ...FRIDA_TOOL_CONTRACTS,
 ] as const;
 
 /** Resolve a public contract by name while retaining its exact schema types. */

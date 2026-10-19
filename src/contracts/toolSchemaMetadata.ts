@@ -1,7 +1,15 @@
 import { z } from "zod";
 
 import type { ToolContract } from "./toolContractTypes.js";
+import { advertisedInputExamples } from "./advertisedInputExamples.js";
 import { presentInputJsonSchema } from "./inputSchemaPresentation.js";
+import {
+  schemaArrays,
+  schemaChildren,
+  schemaMaps,
+  schemaLiteralValues,
+} from "./jsonSchemaKeywords.js";
+import { digestCanonicalValue } from "../domain/canonicalDigest.js";
 
 const PROPERTY_DESCRIPTIONS: Readonly<Record<string, string>> = {
   addresses: "Ordered provider-normalized procedure addresses to analyze.",
@@ -58,39 +66,201 @@ export const toolInputSchemaWithMetadata = <Contract extends ToolContract>(
     contract.inputSchema,
     "input",
     (project) => (options) => {
-      const shared = project({
+      const inline = project({
         ...options,
-        libraryOptions: { reused: "ref", ...options.libraryOptions },
+        libraryOptions: { ...options.libraryOptions, reused: "inline" },
       });
-      // Root-union flattening compares branch properties before widening them.
-      // Keep its inline representation: distinct references can name equal
-      // schemas and otherwise introduce redundant, deeper anyOf properties.
-      const compatible = Array.isArray(shared.anyOf)
-        ? project({
-            ...options,
-            libraryOptions: { ...options.libraryOptions, reused: "inline" },
-          })
-        : shared;
+      const examples = advertisedInputExamples(contract);
       return {
-        ...presentInputJsonSchema(compatible, fallbackPropertyDescription),
-        examples: contract.examples.map(({ input }) => input),
+        // Keep advertised parameters self-contained for clients that do not
+        // resolve local references. The registered canonical schema remains
+        // responsible for runtime validation.
+        ...presentInputJsonSchema(inline, fallbackPropertyDescription),
+        ...(examples.length === 0 ? {} : { examples }),
       };
     },
   );
 
-/** Share repeated output definitions without changing canonical validation. */
+/** Return the same complete input JSON Schema projection registered on MCP. */
+export const advertisedInputJsonSchema = <Contract extends ToolContract>(
+  contract: Contract,
+): Record<string, unknown> =>
+  toolInputSchemaWithMetadata(contract)["~standard"].jsonSchema.input({
+    target: "draft-2020-12",
+  }) as Record<string, unknown>;
+
+/** Share output definitions and content-bound validator identities on the wire. */
 export const toolOutputSchemaWithMetadata = <Contract extends ToolContract>(
   contract: Contract,
 ): Contract["outputSchema"] =>
   withAdvertisedJsonSchema(
     contract.outputSchema,
     "output",
-    (project) => (options) =>
-      project({
+    (project) => (options) => {
+      const shared = project({
         ...options,
         libraryOptions: { reused: "ref", ...options.libraryOptions },
-      }),
+      });
+      // An explicit ID owns the reference base. Relative external references
+      // also depend on that base, so leave those projections unchanged.
+      if ("$id" in shared || hasRelativeSchemaReference(shared)) return shared;
+      return {
+        ...shared,
+        $id: `urn:rea:tool-output:sha256:${digestCanonicalValue(
+          { target: options.target, schema: shared },
+          "Tool output schema",
+        )}`,
+      };
+    },
   );
+
+/**
+ * Apply a wire-presentation transform to one schema's advertised input
+ * projection. The wrapper preserves the schema's own parser and standard
+ * metadata, so both Zod registrations and plain standard schemas keep their
+ * canonical validation while only the advertised JSON changes.
+ */
+export const transformAdvertisedInputJsonSchema = <Schema>(
+  schema: Schema,
+  transform: (projected: Record<string, unknown>) => Record<string, unknown>,
+): Schema => {
+  const standard = Reflect.get(schema as object, "~standard");
+  if (!isSchemaRecord(standard)) return schema;
+  const jsonSchema = Reflect.get(standard, "jsonSchema");
+  if (!isSchemaRecord(jsonSchema)) return schema;
+  const project = Reflect.get(jsonSchema, "input");
+  if (typeof project !== "function") return schema;
+  const byTarget = new Map<string, Record<string, unknown>>();
+  const transformedInput = (options: unknown): unknown => {
+    const target = Reflect.get(options as object, "target");
+    const cacheable =
+      typeof target === "string" &&
+      Reflect.get(options as object, "libraryOptions") === undefined;
+    if (cacheable) {
+      const cached = byTarget.get(target);
+      if (cached !== undefined) return cached;
+    }
+    const projected = (project as (options: unknown) => unknown)(options);
+    const transformed = isSchemaRecord(projected)
+      ? transform(projected)
+      : projected;
+    if (cacheable && isSchemaRecord(transformed))
+      byTarget.set(target, transformed);
+    return transformed;
+  };
+  return {
+    ...(schema as object),
+    "~standard": {
+      ...standard,
+      jsonSchema: { ...jsonSchema, input: transformedInput },
+    },
+  } as Schema;
+};
+
+type SchemaPosition = "schema" | "map" | "unknown";
+
+const hasRelativeSchemaReference = (
+  schema: Record<string, unknown>,
+): boolean => {
+  // Local pointers can make even annotation values executable schemas. Keep
+  // their resource root and traversal role separate from ordinary instance data.
+  const pending: { value: unknown; root: object; position: SchemaPosition }[] =
+    [{ value: schema, root: schema, position: "schema" }];
+  const visited = new WeakMap<
+    object,
+    Record<SchemaPosition, WeakSet<object>>
+  >();
+  while (pending.length > 0) {
+    const entry = pending.pop()!;
+    const current = entry.value;
+    if (current === null || typeof current !== "object") continue;
+    const { position } = entry;
+    const root =
+      position !== "map" &&
+      isSchemaRecord(current) &&
+      typeof current.$id === "string" &&
+      URL.canParse(current.$id)
+        ? current
+        : entry.root;
+    let positions = visited.get(root);
+    if (positions === undefined) {
+      positions = {
+        schema: new WeakSet(),
+        map: new WeakSet(),
+        unknown: new WeakSet(),
+      };
+      visited.set(root, positions);
+    }
+    if (positions[position].has(current)) continue;
+    positions[position].add(current);
+    if (Array.isArray(current)) {
+      for (const value of current) pending.push({ value, root, position });
+      continue;
+    }
+    for (const [key, value] of Object.entries(current)) {
+      if (
+        position !== "map" &&
+        ["$id", "$ref", "$dynamicRef", "$recursiveRef"].includes(key) &&
+        typeof value === "string"
+      ) {
+        if (!value.startsWith("#") && !URL.canParse(value)) return true;
+        if (key !== "$id" && value.startsWith("#")) {
+          const target = localSchemaReference(root, value);
+          // Unknown anchors are already examined at their schema positions.
+          // Unresolvable pointers retain the existing reference base.
+          if (target === undefined) return true;
+          if (target.kind === "target")
+            pending.push({ value: target.value, root, position: "schema" });
+        }
+      }
+      if (position === "schema" && schemaLiteralValues.has(key)) continue;
+      const childPosition =
+        position === "map"
+          ? "schema"
+          : position === "schema" && schemaMaps.has(key)
+            ? "map"
+            : position === "schema" &&
+                (schemaArrays.has(key) || schemaChildren.has(key))
+              ? "schema"
+              : "unknown";
+      if (value !== null && typeof value === "object")
+        pending.push({ value, root, position: childPosition });
+    }
+  }
+  return false;
+};
+
+/** Decode URI-fragment JSON Pointers without interpreting literal data as schemas. */
+const localSchemaReference = (
+  root: object,
+  reference: string,
+): { kind: "target"; value: unknown } | { kind: "anchor" } | undefined => {
+  let fragment: string;
+  try {
+    fragment = decodeURIComponent(reference.slice(1));
+  } catch {
+    return undefined;
+  }
+  if (fragment === "") return { kind: "target", value: root };
+  if (!fragment.startsWith("/")) return { kind: "anchor" };
+  let value: unknown = root;
+  for (const token of fragment.slice(1).split("/")) {
+    if (/~(?:[^01]|$)/u.test(token)) return undefined;
+    const key = token.replaceAll("~1", "/").replaceAll("~0", "~");
+    if (
+      value === null ||
+      typeof value !== "object" ||
+      !Object.hasOwn(value, key)
+    )
+      return undefined;
+    // A pointer can cross a resource boundary even inside literal data.
+    // Preserve the original projection rather than guess the reference scope.
+    if (value !== root && isSchemaRecord(value) && "$id" in value)
+      return undefined;
+    value = Reflect.get(value, key);
+  }
+  return { kind: "target", value };
+};
 
 const withAdvertisedJsonSchema = <Schema extends z.ZodType>(
   canonical: Schema,
@@ -137,7 +307,10 @@ const memoizeByTarget = (
   };
 };
 
-const fallbackPropertyDescription = (property: string): string => {
+const isSchemaRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const fallbackPropertyDescription = (property: string): string | undefined => {
   const explicit = Object.hasOwn(PROPERTY_DESCRIPTIONS, property)
     ? PROPERTY_DESCRIPTIONS[property]
     : undefined;
@@ -165,5 +338,6 @@ const fallbackPropertyDescription = (property: string): string => {
     return `Local filesystem ${words} selected for this operation.`;
   if (property.startsWith("is_") || property.startsWith("has_"))
     return `Whether ${words}.`;
-  return `Value for ${words}.`;
+  // A generic sentence would only restate the property name in every schema.
+  return undefined;
 };

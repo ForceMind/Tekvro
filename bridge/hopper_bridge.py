@@ -644,7 +644,7 @@ def _analyze_function(document, params):
             "end": _hex(_basic_block_end(procedure, block)),
             "successors": sorted(set(successors), key=lambda value: int(value, 16)),
         })
-    pseudo = _pseudocode(document, procedure) or ""
+    pseudo = _pseudocode(document, procedure)
     assembly_lines = _assembly(procedure).splitlines()
     callers = sorted((_procedure_identity(item) for item in procedure.getAllCallerProcedures()), key=lambda item: int(item["address"], 16))
     callees = sorted((_procedure_identity(item) for item in procedure.getAllCalleeProcedures()), key=lambda item: int(item["address"], 16))
@@ -706,7 +706,7 @@ def _analyze_function(document, params):
             "signature": procedure.signatureString(),
             "locals": _procedure_locals(procedure),
         },
-        "pseudocode": pseudo,
+        "pseudocode": pseudo or "",
         "assembly": assembly_lines,
         "comments": comments,
         "callers": callers, "callees": callees,
@@ -716,6 +716,14 @@ def _analyze_function(document, params):
         "referenced_strings": referenced_strings,
         "referenced_names": referenced_names,
         "basic_blocks": blocks,
+        "native_api": None,
+        "native_value_flow": None,
+        "facet_availability": {
+            "pseudocode": {"available": True} if pseudo is not None else _unavailable("Hopper did not supply pseudocode."),
+            **{facet: {"available": True} for facet in (
+                "assembly", "comments", "callers", "callees", "references", "strings_names", "cfg"
+            )},
+        },
         "limitations": [
             "Native CallReference classifications are observed where available; detailed reference flags remain unknown.",
             "Hopper's public Python API does not expose equivalent external or thunk classification in this dossier.",
@@ -728,7 +736,12 @@ def _analyze_function(document, params):
 def _dispatch(method, params):
     """Dispatch only the closed operation set implemented by REA's public tools."""
     if method == "health":
-        return {"name": "REA Hopper bridge", "version": "1.0.0", "run_id": REA_RUN_ID}
+        return {
+            "name": "REA Hopper bridge",
+            "version": "1.0.0",
+            "run_id": REA_RUN_ID,
+            "process_id": os.getpid(),
+        }
     if method in ("shutdown", "shutdown_document"):
         document = _session_document()
         if document is None:
@@ -1014,73 +1027,91 @@ def _dispatch(method, params):
 def _serve_connection(connection):
     """Serve one capability-authenticated NDJSON connection."""
     file = connection.makefile("rwb")
-    while True:
-        line = file.readline()
-        if not line:
-            break
-        request_id = None
-        authenticated = False
-        should_stop = False
-        try:
+    should_stop = False
+    try:
+        while True:
+            line = file.readline()
+            if not line:
+                break
+            request_id = None
+            authenticated = False
+            should_stop = False
             try:
-                request = json.loads(line.decode("utf-8"))
-            except (UnicodeDecodeError, json.JSONDecodeError) as error:
-                raise InvalidRequestError("Invalid bridge request JSON") from error
-            if not isinstance(request, dict) or set(request) != {"id", "token", "method", "params"}:
-                raise InvalidRequestError("Invalid bridge request shape")
-            request_id = request["id"]
-            if isinstance(request_id, bool) or not isinstance(request_id, int) or request_id < 0:
-                raise InvalidRequestError("Invalid bridge request id")
-            if (
-                not isinstance(request["method"], str) or not request["method"]
-                or not isinstance(request["params"], dict)
-            ):
-                raise InvalidRequestError("Invalid bridge method or parameters")
-            if (
-                not isinstance(request["token"], str) or not request["token"].isascii()
-                or not hmac.compare_digest(request["token"], REA_TOKEN)
-            ):
-                raise PermissionError("Invalid bridge capability")
-            authenticated = True
-            _write_message(file, {"id": request_id, "event": {
-                "type": "progress",
-                "phase": "hopper_bridge",
-                "completed": 0,
-                "total": 1,
-                "message": "Hopper bridge started request",
-            }})
-            result = _dispatch(request["method"], request["params"])
-            should_stop = request["method"] == "shutdown_document" or (
-                request["method"] == "shutdown" and not result.get("cleanup_required", False)
-            )
-            safe_result = _json_safe(result)
-            _write_message(file, {"id": request_id, "event": {
-                "type": "progress",
-                "phase": "hopper_bridge",
-                "completed": 1,
-                "total": 1,
-                "message": "Hopper bridge completed request",
-                "terminal": True,
-            }})
-            response = {"id": request_id, "result": safe_result}
-        except Exception as error:
-            diagnostic = _safe_diagnostic(error)
-            if authenticated:
+                try:
+                    request = json.loads(line.decode("utf-8"))
+                except (UnicodeDecodeError, json.JSONDecodeError) as error:
+                    raise InvalidRequestError("Invalid bridge request JSON") from error
+                if not isinstance(request, dict) or set(request) != {"id", "token", "method", "params"}:
+                    raise InvalidRequestError("Invalid bridge request shape")
+                request_id = request["id"]
+                if isinstance(request_id, bool) or not isinstance(request_id, int) or request_id < 0:
+                    raise InvalidRequestError("Invalid bridge request id")
+                if (
+                    not isinstance(request["method"], str) or not request["method"]
+                    or not isinstance(request["params"], dict)
+                ):
+                    raise InvalidRequestError("Invalid bridge method or parameters")
+                if (
+                    not isinstance(request["token"], str) or not request["token"].isascii()
+                    or not hmac.compare_digest(request["token"], REA_TOKEN)
+                ):
+                    raise PermissionError("Invalid bridge capability")
+                authenticated = True
+                # The connection grace period only bounds unauthenticated idle
+                # clients. Native analysis and a connected owner's idle time
+                # remain unbounded after capability validation.
+                connection.settimeout(None)
                 _write_message(file, {"id": request_id, "event": {
-                    "type": "diagnostic",
-                    "error": diagnostic,
+                    "type": "progress",
+                    "phase": "hopper_bridge",
+                    "completed": 0,
+                    "total": 1,
+                    "message": "Hopper bridge started request",
                 }})
-            response_id = request_id if (
-                isinstance(request_id, int)
-                and not isinstance(request_id, bool)
-                and request_id >= 0
-            ) else 0
-            response = {"id": response_id, "error": diagnostic}
-        _write_message(file, response)
-        if should_stop:
-            break
-    file.close()
-    connection.close()
+                result = _dispatch(request["method"], request["params"])
+                should_stop = request["method"] in ("shutdown", "shutdown_document") and (
+                    result.get("shutdown") is True and (
+                        (result.get("document_closed") is True and result.get("analysis_stopped") is True)
+                        or (result.get("document_closed") is False and result.get("document_retained") is True)
+                    )
+                )
+                safe_result = _json_safe(result)
+                _write_message(file, {"id": request_id, "event": {
+                    "type": "progress",
+                    "phase": "hopper_bridge",
+                    "completed": 1,
+                    "total": 1,
+                    "message": "Hopper bridge completed request",
+                    "terminal": True,
+                }})
+                response = {"id": request_id, "result": safe_result}
+            except Exception as error:
+                diagnostic = _safe_diagnostic(error)
+                if authenticated:
+                    _write_message(file, {"id": request_id, "event": {
+                        "type": "diagnostic",
+                        "error": diagnostic,
+                    }})
+                response_id = request_id if (
+                    isinstance(request_id, int)
+                    and not isinstance(request_id, bool)
+                    and request_id >= 0
+                ) else 0
+                response = {"id": response_id, "error": diagnostic}
+            _write_message(file, response)
+            if should_stop:
+                break
+    except (ConnectionError, OSError):
+        # A lost client cannot confirm document closure or revoke this run.
+        pass
+    finally:
+        try:
+            file.close()
+        except OSError:
+            # Closing a failed writer can repeat the same disconnected-pipe error.
+            pass
+        connection.close()
+    return should_stop
 
 
 def _write_message(file, message):
@@ -1121,9 +1152,22 @@ def _run():
     server.bind(REA_SOCKET)
     os.chmod(REA_SOCKET, 0o600)
     server.listen(1)
+    # A bridge can start after its caller's startup/cleanup deadline. Bound
+    # the first accept as well as reconnects so an orphan cannot pin Hopper's
+    # dedicated Python thread and prevent later documents from starting REA.
+    server.settimeout(REA_RECONNECT_TIMEOUT_SECONDS)
     try:
-        connection, _ = server.accept()
-        _serve_connection(connection)
+        while True:
+            try:
+                connection, _ = server.accept()
+            except socket.timeout:
+                break
+            connection.settimeout(REA_RECONNECT_TIMEOUT_SECONDS)
+            if _serve_connection(connection):
+                break
+            # Match REA's cleanup handshake budget without pinning Hopper's
+            # Python thread indefinitely after a client disappears.
+            server.settimeout(REA_RECONNECT_TIMEOUT_SECONDS)
     finally:
         server.close()
         if os.path.exists(REA_SOCKET):

@@ -1,35 +1,26 @@
+import { selectHumanText } from "./localization.js";
+import { withCommandCancellation } from "./commandCancellation.js";
 import { z } from "incur";
 
-import { selectHumanText, type CliLocaleEnvironment } from "./localization.js";
-
-import {
-  DOCTOR_PROVIDER_IDS,
-  runDoctor,
-  type DoctorScope,
-} from "../application/Doctor.js";
+import type { DoctorScope } from "../application/Doctor.js";
+import { DOCTOR_PROVIDER_IDS } from "../application/DoctorProviderIds.js";
 import {
   isSetupFailure,
   type SetupOptions,
 } from "../application/SetupTypes.js";
-import { runSetup } from "../application/Setup.js";
-import { systemSetupHost } from "../application/SetupHost.js";
-import { isUninstallFailure, runUninstall } from "../application/Uninstall.js";
-import {
-  isUpdateFailure,
-  runUpdate,
-  type UpdateResult,
-} from "../application/Update.js";
-import { systemUpdateHost } from "../application/UpdateRuntime.js";
+import { isUninstallFailure } from "../application/UninstallFailure.js";
+import { homeDirectoryFromEnvironment } from "../config/homeDirectory.js";
+import { isUpdateFailure } from "../application/UpdateFailure.js";
 import {
   confirmInteractiveSetup,
+  renderSetupDryRun,
   renderInteractiveSetupResult,
   renderSetupProgress,
 } from "./interactiveSetup.js";
 import { PRODUCT_IDENTITY } from "../identity.js";
 import { logCliCommand } from "../cliLogging.js";
-import { createSystemDoctorHost } from "../doctorRuntime.js";
 import { CLI_COMMANDS } from "../cliCommandNames.js";
-import type { Logger } from "../logger.js";
+import type { Logger } from "pino";
 import type { CliInstance } from "./types.js";
 import { SUPPORTED_CLIENT_DEFINITIONS } from "../application/SupportedClients.js";
 
@@ -40,31 +31,29 @@ const supportedClientSchema = z
     (candidate) => supportedClientIds.some((name) => name === candidate),
     "Unsupported agent integration",
   );
-
-type HumanText = (english: string, chinese: string) => string;
+const skillClientSchema = z.union([z.literal("shared"), supportedClientSchema]);
 
 /** Register setup, doctor, uninstall, and update CLI commands. */
 export const registerSetupCommands = (
   cli: CliInstance,
   logger: Logger,
-  environment: CliLocaleEnvironment = process.env,
+  environment: Readonly<NodeJS.ProcessEnv>,
 ): void => {
-  const text: HumanText = (english, chinese) =>
-    selectHumanText(english, chinese, environment);
-  registerSetupCommand(cli, logger, text);
-  registerDoctorCommand(cli, logger, text);
-  registerMaintenanceCommands(cli, logger, text);
+  registerSetupCommand(cli, logger, environment);
+  registerDoctorCommand(cli, logger, environment);
+  registerMaintenanceCommands(cli, logger, environment);
 };
 
 const registerSetupCommand = (
   cli: CliInstance,
   logger: Logger,
-  text: HumanText,
+  environment: Readonly<NodeJS.ProcessEnv>,
 ): void => {
   cli.command(CLI_COMMANDS.setup, {
-    description: text(
+    description: selectHumanText(
       "Configure agent integrations and optional analysis providers",
       "配置 AI 智能体接入及可选分析引擎",
+      environment,
     ),
     outputPolicy: "agent-only",
     options: z.object({
@@ -72,63 +61,80 @@ const registerSetupCommand = (
         .boolean()
         .default(false)
         .describe(
-          text(
+          selectHumanText(
             "Approve user-owned setup actions without prompting",
             "无需交互确认已授权的配置操作",
+            environment,
           ),
         ),
       installHopper: z
         .boolean()
         .default(false)
         .describe(
-          text(
+          selectHumanText(
             "Also approve Hopper installation with --yes",
             "与 --yes 一起批准安装 Hopper",
+            environment,
           ),
         ),
       client: z
         .array(supportedClientSchema)
         .default([])
         .describe(
-          text(
+          selectHumanText(
             "Agent integration to configure; repeat for multiple agents",
             "指定要配置的智能体，可重复传入",
+            environment,
+          ),
+        ),
+      skillClient: z
+        .array(skillClientSchema)
+        .default([])
+        .describe(
+          selectHumanText(
+            "Existing client skill destination to update; repeatable",
+            "要更新的现有客户端 Skill 位置，可重复传入",
+            environment,
           ),
         ),
       allDetected: z
         .boolean()
         .default(false)
         .describe(
-          text(
+          selectHumanText(
             "Configure every detected supported agent",
             "配置所有检测到且受支持的智能体",
+            environment,
           ),
         ),
       skill: z
         .boolean()
         .optional()
         .describe(
-          text(
+          selectHumanText(
             "Override the bundled skill included with agent integrations",
             "显式指定是否安装随智能体接入附带的 Skill",
+            environment,
           ),
         ),
       dryRun: z
         .boolean()
         .default(false)
         .describe(
-          text(
+          selectHumanText(
             "Print the resolved plan without applying it",
             "只显示操作计划，不修改配置",
+            environment,
           ),
         ),
       accessible: z
         .boolean()
         .default(false)
         .describe(
-          text(
+          selectHumanText(
             "Use sequential accessible setup prompts",
             "使用逐项确认的无障碍配置提示",
+            environment,
           ),
         ),
     }),
@@ -137,7 +143,7 @@ const registerSetupCommand = (
       logCliCommand(
         logger,
         CLI_COMMANDS.setup,
-        () => runSetupCommand({ options, formatExplicit }),
+        () => runSetupCommand({ options, formatExplicit }, environment),
         isSetupFailure,
       ),
   });
@@ -146,55 +152,70 @@ const registerSetupCommand = (
 const registerDoctorCommand = (
   cli: CliInstance,
   logger: Logger,
-  text: HumanText,
+  environment: Readonly<NodeJS.ProcessEnv>,
 ): void => {
   cli.command(CLI_COMMANDS.doctor, {
-    description: text(
+    description: selectHumanText(
       "Check whether Tekvro is ready",
       "检查 Tekvro 环境和分析能力是否就绪",
+      environment,
     ),
     options: z.object({
       target: z
         .string()
         .optional()
         .describe(
-          text("Optional app path to check", "可选：要检查的本地应用路径"),
+          selectHumanText(
+            "Optional app path to check",
+            "可选：要检查的本地应用路径",
+            environment,
+          ),
         ),
       client: z
         .array(supportedClientSchema)
         .default([])
         .describe(
-          text(
+          selectHumanText(
             "Agent registration whose readiness is required; repeatable",
             "指定必须就绪的智能体，可重复传入",
+            environment,
           ),
         ),
       provider: z
         .array(z.enum(DOCTOR_PROVIDER_IDS))
         .default([])
         .describe(
-          text(
+          selectHumanText(
             "Deep-analysis provider whose readiness is required",
             "指定必须就绪的深度分析引擎",
+            environment,
           ),
         ),
       skill: z
         .boolean()
         .optional()
         .describe(
-          text(
+          selectHumanText(
             "Require the installed REA skill identity to be aligned",
             "要求已安装的兼容 Skill 标识一致",
+            environment,
           ),
         ),
     }),
     run: ({ options }) =>
-      logCliCommand(logger, "doctor", () =>
-        runDoctor(
-          options.target,
-          createSystemDoctorHost(),
-          doctorScope(options),
-        ),
+      withCommandCancellation((signal) =>
+        logCliCommand(logger, "doctor", async () => {
+          const [{ runDoctorOwned }, { createSystemDoctorHost }] =
+            await Promise.all([
+              import("../application/Doctor.js"),
+              import("../doctorRuntime.js"),
+            ]);
+          return runDoctorOwned(
+            options.target,
+            createSystemDoctorHost(environment, signal),
+            doctorScope(options),
+          );
+        }),
       ),
   });
 };
@@ -202,94 +223,124 @@ const registerDoctorCommand = (
 const registerMaintenanceCommands = (
   cli: CliInstance,
   logger: Logger,
-  text: HumanText,
+  environment: Readonly<NodeJS.ProcessEnv>,
 ): void => {
   cli.command(CLI_COMMANDS.uninstall, {
-    description: text(
+    description: selectHumanText(
       "Remove Tekvro-managed agent configuration and skill files",
       "移除 Tekvro 管理的智能体配置及 Skill 文件",
+      environment,
     ),
     options: z.object({
       purgeData: z
         .boolean()
         .default(false)
         .describe(
-          text(
+          selectHumanText(
             "Also remove compatible local caches and state",
             "同时清理兼容的本地缓存和状态",
+            environment,
           ),
         ),
     }),
-    alias: { purgeData: "purge-data" },
     run: ({ options }) =>
       logCliCommand(
         logger,
         "uninstall",
-        () => runUninstall(options.purgeData),
+        async () => {
+          const { runUninstall, systemUninstallHost } =
+            await import("../application/Uninstall.js");
+          return runUninstall(
+            options.purgeData,
+            systemUninstallHost(
+              homeDirectoryFromEnvironment(environment, process.platform),
+              undefined,
+              environment,
+            ),
+          );
+        },
         isUninstallFailure,
       ),
   });
   cli.command(CLI_COMMANDS.update, {
-    description: text(
-      "Update a published Tekvro installation (unavailable for private source builds)",
+    description: selectHumanText(
+      "Update a published Tekvro installation (unavailable for source builds)",
       "更新已发布的 Tekvro 安装（源码开发版暂不可用）",
+      environment,
     ),
     run: ({ formatExplicit }) =>
       logCliCommand(
         logger,
         CLI_COMMANDS.update,
-        () =>
-          PRODUCT_IDENTITY.privateSourceBuild
-            ? Promise.resolve(privateSourceUpdateResult())
-            : runUpdate(
-                PRODUCT_IDENTITY.packageVersion,
-                systemUpdateHost(),
-                formatExplicit ? "structured" : "human",
-              ),
+        async () => {
+          if (PRODUCT_IDENTITY.privateSourceBuild)
+            return {
+              status: "failed" as const,
+              currentVersion: PRODUCT_IDENTITY.packageVersion,
+              latestVersion: null,
+              reason: "unknown-install-method" as const,
+              remediation:
+                "Tekvro is a source checkout and has no published npm update. Pull the reviewed Git changes and rebuild locally.",
+            };
+          const [{ runUpdate }, { systemUpdateHost }] = await Promise.all([
+            import("../application/Update.js"),
+            import("../application/UpdateRuntime.js"),
+          ]);
+          return runUpdate(
+            PRODUCT_IDENTITY.packageVersion,
+            systemUpdateHost(undefined, undefined, environment),
+            formatExplicit ? "structured" : "human",
+          );
+        },
         isUpdateFailure,
       ),
   });
 };
 
-/**
- * Do not query the upstream public registry or mutate a user's npm installation
- * when this private source checkout receives the "update" command.
- */
-export const privateSourceUpdateResult = (): UpdateResult => ({
-  status: "failed",
-  currentVersion: PRODUCT_IDENTITY.packageVersion,
-  latestVersion: null,
-  reason: "unknown-install-method",
-  remediation:
-    "Tekvro is currently a private source build. Do not use the public rea-agents npm updater. Update this Git checkout intentionally, then run npm ci and npm run build:cached from the Tekvro directory.",
-});
-
 interface SetupCommandOptions {
   readonly yes: boolean;
   readonly installHopper: boolean;
   readonly client: readonly string[];
+  readonly skillClient: readonly string[];
   readonly allDetected: boolean;
   readonly skill?: boolean | undefined;
   readonly dryRun: boolean;
   readonly accessible: boolean;
 }
 
-const runSetupCommand = async (input: {
-  readonly options: SetupCommandOptions;
-  readonly formatExplicit: boolean;
-}) => {
+const runSetupCommand = async (
+  input: {
+    readonly options: SetupCommandOptions;
+    readonly formatExplicit: boolean;
+  },
+  environment: Readonly<NodeJS.ProcessEnv>,
+) => {
   const { options } = input;
   const interactive = setupIsInteractive(options, input.formatExplicit);
   const hasExplicitScope = setupHasExplicitScope(options);
+  const [{ runSetup }, { systemSetupHost }, { createSystemDoctorHost }] =
+    await Promise.all([
+      import("../application/Setup.js"),
+      import("../application/SetupHost.js"),
+      import("../doctorRuntime.js"),
+    ]);
   const result = await runSetup(
     setupRunOptions(input, interactive, hasExplicitScope),
-    systemSetupHost(createSystemDoctorHost()),
+    systemSetupHost(createSystemDoctorHost(environment), environment),
     interactive
       ? (actions, context) =>
           confirmInteractiveSetup(actions, options.accessible, context)
       : undefined,
   );
-  if (interactive) renderInteractiveSetupResult(result);
+  if (interactive) renderInteractiveSetupResult(result, environment);
+  else if (
+    options.dryRun &&
+    !input.formatExplicit &&
+    hasInteractiveTerminal()
+  ) {
+    if (result.status === "planned") renderSetupDryRun(result.plannedActions);
+    else renderInteractiveSetupResult(result, environment);
+  }
   return result;
 };
 
@@ -303,8 +354,13 @@ const setupRunOptions = (
 ): SetupOptions => {
   const { options } = input;
   const agentIntegrationSelected =
-    options.allDetected || options.client.length > 0;
-  const hasSelectedClients = hasExplicitScope && !options.allDetected;
+    options.allDetected ||
+    options.client.length > 0 ||
+    options.skillClient.length > 0;
+  const hasSelectedClients =
+    hasExplicitScope &&
+    !options.allDetected &&
+    (options.client.length > 0 || options.skillClient.length > 0);
   return {
     approved: options.yes && !options.dryRun,
     installHopper: options.installHopper,
@@ -313,6 +369,9 @@ const setupRunOptions = (
     allDetectedClients: options.allDetected,
     proposeHopper: interactive || options.installHopper,
     ...(hasSelectedClients ? { clientIds: options.client } : {}),
+    ...(options.skillClient.length > 0
+      ? { skillClientIds: options.skillClient }
+      : {}),
     ...(hasExplicitScope
       ? { installSkill: options.skill ?? agentIntegrationSelected }
       : {}),
@@ -321,6 +380,9 @@ const setupRunOptions = (
       ? {
           readinessScope: {
             clients: options.client,
+            ...(options.skillClient.length > 0
+              ? { skillClients: options.skillClient }
+              : {}),
             providers: options.installHopper ? ["hopper"] : [],
             skill: options.skill ?? agentIntegrationSelected,
           },
@@ -336,6 +398,9 @@ const setupIsInteractive = (
   !options.yes &&
   !options.dryRun &&
   !formatExplicit &&
+  hasInteractiveTerminal();
+
+const hasInteractiveTerminal = (): boolean =>
   process.stdin.isTTY === true &&
   process.stdout.isTTY === true &&
   process.stderr.isTTY === true;
@@ -343,6 +408,7 @@ const setupIsInteractive = (
 const setupHasExplicitScope = (options: SetupCommandOptions): boolean =>
   options.allDetected ||
   options.client.length > 0 ||
+  options.skillClient.length > 0 ||
   options.skill !== undefined ||
   options.installHopper;
 

@@ -1,27 +1,43 @@
-import type { ArtifactInventorySnapshot } from "../../artifacts/inventory/ArtifactInventory.js";
-import type { ApplicationNode } from "../../domain/javascript/javascriptApplicationGraph.js";
-import { completeApplicationCoverage } from "../../domain/javascript/javascriptApplicationEvidenceSchemas.js";
+import type { ArtifactInventorySnapshot } from "../../domain/artifactInventorySnapshot.js";
+import type { ApplicationNode } from "../../domain/javascript/javascriptApplicationGraphSchemas.js";
+import { htmlInlineScriptLimitation } from "./JavaScriptArtifactAnalysis.js";
+import {
+  completeApplicationCoverage,
+  partialApplicationCoverage,
+} from "../../domain/javascript/javascriptApplicationEvidenceSchemas.js";
 import type { JavaScriptModuleArtifactAnalysis } from "./JavaScriptArtifactAnalysisTypes.js";
+import { javascriptArtifactAnalysisScopes } from "./JavaScriptArtifactAnalysisTypes.js";
+import { jsonValueSchema } from "../../domain/jsonValue.js";
+import { freezeJsonSnapshot } from "../../domain/immutableJson.js";
+import type { JavaScriptSourceRange } from "../../domain/javascript/javascriptStaticAnalysisTypes.js";
 import type {
   JavaScriptArtifactContainer,
   JavaScriptArtifactFile,
 } from "../../domain/javascript/javascriptArtifactFiles.js";
 import type { JavaScriptArtifactGraphAccumulator } from "./JavaScriptArtifactGraphAccumulator.js";
+import { isSkippedJavaScriptAnalysis } from "./JavaScriptArtifactAnalysisTypes.js";
 import {
   addArtifactContainsEdge,
   addUnavailableStaticParseScope,
   artifactFileNodeKind,
   artifactLocalIdentity,
+  javascriptAnalysisCoverage,
   createElectronRoleNode,
+  HTML_INLINE_SCRIPT_LOCATION_COVERAGE_LIMIT,
+  omittedHtmlInlineScriptLocations,
   linkElectronRoleToAsset,
   type JavaScriptArtifactGraphContext,
 } from "./JavaScriptArtifactGraphContext.js";
 import {
   artifactObservationEvidence,
+  astObservationEvidence,
   staticInferenceEvidence,
 } from "./JavaScriptArtifactGraphEvidence.js";
-import { resolveArtifactPathByContext } from "./JavaScriptArtifactPathResolution.js";
-export { addJavaScriptBundlerNodes } from "./JavaScriptArtifactGraphBundlers.js";
+import {
+  artifactPathResolutionProperties,
+  resolveArtifactPathByContext,
+} from "./JavaScriptArtifactPathResolution.js";
+import { compareUnicodeCodePoints } from "../../domain/unicodeCodePointOrder.js";
 
 interface PackageRoleInput {
   readonly packageNode: ApplicationNode;
@@ -116,9 +132,56 @@ export const addJavaScriptArtifactContainers = (
 export const addJavaScriptArtifactFiles = (
   context: JavaScriptArtifactGraphContext,
 ): void => {
+  const packagesByPath = indexFirstByPath(context.analysis.packages);
+  const jsonModulesByPath = indexFirstByPath(context.analysis.json_modules);
+  const sourceMapsByPath = indexFirstByPath(context.analysis.source_maps);
+  const inlineScriptsByPath = indexFirstByPath(
+    context.analysis.html_inline_scripts,
+  );
   for (const analyzed of context.analysis.files) {
     const { file } = analyzed;
-    const target = createFileTarget(context, file, analyzed.javascript);
+    const jsonValue = jsonModulesByPath.get(file.path);
+    const target = createFileTarget(
+      context,
+      file,
+      analyzed.javascript,
+      jsonValue,
+      isSkippedJavaScriptAnalysis(analyzed),
+    );
+    if (
+      analyzed.application_projection_failure !== undefined &&
+      analyzed.javascript !== null
+    )
+      context.accumulator.addNode({
+        kind: target.kind,
+        identity: target.identity,
+        observations: [
+          {
+            label: file.path,
+            properties: {
+              static_analysis: freezeJsonSnapshot(
+                jsonValueSchema.parse(analyzed.javascript),
+              ),
+              semantic_module_analysis:
+                analyzed.semantic === null
+                  ? null
+                  : freezeJsonSnapshot(
+                      jsonValueSchema.parse(analyzed.semantic.ir),
+                    ),
+              application_projection_failure:
+                analyzed.application_projection_failure.error,
+            },
+            evidence: astObservationEvidence({
+              sha256: file.sha256,
+              path: file.path,
+              operation: "retain-unexpanded-static-findings",
+              range: sourceFileRange(file),
+              coverage: javascriptAnalysisCoverage(analyzed.javascript),
+              limitations: [analyzed.application_projection_failure.reason],
+            }),
+          },
+        ],
+      });
     context.fileNodes.set(file.path, target);
     if (file.kind === "javascript") context.assetNodes.set(file.path, target);
     const entry = createAsarEntry(context, file);
@@ -151,7 +214,33 @@ export const addJavaScriptArtifactFiles = (
         }),
       });
     }
+    const analysisScope = javascriptArtifactAnalysisScopes[file.kind];
     if (
+      !file.text.included &&
+      file.text.reason === "outside-analysis-scope" &&
+      analysisScope !== null
+    )
+      addUnavailableStaticParseScope(context, {
+        file,
+        asset: target,
+        operation: "select-javascript-sources",
+        authority: analysisScope.authority,
+        limitation:
+          "Source is outside the caller-selected source_paths; it was inventoried but not analyzed.",
+      });
+    else if (analyzed.analysis_failure !== undefined)
+      addUnavailableStaticParseScope(context, {
+        file,
+        asset: target,
+        ...analyzed.analysis_failure.scope,
+        limitation: analyzed.analysis_failure.reason,
+        failure: analyzed.analysis_failure.error,
+        limits: javaScriptAnalysisCoverageLimits(
+          analyzed.analysis_failure.limits,
+        ),
+        details: { analysis_status: analyzed.analysis_failure.status },
+      });
+    else if (
       file.kind === "javascript" &&
       (analyzed.javascript === null ||
         analyzed.javascript.parse_status === "failed")
@@ -160,41 +249,215 @@ export const addJavaScriptArtifactFiles = (
         file,
         asset: target,
         operation: "parse-javascript",
+        authority: javascriptArtifactAnalysisScopes.javascript.authority,
         limitation: file.text.included
           ? "JavaScript syntax could not be parsed."
           : `JavaScript text was unavailable: ${file.text.reason}.`,
       });
-    const packageValue = context.analysis.packages.find(
-      ({ path }) => path === file.path,
-    );
+    if (analyzed.application_projection_failure !== undefined)
+      addUnavailableStaticParseScope(context, {
+        file,
+        asset: target,
+        operation: "project-javascript-application",
+        authority: javascriptArtifactAnalysisScopes.javascript.authority,
+        limitation: analyzed.application_projection_failure.reason,
+        failure: analyzed.application_projection_failure.error,
+        limits: javaScriptAnalysisCoverageLimits(
+          analyzed.application_projection_failure.limits,
+        ),
+      });
+    const packageValue = packagesByPath.get(file.path);
     if (packageValue !== undefined && packageValue.status !== "included")
       addUnavailableStaticParseScope(context, {
         file,
         asset: target,
-        operation: "parse-package-json",
+        ...javascriptArtifactAnalysisScopes["package-json"],
         limitation: packageValue.limitation,
       });
-    const jsonValue = context.analysis.json_modules.find(
-      ({ path }) => path === file.path,
-    );
     if (jsonValue !== undefined && jsonValue.status !== "included")
       addUnavailableStaticParseScope(context, {
         file,
         asset: target,
-        operation: "parse-json-module",
+        ...javascriptArtifactAnalysisScopes.json,
         limitation: jsonValue.limitation,
       });
-    const sourceMap = context.analysis.source_maps.find(
-      ({ path }) => path === file.path,
-    );
+    const sourceMap = sourceMapsByPath.get(file.path);
     if (sourceMap !== undefined && sourceMap.status === "invalid")
       addUnavailableStaticParseScope(context, {
         file,
         asset: target,
-        operation: "parse-local-source-map",
+        ...javascriptArtifactAnalysisScopes["source-map"],
         limitation: sourceMap.limitation,
       });
+    const inlineScripts = inlineScriptsByPath.get(file.path);
+    if (inlineScripts !== undefined)
+      addUnavailableStaticParseScope(context, {
+        file,
+        asset: target,
+        operation: "parse-html-inline-scripts",
+        authority: javascriptArtifactAnalysisScopes.javascript.authority,
+        limitation: htmlInlineScriptLimitation(inlineScripts),
+        limits:
+          inlineScripts.script_count > inlineScripts.scripts.length
+            ? [HTML_INLINE_SCRIPT_LOCATION_COVERAGE_LIMIT]
+            : [],
+        omittedCount: omittedHtmlInlineScriptLocations([inlineScripts]),
+        details: {
+          inline_script_count: inlineScripts.script_count,
+          inline_scripts: inlineScripts.scripts.map(
+            ({ script_type, location }) => ({
+              script_type,
+              location: {
+                start: { ...location.start },
+                end: { ...location.end },
+              },
+            }),
+          ),
+        },
+      });
   }
+  addUnavailableAsarEntries(context);
+};
+
+const addUnavailableAsarEntries = (
+  context: JavaScriptArtifactGraphContext,
+): void => {
+  for (const file of context.fileSet.unavailable_relevant_files) {
+    if (!isAsarContainer(context, file.container_sha256)) continue;
+    const limitations = [
+      ...(file.limitations ?? []),
+      `The inventoried ${file.kind ?? "relevant"} entry has unavailable bytes; no content artifact identity can be established.`,
+    ];
+    const entry = context.accumulator.addNode({
+      kind: "asar-entry",
+      identity: {
+        strategy: "canonical-path",
+        stability: "artifact-version",
+        artifact_sha256: file.container_sha256,
+        path: file.path,
+      },
+      observations: [
+        {
+          label: file.path,
+          properties: {
+            entry_sha256: file.sha256,
+            bytes: file.bytes,
+            inventory_artifact_id: file.inventory_artifact_id,
+            ...(file.inventory_occurrence_id === undefined
+              ? {}
+              : { inventory_occurrence_id: file.inventory_occurrence_id }),
+            hash_status: file.hash_status,
+            artifact_kind: file.artifact_kind,
+            ...(file.kind === undefined ? {} : { kind: file.kind }),
+            content_available: false,
+          },
+          evidence: artifactObservationEvidence({
+            sha256: file.container_sha256,
+            path: file.path,
+            operation: "inventory-asar-unavailable-entry",
+            coverage: partialApplicationCoverage([], null),
+            limitations,
+          }),
+        },
+      ],
+    });
+    const parent =
+      context.containerNodes.get(file.container_sha256) ?? context.root;
+    context.accumulator.addEdge({
+      source_node_id: parent.node_id,
+      target_node_id: entry.node_id,
+      relation: "contains",
+      properties: {
+        path: file.path,
+        content_available: false,
+        hash_status: file.hash_status,
+      },
+      evidence: artifactObservationEvidence({
+        sha256: file.container_sha256,
+        path: file.path,
+        operation: "inventory-asar-unavailable-entry",
+        coverage: partialApplicationCoverage([], null),
+        limitations,
+      }),
+    });
+    if (file.kind === "native-addon" || file.artifact_kind === "native-addon") {
+      const addon = context.accumulator.addNode({
+        kind: "native-addon",
+        identity: {
+          strategy: "canonical-path",
+          stability: "artifact-version",
+          artifact_sha256: file.container_sha256,
+          path: file.path,
+        },
+        observations: [
+          {
+            label: file.path,
+            properties: {
+              availability: "unavailable",
+              ...(file.hash_status === undefined
+                ? {}
+                : { hash_status: file.hash_status }),
+              ...(file.artifact_kind === undefined
+                ? {}
+                : { artifact_kind: file.artifact_kind }),
+              bytes: file.bytes,
+              inventory_artifact_id: file.inventory_artifact_id,
+              ...(file.inventory_occurrence_id === undefined
+                ? {}
+                : { inventory_occurrence_id: file.inventory_occurrence_id }),
+            },
+            evidence: artifactObservationEvidence({
+              sha256: file.container_sha256,
+              path: file.path,
+              operation: "classify-unavailable-native-addon",
+              coverage: partialApplicationCoverage([], null),
+              limitations,
+            }),
+          },
+        ],
+      });
+      context.accumulator.addEdge({
+        source_node_id: entry.node_id,
+        target_node_id: addon.node_id,
+        relation: "contains",
+        properties: {
+          classification: "native-addon",
+          content_available: false,
+        },
+        evidence: artifactObservationEvidence({
+          sha256: file.container_sha256,
+          path: file.path,
+          operation: "classify-unavailable-native-addon",
+          coverage: partialApplicationCoverage([], null),
+          limitations,
+        }),
+      });
+    }
+  }
+};
+
+const isAsarContainer = (
+  context: JavaScriptArtifactGraphContext,
+  containerSha256: string,
+): boolean =>
+  context.snapshot.manifest.root_format === "asar" ||
+  containerSha256 !== context.snapshot.manifest.root_sha256;
+
+const sourceFileRange = (
+  file: JavaScriptArtifactFile,
+): JavaScriptSourceRange => {
+  if (!file.text.included)
+    throw new TypeError("Retained static facts require their source text");
+  let line = 1;
+  let lastLineStart = 0;
+  for (const match of file.text.value.matchAll(/\r\n|[\n\r\u2028\u2029]/gu)) {
+    line += 1;
+    lastLineStart = match.index + match[0].length;
+  }
+  return {
+    start: { line: 1, column: 0 },
+    end: { line, column: file.text.value.length - lastLineStart },
+  };
 };
 
 /** Project package metadata and its declared Electron roles. */
@@ -202,6 +465,7 @@ export const addJavaScriptPackageNodes = (
   context: JavaScriptArtifactGraphContext,
 ): ApplicationNode[] => {
   const roots: ApplicationNode[] = [];
+  const rootPath = applicationManifestPath(context);
   for (const packageValue of context.analysis.packages) {
     const file = context.filesByPath.get(packageValue.path);
     if (file === undefined) continue;
@@ -230,7 +494,7 @@ export const addJavaScriptPackageNodes = (
         },
       ],
     });
-    if (roots.length === 0) {
+    if (file.path === rootPath) {
       roots.push(node);
       context.accumulator.addEdge({
         source_node_id: node.node_id,
@@ -251,6 +515,7 @@ export const addJavaScriptPackageNodes = (
         file,
         operation: "inventory-package",
       });
+    if (dependencyManifest(file.path)) continue;
     addPackageRole(context, {
       packageNode: node,
       packageFile: file,
@@ -267,15 +532,32 @@ export const addJavaScriptPackageNodes = (
   return roots;
 };
 
+/** Dependency-only artifacts retain their inventory root. */
+const applicationManifestPath = (
+  context: JavaScriptArtifactGraphContext,
+): string | undefined =>
+  context.analysis.packages
+    .map(({ path }) => path)
+    .filter(
+      (path) => context.filesByPath.has(path) && !dependencyManifest(path),
+    )
+    .sort(
+      (left, right) =>
+        left.split("/").length - right.split("/").length ||
+        compareUnicodeCodePoints(left, right),
+    )[0];
+
+const dependencyManifest = (path: string): boolean =>
+  path.split("/").slice(0, -1).includes("node_modules");
+
 const createFileTarget = (
   context: JavaScriptArtifactGraphContext,
   file: JavaScriptArtifactFile,
   javascript: JavaScriptModuleArtifactAnalysis["files"][number]["javascript"],
+  json: JavaScriptModuleArtifactAnalysis["json_modules"][number] | undefined,
+  skipped: boolean,
 ): ApplicationNode => {
   const kind = artifactFileNodeKind(file.kind);
-  const json = context.analysis.json_modules.find(
-    ({ path }) => path === file.path,
-  );
   return context.accumulator.addNode({
     kind,
     identity: {
@@ -293,7 +575,8 @@ const createFileTarget = (
           unpacked: file.unpacked,
           file_kind: file.kind,
           text_status: file.text.included ? "included" : file.text.reason,
-          parse_status: javascript?.parse_status ?? null,
+          parse_status:
+            javascript?.parse_status ?? (skipped ? "skipped" : null),
           json_parse_status: json?.status ?? null,
           json_top_level_keys: json?.top_level_keys ?? [],
           omitted_json_top_level_keys: json?.omitted_top_level_keys ?? 0,
@@ -310,14 +593,21 @@ const createFileTarget = (
   });
 };
 
+const indexFirstByPath = <Value extends { readonly path: string }>(
+  values: readonly Value[],
+): ReadonlyMap<string, Value> => {
+  const index = new Map<string, Value>();
+  for (const value of values) {
+    if (!index.has(value.path)) index.set(value.path, value);
+  }
+  return index;
+};
+
 const createAsarEntry = (
   context: JavaScriptArtifactGraphContext,
   file: JavaScriptArtifactFile,
 ): ApplicationNode | undefined => {
-  const isAsar =
-    context.snapshot.manifest.root_format === "asar" ||
-    file.container_sha256 !== context.snapshot.manifest.root_sha256;
-  if (!isAsar) return undefined;
+  if (!isAsarContainer(context, file.container_sha256)) return undefined;
   return context.accumulator.addNode({
     kind: "asar-entry",
     identity: {
@@ -356,6 +646,8 @@ const addPackageRole = (
     sourcePath: input.packageFile.path,
     context: "package-entrypoint",
     files: context.filesByPath,
+    directoryPaths: context.directoryPaths,
+    unanalyzedFiles: context.unanalyzedFiles,
   });
   const role = createElectronRoleNode(context, {
     kind: input.kind,
@@ -375,6 +667,7 @@ const addPackageRole = (
       resolution_context: resolution.resolution_context,
       resolved_path: resolution.resolved_path,
       resolution_status: resolution.resolution_status,
+      ...artifactPathResolutionProperties(resolution),
       limitations: resolution.limitations,
     },
     evidence: staticInferenceEvidence({
@@ -398,3 +691,4 @@ const containerProperties = (container: JavaScriptArtifactContainer) => ({
   bytes: container.bytes,
   inventory_artifact_id: container.inventory_artifact_id,
 });
+import { javaScriptAnalysisCoverageLimits } from "../../domain/javascript/javascriptAnalysisResourceControls.js";

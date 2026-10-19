@@ -1,4 +1,16 @@
 import { z } from "zod";
+import { isMachOFormat, type BinaryTarget } from "../binaryTargetTypes.js";
+import { providerSchema } from "../evidence.js";
+import { isSwiftMangledSymbolName } from "../swiftSymbolClassification.js";
+
+import {
+  compareUnicodeCodePoints,
+  compositeKey,
+} from "../unicodeCodePointOrder.js";
+
+/** Targets admitted to the Apple byte reader; the reader validates slice support. */
+export const isAppleDispatchMetadataTarget = (target: BinaryTarget): boolean =>
+  target.kind === "executable" && isMachOFormat(target.format);
 
 /** Objective-C method type. */
 export const objcMethodTypeSchema = z.enum([
@@ -12,10 +24,6 @@ export const objcMethodTypeSchema = z.enum([
 export const objcPropertyAttributeSchema = z.strictObject({
   name: z.string().min(1),
   value: z.string(),
-  is_weak: z.boolean().default(false),
-  is_atomic: z.boolean().default(false),
-  is_copy: z.boolean().default(false),
-  is_strong: z.boolean().default(false),
 });
 
 /** Objective-C method metadata. */
@@ -23,8 +31,8 @@ export const objcMethodSchema = z.strictObject({
   selector: z.string().min(1),
   method_type: objcMethodTypeSchema,
   address: z.number().int().nullable(),
-  is_required: z.boolean().default(false),
-  is_optional: z.boolean().default(false),
+  is_required: z.boolean().nullable(),
+  is_optional: z.boolean().nullable(),
 });
 type ObjcMethod = z.infer<typeof objcMethodSchema>;
 
@@ -32,8 +40,9 @@ type ObjcMethod = z.infer<typeof objcMethodSchema>;
 export const objcPropertySchema = z.strictObject({
   name: z.string().min(1),
   type_encoding: z.string().nullable(),
-  attributes: z.array(objcPropertyAttributeSchema).default([]),
-  is_readonly: z.boolean().default(false),
+  attributes: z.array(objcPropertyAttributeSchema),
+  atomicity: z.enum(["atomic", "nonatomic"]).nullable(),
+  is_readonly: z.boolean().nullable(),
   getter: z.string().nullable(),
   setter: z.string().nullable(),
 });
@@ -50,12 +59,12 @@ export const objcProtocolSchema = z.strictObject({
 export const objcClassSchema = z.strictObject({
   name: z.string().min(1),
   super_class: z.string().nullable(),
-  is_meta_class: z.boolean().default(false),
-  is_root_class: z.boolean().default(false),
+  is_meta_class: z.boolean().nullable(),
+  is_root_class: z.boolean().nullable(),
   methods: z.array(objcMethodSchema).default([]),
   properties: z.array(objcPropertySchema).default([]),
   protocols: z.array(z.string()).default([]),
-  ivar_count: z.number().int().nonnegative().default(0),
+  ivar_count: z.number().int().nonnegative().nullable(),
   instance_size: z.number().int().nonnegative().nullable(),
   location: z
     .object({
@@ -113,7 +122,10 @@ export const nativeMetadataEvidenceSchema = z.strictObject({
     "decompiler",
   ]),
   description: z.string().min(1),
+  provider: providerSchema.optional(),
   location: nativeMetadataLocationSchema,
+  /** Preserve a provider's source value when it does not establish a location. */
+  reported_address: z.string().optional(),
   artifact_path: z.string().min(1).nullable().default(null),
   artifact_sha256: z
     .string()
@@ -219,7 +231,7 @@ export const relativePointerSchema = z.strictObject({
 /** A raw Swift-mangled symbol when a provider has not decoded its metadata. */
 export const swiftSymbolSchema = z.strictObject({
   mangled_name: z.string().min(1),
-  address: z.string().min(1),
+  address: z.string().min(1).nullable(),
   decode: nativeMetadataDecodeSchema,
   evidence: z.array(nativeMetadataEvidenceSchema).min(1),
 });
@@ -328,11 +340,15 @@ export const inspectNativeDispatchMetadata = (
   names: readonly { readonly address: string; readonly name: string }[],
   maxRecords = 5_000,
 ): ObjcSwiftMetadata => {
-  const symbolEvidence = (name: string, address: string) => [
+  const symbolEvidence = (
+    entry: (typeof names)[number],
+    address: string | null,
+  ) => [
     {
       kind: "symbol" as const,
-      description: `Provider symbol ${name}`,
+      description: `Provider symbol ${entry.name}`,
       location: { address, file_offset: null },
+      ...(address === null ? { reported_address: entry.address } : {}),
       artifact_path: null,
       artifact_sha256: null,
     },
@@ -343,6 +359,7 @@ export const inspectNativeDispatchMetadata = (
 
   const examinedNames = names.slice(0, maxRecords);
   for (const entry of examinedNames) {
+    const address = entry.address === "" ? null : entry.address;
     const classMatch = /(?:OBJC_CLASS_|OBJC_METACLASS_)\$_([^\s]+)/u.exec(
       entry.name,
     );
@@ -356,20 +373,20 @@ export const inspectNativeDispatchMetadata = (
         class_name: methodMatch[2],
         selector,
         method_type: methodType,
-        implementation_address: entry.address,
-        location: { address: entry.address, file_offset: null },
+        implementation_address: address,
+        location: { address, file_offset: null },
         decode: { status: "partial", reason: "symbol_name_only" },
-        evidence: symbolEvidence(entry.name, entry.address),
+        evidence: symbolEvidence(entry, address),
       });
       classNames.add(methodMatch[2]);
     }
 
-    if (/^(?:_?\$s|_Tt)/u.test(entry.name))
+    if (isSwiftMangledSymbolName(entry.name) || entry.name.startsWith("_Tt"))
       swiftSymbols.push({
         mangled_name: entry.name,
-        address: entry.address,
+        address,
         decode: { status: "partial", reason: "mangled_symbol_not_demangled" },
-        evidence: symbolEvidence(entry.name, entry.address),
+        evidence: symbolEvidence(entry, address),
       });
   }
 
@@ -380,26 +397,27 @@ export const inspectNativeDispatchMetadata = (
       selector: implementation.selector,
       method_type: implementation.method_type,
       address: parseMetadataAddress(implementation.implementation_address),
-      is_required: false,
-      is_optional: false,
+      is_required: null,
+      is_optional: null,
     });
     methodsByClass.set(implementation.class_name, methods);
   }
   const classes: ObjcClass[] = [...classNames].sort().map((name) => ({
     name,
     super_class: null,
-    is_meta_class: false,
-    is_root_class: false,
+    is_meta_class: null,
+    is_root_class: null,
     methods: methodsByClass.get(name) ?? [],
     properties: [],
     protocols: [],
-    ivar_count: 0,
+    ivar_count: null,
     instance_size: null,
   }));
   const decodedImplementations = [...implementations.values()].sort(
     (left, right) =>
-      `${left.class_name}:${left.selector}`.localeCompare(
-        `${right.class_name}:${right.selector}`,
+      compareUnicodeCodePoints(
+        compositeKey([left.class_name, left.selector]),
+        compositeKey([right.class_name, right.selector]),
       ),
   );
   const swift = swiftSymbols.length > 0;

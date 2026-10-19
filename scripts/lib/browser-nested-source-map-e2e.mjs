@@ -1,20 +1,17 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { TraceMap, eachMapping } from "@jridgewell/trace-mapping";
 import { CdpBrowserProvider } from "../../dist/browser/CdpBrowserProvider.js";
+import { listBrowserTargetsInputSchema } from "../../dist/domain/browserObservation.js";
 import { CdpConnection } from "../../dist/browser/CdpConnection.js";
-import { waitForBrowserDevtoolsPort } from "../../dist/browser/BrowserProcessStartup.js";
 import { parseEvidence } from "../../dist/domain/evidence.js";
 import { traceSourceMap } from "../../dist/javascript/sourceMaps/TraceSourceMap.js";
 import { startBrowserSourceMapSite } from "../fixtures/browser-source-map-site.mjs";
-import {
-  startRuntimeFixtureBrowser,
-  closeRuntimeFixtureResources,
-} from "./browser-runtime-fixture-lifecycle.mjs";
+import { startRuntimeFixtureBrowser } from "./browser-runtime-fixture-lifecycle.mjs";
+import { closeVerifierResources } from "./verifier-cleanup.mjs";
 
 const cases = [
   { name: "same-line nested column control", prefixes: ["\n\n       ", "   "] },
@@ -63,7 +60,6 @@ async function verifyCase(executable, entrypoint, scenario) {
   let fixture;
   let connection;
   let primaryError;
-  let stderr = "";
   let phase = "native-map-admission";
   let browserVersion;
   let expected;
@@ -90,22 +86,14 @@ async function verifyCase(executable, entrypoint, scenario) {
 
     phase = "owned-browser-startup";
     fixture = await startRuntimeFixtureBrowser(executable, site.origin);
-    fixture.browser.stderr.on("data", (chunk) => {
-      if (stderr.length < 65536) stderr += chunk;
-    });
-    const port = await waitForBrowserDevtoolsPort({
-      child: fixture.browser,
-      executable,
-      activePortPath: join(fixture.profile, "DevToolsActivePort"),
-      stderr: () => stderr,
-      timeoutMs: 20_000,
-    });
-    const endpoint = `http://127.0.0.1:${port}`;
+    const endpoint = `http://127.0.0.1:${fixture.port}`;
     const provider = new CdpBrowserProvider();
-    const targets = await provider.listTargets({
-      cdp_endpoint: endpoint,
-      allowed_origins: [site.origin],
-    });
+    const targets = await provider.listTargets(
+      listBrowserTargetsInputSchema.parse({
+        cdp_endpoint: endpoint,
+        allowed_origins: [site.origin],
+      }),
+    );
     if (!targets.ok) throw targets.error;
     const target = targets.value.targets[0];
     assert.ok(target, "Owned fixture target missing");
@@ -150,7 +138,16 @@ async function verifyCase(executable, entrypoint, scenario) {
     phase = "public-map-assertions";
     observed = item?.mappings;
     assert.equal(item.status, "included");
-    assert.deepEqual(item.mappings, expected);
+    assert.equal(item.mappings.length, expected.length);
+    for (const [index, coordinates] of expected.entries()) {
+      const mapping = item.mappings[index];
+      for (const [key, value] of Object.entries(coordinates))
+        assert.deepEqual(mapping[key], value);
+      // This compiler fixture has one source declaration in one wrapped leaf.
+      assert.equal(mapping.source_index, 0);
+      assert.equal(mapping.declaration_index, 0);
+    }
+    assert.equal(item.original_sources.length, 1);
     assert.equal(item.artifact.sha256, sha(site.map));
     assert.equal(item.artifact.bytes, Buffer.byteLength(site.map));
     assert.equal(item.original_sources[0].artifact.sha256, sha(site.original));
@@ -185,7 +182,7 @@ async function verifyCase(executable, entrypoint, scenario) {
     primaryError = failure;
     throw failure;
   } finally {
-    await closeRuntimeFixtureResources(
+    await closeVerifierResources(
       [() => connection?.close(), () => fixture?.close(), () => site.close()],
       primaryError,
     );

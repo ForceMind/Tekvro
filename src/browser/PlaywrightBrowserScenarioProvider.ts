@@ -1,48 +1,55 @@
+import {
+  withPlaywrightExecutionBoundary,
+  PLAYWRIGHT_CLEANUP_CONFIRMATION_TIMEOUT_MS,
+} from "./PlaywrightExecutionBoundary.js";
+import { analysisErrorWithCleanupFailure } from "../domain/analysisErrorCleanup.js";
+import {
+  AnalysisCleanupLease,
+  AnalysisCleanupLeaseGroup,
+} from "../artifacts/AnalysisCleanupLease.js";
+import { ProviderCleanupError } from "../domain/providerCleanupError.js";
 import type { BrowserScenarioCapturePort } from "../application/BrowserScenarioCapturePort.js";
 import type {
   ExecutionOptions,
   ProviderIdentity,
 } from "../application/AnalysisProvider.js";
-import type {
-  BrowserScenario,
-  BrowserScenarioAction,
-} from "../domain/browserScenario.js";
+import type { BrowserScenario } from "../domain/browserScenario.js";
+import type { BrowserScenarioAction } from "../domain/browserScenarioValues.js";
 import {
   browserScenarioCaptureSchema,
+  type BrowserScenarioCapture,
+  type BrowserScenarioPartialObservation,
+} from "../domain/browserScenarioCapture.js";
+import {
   classifyBrowserScenarioCompleteness,
   browserScenarioStepSchema,
   browserStepArtifactsSchema,
-  type BrowserScenarioCapture,
   type BrowserScenarioCompleteness,
   type BrowserScenarioCompletenessSection,
   type BrowserScenarioStep,
   type BrowserScenarioStepOutcome,
   type BrowserStepArtifacts,
-} from "../domain/browserScenarioCapture.js";
+} from "../domain/browserScenarioCaptureValues.js";
 import { AnalysisError } from "../domain/analysisErrorBase.js";
+import { AnalysisCancelledError } from "../domain/analysisErrorCore.js";
 import { BrowserObservationError } from "../domain/browserObservationError.js";
 import { ProviderAdapterError } from "../domain/providerAdapterError.js";
 import { err, ok, type Result } from "../domain/result.js";
 import type {
-  BrowserScenarioSessionFactory,
+  BrowserScenarioSessionOpener,
   BrowserScenarioSessionPort,
 } from "./BrowserScenarioSessionPort.js";
+import {
+  browserScenarioCleanupObservation,
+  browserScenarioOperationFailure,
+  browserScenarioCaptureData,
+} from "./BrowserScenarioPartialObservation.js";
 
 const OPERATION = "capture_browser_scenario" as const;
-let defaultFactory: Promise<BrowserScenarioSessionFactory> | undefined;
-
-const lazyPlaywrightFactory: BrowserScenarioSessionFactory = {
-  async open(scenario, options) {
-    defaultFactory ??= import("./PlaywrightScenarioSession.js").then(
-      ({ PlaywrightScenarioSessionFactory }) =>
-        new PlaywrightScenarioSessionFactory(),
-    );
-    return (await defaultFactory).open(scenario, options);
-  },
-};
-
-export { PLAYWRIGHT_BROWSER_SCENARIO_PROVIDER_IDENTITY } from "./providerIdentities.js";
 import { PLAYWRIGHT_BROWSER_SCENARIO_PROVIDER_IDENTITY } from "./providerIdentities.js";
+
+const signalIsAborted = (signal: AbortSignal | undefined): boolean =>
+  signal?.aborted === true;
 
 type SnapshotKind = BrowserScenario["capture"]["after_each_step"][number];
 const SNAPSHOT_KINDS = [
@@ -179,7 +186,7 @@ const executeStep = async (input: {
       ),
     });
 
-  const actionStartedAt = Date.now();
+  const actionStartedAt = performance.now();
   session.setStep(stepIndex);
   const requestCancelled = (): boolean => signal?.aborted === true;
   let outcome: BrowserScenarioStepOutcome = {
@@ -207,7 +214,7 @@ const executeStep = async (input: {
     stepId: action.step_id,
     action: action.action,
     ...outcome,
-    elapsedMs: Date.now() - actionStartedAt,
+    elapsedMs: Math.max(0, Math.round(performance.now() - actionStartedAt)),
     beforeUrl,
     afterUrl: session.sanitizeUrl(session.currentUrl()),
     eventStart,
@@ -233,25 +240,33 @@ const globalCompleteness = (
 };
 
 const runScenario = async (
-  factory: BrowserScenarioSessionFactory,
+  openSession: BrowserScenarioSessionOpener,
   scenario: BrowserScenario,
   options: ExecutionOptions,
+  retainCleanup: (lease: AnalysisCleanupLease) => void,
 ): Promise<BrowserScenarioCapture> => {
-  if (options.signal?.aborted === true)
-    throw new BrowserObservationError(OPERATION, "cancelled");
-  const startedAt = Date.now();
-  const session = await factory.open(
-    scenario,
-    options.signal === undefined ? {} : { signal: options.signal },
-  );
+  if (options.signal?.aborted)
+    throw new BrowserObservationError(OPERATION, "cancelled", {
+      cause: options.signal.reason,
+    });
+  const startedAt = performance.now();
+  const session = await openSession(scenario, {
+    ...(options.signal === undefined ? {} : { signal: options.signal }),
+    retainCleanup,
+  });
   const steps: BrowserScenarioStep[] = [];
-  let cleanup: "terminated-owned-process" | "disconnected-external" | undefined;
+  let operationOutcome:
+    | { readonly ok: true }
+    | {
+        readonly ok: false;
+        readonly cause: unknown;
+      } = { ok: true };
   try {
     steps.push(
       await initialStep({
         session,
         scenario,
-        elapsedMs: Date.now() - startedAt,
+        elapsedMs: Math.max(0, Math.round(performance.now() - startedAt)),
         signal: options.signal,
       }),
     );
@@ -268,71 +283,232 @@ const runScenario = async (
       steps.push(step);
       failed ||= step.status !== "completed";
     }
-  } finally {
-    cleanup = await session.close();
+  } catch (cause: unknown) {
+    operationOutcome = { ok: false, cause };
   }
-  const events = session.events();
-  const completeness = globalCompleteness(scenario, session, steps);
-  return browserScenarioCaptureSchema.parse({
-    browser: {
-      mode: session.mode,
-      process_ownership: session.processOwnership,
+  let cleanupOutcome:
+    | {
+        readonly ok: true;
+        readonly cleanup: "terminated-owned-process" | "disconnected-external";
+      }
+    | { readonly ok: false; readonly cause: unknown };
+  try {
+    cleanupOutcome = { ok: true, cleanup: await session.close() };
+  } catch (cause: unknown) {
+    const cleanup = browserScenarioCleanupObservation(cause);
+    const failure = new BrowserObservationError(OPERATION, "cleanup_failed", {
+      cause,
       cleanup,
-      product: session.product,
-      version: session.version,
-    },
-    scenario: {
-      start_origin: new URL(scenario.start_url.url).origin,
-      action_count: scenario.actions.length,
-      secret_references: scenario.secrets.map(({ secret_id: id }) => id).sort(),
-      network_content: scenario.capture.network,
-    },
-    duration_ms: Date.now() - startedAt,
-    steps,
-    events,
+    });
+    retainCleanup(session.cleanupLease);
+    new AnalysisCleanupLeaseGroup(failure, [session.cleanupLease]);
+    cleanupOutcome = { ok: false, cause: failure };
+  }
+  if (!cleanupOutcome.ok) {
+    if (operationOutcome.ok && options.signal?.aborted)
+      operationOutcome = {
+        ok: false,
+        cause: new AnalysisCancelledError(OPERATION, {
+          cause: options.signal.reason,
+        }),
+      };
+    const cleanup = browserScenarioCleanupObservation(cleanupOutcome.cause);
+    const partialObservation: BrowserScenarioPartialObservation = {
+      kind: "browser-scenario-observation",
+      capture: browserScenarioCaptureData({
+        session,
+        scenario,
+        startedAt,
+        steps,
+        cleanup: "incomplete",
+        limitations: [
+          "Scenario observations are partial because browser cleanup could not be confirmed.",
+        ],
+      }),
+    };
+    if (!operationOutcome.ok)
+      throw browserScenarioOperationFailure(
+        operationOutcome.cause,
+        partialObservation,
+        { cause: cleanupOutcome.cause },
+      );
+    const failure = new BrowserObservationError(OPERATION, "cleanup_failed", {
+      cause: cleanupOutcome.cause,
+      cleanup,
+      partialObservation,
+      detail: `Browser scenario cleanup could not be confirmed: ${cleanup.reason}. Collected steps and events are retained in partial_observation. Review the reported resources before retrying.`,
+    });
+    if (
+      cleanupOutcome.cause instanceof AnalysisError &&
+      cleanupOutcome.cause.cleanupIncomplete
+    )
+      failure.bindCleanupDependencies([cleanupOutcome.cause]);
+    throw failure;
+  }
+  if (!operationOutcome.ok)
+    throw browserScenarioOperationFailure(operationOutcome.cause, {
+      kind: "browser-scenario-observation",
+      capture: browserScenarioCaptureData({
+        session,
+        scenario,
+        startedAt,
+        steps,
+        cleanup: cleanupOutcome.cleanup,
+        limitations: [
+          "Scenario capture ended after an operation failed; uncollected steps are not represented.",
+        ],
+      }),
+    });
+  const completeness = globalCompleteness(scenario, session, steps);
+  const capture = browserScenarioCaptureSchema.parse({
+    ...browserScenarioCaptureData({
+      session,
+      scenario,
+      startedAt,
+      steps,
+      cleanup: cleanupOutcome.cleanup,
+    }),
     completeness,
-    limitations: [
-      "Event sequence records provider receipt order; simultaneous browser causality is not inferred.",
-      "Network content is retained only when selected; response bytes are browser-decoded, not compressed wire bytes.",
-      "Request bytes are limited to what Playwright exposes; not_exposed does not establish body absence or multipart file coverage.",
-      "Network content reads settle within 5 seconds each and never wait for unfinished responses or refetch them.",
-      "Playwright scenario events do not expose request initiator stacks; receipt order does not prove causality.",
-      "Storage values are hashed only after declared-secret redaction.",
-      ...(session.eventLimitations?.() ?? []),
-      ...(session.mode === "connect"
-        ? [
-            "CDP attachment cannot recover pre-attach events or guarantee launch-time context options.",
-          ]
-        : []),
-    ],
   });
+  if (signalIsAborted(options.signal))
+    throw new AnalysisCancelledError(OPERATION, {
+      cause: options.signal?.reason,
+      partialObservation: {
+        kind: "browser-scenario-observation",
+        capture: {
+          ...capture,
+          limitations: [
+            ...capture.limitations,
+            "Scenario capture was cancelled; collected steps, observations, and cleanup state are retained.",
+          ],
+        },
+      },
+    });
+  return capture;
 };
 
 /** Controlled Playwright/CDP scenario driver with exact process ownership. */
 export class PlaywrightBrowserScenarioProvider implements BrowserScenarioCapturePort {
-  constructor(
-    private readonly factory: BrowserScenarioSessionFactory = lazyPlaywrightFactory,
-  ) {}
+  #tail: Promise<void> = Promise.resolve();
+  #closing = false;
+  #closePromise: Promise<void> | undefined;
+  readonly #pendingCleanup = new Set<AnalysisCleanupLease>();
+
+  constructor(private readonly openSession: BrowserScenarioSessionOpener) {}
 
   identity(): ProviderIdentity {
     return PLAYWRIGHT_BROWSER_SCENARIO_PROVIDER_IDENTITY;
   }
 
-  async captureScenario(
+  captureScenario(
     scenario: BrowserScenario,
     options: ExecutionOptions = {},
   ): Promise<Result<BrowserScenarioCapture, AnalysisError>> {
+    if (this.#closing) return Promise.resolve(err(this.#closedError()));
+    const operation = this.#tail.then(() =>
+      this.#closing
+        ? err(this.#closedError())
+        : this.#captureScenario(scenario, options),
+    );
+    this.#tail = operation.then(
+      () => undefined,
+      () => undefined,
+    );
+    return operation;
+  }
+
+  async #captureScenario(
+    scenario: BrowserScenario,
+    options: ExecutionOptions,
+  ): Promise<Result<BrowserScenarioCapture, AnalysisError>> {
+    const pending = await this.#retryCleanup();
+    if (pending !== undefined) return err(pending);
+    const retained: AnalysisCleanupLease[] = [];
     try {
-      return ok(await runScenario(this.factory, scenario, options));
+      return ok(
+        await runScenario(this.openSession, scenario, options, (lease) => {
+          this.#pendingCleanup.add(lease);
+          retained.push(lease);
+        }),
+      );
     } catch (cause: unknown) {
-      if (cause instanceof AnalysisError) return err(cause);
+      const primary =
+        cause instanceof AnalysisError
+          ? cause
+          : new ProviderAdapterError(
+              PLAYWRIGHT_BROWSER_SCENARIO_PROVIDER_IDENTITY.id,
+              OPERATION,
+              { cause },
+            );
+      if (retained.length === 0) return err(primary);
+      const cleanup = new ProviderCleanupError(
+        PLAYWRIGHT_BROWSER_SCENARIO_PROVIDER_IDENTITY.id,
+        retained.flatMap((lease) => lease.cleanupResources ?? []),
+        { reason: "Browser scenario cleanup capabilities remain retained." },
+        { operation: OPERATION, cause },
+      );
+      new AnalysisCleanupLeaseGroup(cleanup, retained);
       return err(
-        new ProviderAdapterError(
-          PLAYWRIGHT_BROWSER_SCENARIO_PROVIDER_IDENTITY.id,
+        analysisErrorWithCleanupFailure(
+          primary,
+          cleanup,
           OPERATION,
-          { cause },
-        ),
+        ).bindCleanupDependencies([primary, cleanup]),
       );
     }
+  }
+
+  async close(): Promise<void> {
+    this.#closing = true;
+    this.#closePromise ??= this.#tail
+      .then(async () => {
+        const failure = await this.#retryCleanup();
+        if (failure !== undefined) throw failure;
+      })
+      .catch((cause: unknown) => {
+        this.#closePromise = undefined;
+        throw cause;
+      });
+    return this.#closePromise;
+  }
+
+  #closedError(): AnalysisError {
+    return new BrowserObservationError(OPERATION, "cleanup_failed", {
+      detail: "Browser scenario provider is closing.",
+      cleanup: { reason: "Provider is closing", resources: [] },
+    });
+  }
+
+  async #retryCleanup(): Promise<AnalysisError | undefined> {
+    const failures: AnalysisError[] = [];
+    for (const pending of this.#pendingCleanup) {
+      try {
+        await withPlaywrightExecutionBoundary(
+          () => pending.release(),
+          PLAYWRIGHT_CLEANUP_CONFIRMATION_TIMEOUT_MS,
+        );
+        this.#pendingCleanup.delete(pending);
+      } catch (cause: unknown) {
+        const failure = new ProviderCleanupError(
+          PLAYWRIGHT_BROWSER_SCENARIO_PROVIDER_IDENTITY.id,
+          pending.cleanupResources ?? [],
+          { reason: cause instanceof Error ? cause.message : String(cause) },
+          { operation: OPERATION, cause },
+        );
+        new AnalysisCleanupLeaseGroup(failure, [pending]);
+        failures.push(failure);
+      }
+    }
+    if (failures.length === 0) return undefined;
+    if (failures.length === 1) return failures[0];
+    return new ProviderCleanupError(
+      PLAYWRIGHT_BROWSER_SCENARIO_PROVIDER_IDENTITY.id,
+      failures.flatMap((failure) => failure.cleanupResources),
+      { reason: "One or more browser scenario resources remain owned." },
+      {
+        operation: OPERATION,
+        cause: new AggregateError(failures, "Browser scenario cleanup failed"),
+      },
+    ).bindCleanupDependencies(failures);
   }
 }

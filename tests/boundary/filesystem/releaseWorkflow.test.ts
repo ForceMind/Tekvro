@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";
 import { delimiter, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { expect, it } from "vitest";
 import { parse } from "yaml";
@@ -15,10 +16,12 @@ const stepSchema = z.object({
   uses: z.string().optional(),
   run: z.string().optional(),
   if: z.string().optional(),
+  "continue-on-error": z.union([z.boolean(), z.string()]).optional(),
   with: z.record(z.string(), z.unknown()).optional(),
   env: z.record(z.string(), z.unknown()).optional(),
 });
 const jobSchema = z.object({
+  "continue-on-error": z.union([z.boolean(), z.string()]).optional(),
   if: z.string().optional(),
   needs: z.union([z.string(), z.array(z.string())]).optional(),
   outputs: z.record(z.string(), z.string()).optional(),
@@ -34,7 +37,16 @@ async function readReleaseWorkflow() {
         "release-proposal": jobSchema,
         "release-please": jobSchema,
         "merged-release": jobSchema,
+        qualification: z.object({
+          if: z.string(),
+          needs: z.array(z.string()),
+          uses: z.string(),
+          with: z.record(z.string(), z.string()),
+        }),
         publish: jobSchema,
+        rehearsal: jobSchema.extend({
+          permissions: z.record(z.string(), z.string()),
+        }),
         "publish-mcp": jobSchema,
       }),
     })
@@ -93,9 +105,8 @@ it("keeps main pushes proposal-only and gates merged-release automation", async 
     branches: ["main"],
   });
   const proposal = workflow.jobs["release-proposal"];
-  expect(proposal.if).toBe(
-    "github.repository == 'morluto/rea' && github.event_name == 'push'",
-  );
+  expect(proposal.if).toContain("github.event_name == 'push'");
+  expect(proposal.if).toContain("github.repository == 'morluto/rea'");
   const action = proposal.steps.find((step) =>
     step.uses?.startsWith("googleapis/release-please-action@"),
   );
@@ -105,6 +116,9 @@ it("keeps main pushes proposal-only and gates merged-release automation", async 
     "skip-github-release": true,
   });
   expect(action?.with?.["skip-github-pull-request"]).not.toBe(true);
+  expect(action?.if).toBe("steps.editorial.outputs.frozen != 'true'");
+  expect(proposal.steps[0]?.run).toContain("rea:release-notes-finalized");
+  expect(proposal.steps[0]?.run).toContain("--paginate");
   const merged = workflow.jobs["merged-release"];
   expect(merged.if).toContain("github.event.pull_request.merged == true");
   expect(merged.if).toContain("github.repository");
@@ -113,22 +127,11 @@ it("keeps main pushes proposal-only and gates merged-release automation", async 
     release_created: "${{ steps.release.outputs.release_created }}",
     sha: "${{ steps.release.outputs.sha }}",
   });
-  expect(workflow.jobs["release-please"].if).toBe(
-    "github.repository == 'morluto/rea' && github.event_name == 'workflow_dispatch'",
+  expect(workflow.jobs["release-please"].if).toContain(
+    "github.event_name == 'workflow_dispatch'",
   );
-  // This is a private Tekvro fork: retain release semantics as a reference,
-  // but guarantee no npm/MCP/website upstream publication job can run here.
-  for (const name of [
-    "release-proposal",
-    "merged-release",
-    "release-please",
-    "publish",
-    "publish-mcp",
-  ] as const) {
-    expect(workflow.jobs[name].if).toContain(
-      "github.repository == 'morluto/rea'",
-    );
-  }
+  for (const job of Object.values(workflow.jobs))
+    expect(job.if).toContain("github.repository == 'morluto/rea'");
   expect(workflow.concurrency.group).toBe(
     "release-${{ inputs.release_branch || github.event.pull_request.merge_commit_sha || github.ref_name }}",
   );
@@ -162,6 +165,12 @@ it("validates the reviewed merge before creating its release", async () => {
     SOURCE_SHA: "${{ github.event.pull_request.merge_commit_sha }}",
     RELEASE_SHA: "${{ steps.release.outputs.sha }}",
   });
+  const notesIndex = steps.findIndex((step) =>
+    step.run?.includes("release-notes.mjs publication"),
+  );
+  expect(notesIndex).toBeGreaterThan(steps.indexOf(checkpoint!));
+  expect(notesIndex).toBeLessThan(steps.indexOf(release!));
+  expect(steps[notesIndex]?.run).toContain('--pr "$RELEASE_PR"');
 });
 
 it("keeps frozen candidate preparation and publication explicit", async () => {
@@ -186,6 +195,17 @@ it("keeps frozen candidate preparation and publication explicit", async () => {
     "skip-github-release": "${{ inputs.phase == 'prepare' }}",
     "skip-github-pull-request": "${{ inputs.phase == 'publish' }}",
   });
+  const steps = workflow.jobs["release-please"].steps;
+  const notesIndex = steps.findIndex((step) =>
+    step.run?.includes("release-notes.mjs publication"),
+  );
+  expect(notesIndex).toBeGreaterThan(
+    steps.findIndex((step) =>
+      step.run?.includes("verify-release-checkpoint.mjs"),
+    ),
+  );
+  expect(notesIndex).toBeLessThan(steps.indexOf(release!));
+  expect(steps[notesIndex]?.if).toBe("inputs.phase == 'publish'");
   const catalogValidation = workflow.jobs["release-please"].steps.find(
     (step) => step.name === "Validate generated release documentation",
   );
@@ -266,16 +286,33 @@ it("binds npm and MCP publication to the same immutable release SHA", async () =
     release_created: "${{ steps.release.outputs.release_created }}",
     sha: "${{ steps.release.outputs.sha }}",
   });
-  expect(workflow.jobs.publish.if).toContain("inputs.phase == 'publish'");
-  expect(workflow.jobs.publish.if).toContain(
+  expect(workflow.jobs.qualification.if).toContain("inputs.phase == 'publish'");
+  expect(workflow.jobs.qualification.if).toContain(
     "needs.release-please.outputs.release_created",
+  );
+  expect(workflow.jobs.qualification.uses).toBe("./.github/workflows/ci.yml");
+  expect(workflow.jobs.qualification.with).toEqual({
+    source_sha:
+      "${{ needs.merged-release.outputs.sha || needs.release-please.outputs.sha }}",
+  });
+  expect(workflow.jobs.publish.needs).toContain("qualification");
+  expect(workflow.jobs.publish.needs).toContain("rehearsal");
+  expect(workflow.jobs.publish.if).toContain(
+    "needs.rehearsal.result == 'success'",
+  );
+  expect(workflow.jobs.publish.if).toContain(
+    "needs.qualification.result == 'success'",
   );
   expect(workflow.jobs["publish-mcp"].if).toContain(
     "needs.publish.result == 'success'",
   );
   expect(workflow.jobs.publish.needs).toContain("merged-release");
   expect(workflow.jobs["publish-mcp"].needs).toContain("merged-release");
-  for (const job of [workflow.jobs.publish, workflow.jobs["publish-mcp"]]) {
+  for (const job of [
+    workflow.jobs.rehearsal,
+    workflow.jobs.publish,
+    workflow.jobs["publish-mcp"],
+  ]) {
     const checkout = job.steps.find((step) =>
       step.uses?.startsWith("actions/checkout@"),
     );
@@ -304,7 +341,7 @@ it("binds npm and MCP publication to the same immutable release SHA", async () =
   )?.run;
   expect(publishCommand).toContain("scripts/release-npm-tag.mjs");
   expect(publishCommand).toContain(
-    'npm publish --access public --tag "${tag}"',
+    'npm publish "${VERIFIED_PACKAGE_TARBALL}" --access public --tag "${tag}"',
   );
   for (const [version, tag] of [
     ["6.1.0", "latest"],
@@ -315,7 +352,7 @@ it("binds npm and MCP publication to the same immutable release SHA", async () =
       import.meta.url,
     );
     const result = await execFileAsync(process.execPath, [
-      helper.pathname,
+      fileURLToPath(helper),
       version,
     ]);
     expect(result.stdout).toBe(tag);
@@ -597,12 +634,12 @@ it("runs release PR CI without enabling implementation pushes on release branche
   );
 });
 
-it("checks website changes on release-branch pull requests", async () => {
+it("routes website verification through the central PR policy", async () => {
   const workflow = z
     .object({
-      on: z.object({
-        pull_request: z.object({ branches: z.array(z.string()) }),
-      }),
+      on: z
+        .object({ workflow_call: z.null(), workflow_dispatch: z.null() })
+        .passthrough(),
     })
     .parse(
       parse(
@@ -615,40 +652,120 @@ it("checks website changes on release-branch pull requests", async () => {
         ),
       ),
     );
-  expect(workflow.on.pull_request.branches).toEqual(["main", "release/*"]);
-});
-
-// Publishing is irreversible. Keep the release authority invariant as a static
-// boundary check; it is not proof that package installation or publishing works.
-it("requires package verification before publishing and retains the registry canary", async () => {
-  const workflow = z
+  expect(workflow.on).not.toHaveProperty("pull_request");
+  const ci = z
     .object({
       jobs: z.object({
-        publish: z.object({
-          steps: z.array(z.object({ run: z.string().optional() })),
+        website: z.object({
+          uses: z.string(),
+          if: z.string(),
         }),
       }),
     })
     .parse(
       parse(
         await readFile(
-          new URL("../../../.github/workflows/release.yml", import.meta.url),
+          new URL("../../../.github/workflows/ci.yml", import.meta.url),
           "utf8",
         ),
       ),
     );
-  const commands = workflow.jobs.publish.steps.map(({ run }) => run ?? "");
-  const verify = commands.findIndex((command) =>
-    command.includes("npm run verify:package"),
+  expect(ci.jobs.website.uses).toBe("./.github/workflows/website-check.yml");
+  expect(ci.jobs.website.if).toBe("needs.changes.outputs.website == 'true'");
+});
+
+// The rehearsal executes the retained archive on a new read-only runner; the
+// process boundary suite exercises its real installation and protocol checks.
+it("rehearses the qualified archive before npm authority and retains registry verification", async () => {
+  const workflow = await readReleaseWorkflow();
+  const rehearsal = workflow.jobs.rehearsal;
+  expect(rehearsal.permissions).toEqual({ contents: "read", actions: "read" });
+  expect(rehearsal["continue-on-error"]).toBeUndefined();
+  expect(rehearsal.needs).toContain("qualification");
+  expect(rehearsal.if).toContain("needs.qualification.result == 'success'");
+  const exerciseIndex = rehearsal.steps.findIndex((step) =>
+    step.run?.includes("verify-release-artifact.mjs"),
   );
-  const publish = commands.findIndex((command) =>
+  const exercise = rehearsal.steps[exerciseIndex];
+  expect(exercise?.env).toEqual({
+    VERIFIED_PACKAGE_TARBALL: "${{ steps.package.outputs.tarball }}",
+    VERIFIED_PACKAGE_VERSION: "${{ steps.package.outputs.version }}",
+  });
+  expect(exercise?.if).toBeUndefined();
+  expect(exercise?.["continue-on-error"]).toBeUndefined();
+  const publish = workflow.jobs.publish;
+  expect(publish.needs).toContain("rehearsal");
+  expect(publish.if).toContain("needs.rehearsal.result == 'success'");
+  for (const job of [rehearsal, publish]) {
+    const inputs = job.steps.findIndex(
+      (step) => step.uses === "./.github/actions/prepare-release-package",
+    );
+    expect(inputs).toBeGreaterThanOrEqual(0);
+    expect(job.steps[inputs]?.id).toBe("package");
+    expect(job.steps[inputs]?.if).toBeUndefined();
+    expect(job.steps[inputs]?.["continue-on-error"]).toBeUndefined();
+    if (job === rehearsal) expect(exerciseIndex).toBeGreaterThan(inputs);
+  }
+  const action = z
+    .object({
+      outputs: z.object({
+        tarball: z.object({ value: z.string() }),
+        version: z.object({ value: z.string() }),
+      }),
+      runs: z.object({ steps: z.array(stepSchema) }),
+    })
+    .parse(
+      parse(
+        await readFile(
+          ".github/actions/prepare-release-package/action.yml",
+          "utf8",
+        ),
+      ),
+    );
+  expect(action.outputs.tarball.value).toBe(
+    "${{ steps.package.outputs.tarball }}",
+  );
+  expect(action.outputs.version.value).toBe(
+    "${{ steps.package.outputs.version }}",
+  );
+  const archive = action.runs.steps.findIndex(
+    (step) => step.with?.name === "verified-release-package",
+  );
+  const validation = action.runs.steps.findIndex((step) =>
+    step.run?.includes("scripts/ci/verified-package.mjs validate"),
+  );
+  const runtime = action.runs.steps.findIndex(
+    (step) => step.with?.name === "rea-test-runtime",
+  );
+  expect(archive).toBeGreaterThanOrEqual(0);
+  expect(validation).toBeGreaterThan(archive);
+  expect(runtime).toBeGreaterThan(validation);
+  for (const step of action.runs.steps) {
+    expect(step.if).toBeUndefined();
+    expect(step["continue-on-error"]).toBeUndefined();
+  }
+  const commands = publish.steps.map((step) => step.run ?? "");
+  const inspect = commands.findIndex((command) =>
+    command.includes("npm-release.mjs inspect"),
+  );
+  const write = commands.findIndex((command) =>
     command.includes("npm publish"),
   );
-  expect(verify).toBeGreaterThanOrEqual(0);
-  expect(publish).toBeGreaterThan(verify);
-  expect(
-    commands
-      .slice(publish + 1)
-      .some((command) => command.includes("verify-published-package.mjs")),
-  ).toBe(true);
+  const bytes = commands.findIndex((command) =>
+    command.includes("npm-release.mjs verify"),
+  );
+  const canary = commands.findIndex((command) =>
+    command.includes("verify-published-package.mjs"),
+  );
+  expect(inspect).toBeGreaterThanOrEqual(0);
+  expect(write).toBeGreaterThan(inspect);
+  expect(bytes).toBeGreaterThan(write);
+  expect(canary).toBeGreaterThan(bytes);
+  expect(publish.steps[write]?.if).toBe(
+    "steps.registry.outputs.published == 'false'",
+  );
+  for (const index of [inspect, bytes, canary]) {
+    expect(publish.steps[index]?.if).toBeUndefined();
+    expect(publish.steps[index]?.["continue-on-error"]).toBeUndefined();
+  }
 });
