@@ -490,7 +490,7 @@ Ghidra/JDK installation; neither is inferred from startup alone.
 
 ## Diagnose, update, and remove
 
-`rea doctor --json` is strictly read-only. `rea update` updates only the npm installation that owns the running CLI. Source checkouts and package-runner copies must be updated through the mechanism that owns them; a fresh package-runner invocation can use `npx rea-agents@latest`. `rea uninstall` removes only Tekvro-owned agent registrations and skill files; `--purge-data` additionally removes Tekvro cache and state paths.
+`rea doctor --json` is strictly read-only. `rea update` refuses automatic updates in this private source build. Update the reviewed Git checkout, run `npm ci`, and rebuild instead. `rea uninstall` removes only Tekvro-owned agent registrations and skill files; `--purge-data` additionally removes Tekvro cache and state paths.
 
 ```bash
 rea update
@@ -522,3 +522,4 @@ The reserved product identity is `io.github.forcemind/tekvro`. No independent Re
 ```
 
 The `rea` registration key remains for compatibility. Use absolute paths to the intended Node.js runtime and checkout. Setup resolves these paths automatically and displays them in its plan.
+
