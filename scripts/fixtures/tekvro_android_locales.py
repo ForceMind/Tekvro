@@ -12,15 +12,16 @@ root.mkdir(parents=True, exist_ok=False)
     """version: 3.0.2
 apkFileName: tekvro-locales.apk
 usesFramework:
-  ids: [1]
+  ids:
+  - 1
 sdkInfo:
-  minSdkVersion: '24'
-  targetSdkVersion: '35'
-packageInfo:
-  forcedPackageId: '127'
+  minSdkVersion: 24
+  targetSdkVersion: 35
+resourcesInfo:
+  packageId: 127
 versionInfo:
-  versionCode: '1'
-  versionName: '1.0'
+  versionCode: 1
+  versionName: 1.0
 """,
     encoding="utf-8",
 )

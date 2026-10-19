@@ -160,16 +160,16 @@ exits 1. Installing missing Hopper non-interactively additionally requires
 rea setup --yes --all-detected --install-hopper --json
 ```
 
-Setup pins package-runner MCP registrations to the exact installed Tekvro version,
-installs the matching skill and on-demand references in the same plan, and adds
-`startup_timeout_sec = 30` for Codex and Grok Build. `rea update` installs the exact resolved
-release into the npm prefix that owns the running package, then checks the new
-executable's version before reporting success. It does not reopen onboarding.
-Release lookup and installation both use npm's configured registry.
-Its maintenance plan selects only existing Tekvro registrations and an already
-installed Tekvro skill. Run the returned scoped setup command to review and approve
-those changes, then restart affected agents. The plan is returned in terminal,
-non-TTY, and JSON modes without applying configuration changes.
+Setup registers the current local Tekvro executable (or Node.js plus its absolute
+source entrypoint on Windows), installs the bundled skill and references in the
+same reviewed plan, and adds `startup_timeout_sec = 30` for Codex and Grok Build.
+Existing exact legacy package-runner registrations can be detected for migration;
+new source-build registrations never invoke the public `rea-agents` package.
+
+`rea update` refuses automatic updates in this private source build. Update the
+reviewed Git checkout, run `npm ci`, and rebuild. Review any returned scoped setup
+plan before applying configuration changes, then restart affected agents. Independent
+registry release and update behavior require separate qualification.
 
 ## Check readiness for your task
 
@@ -271,8 +271,8 @@ ldd /absolute/path/to/Hopper | grep 'not found'
 
 Install the missing packages and rerun the scoped check. Linux demo sessions
 need Xvfb, Python 3, X11 and XTEST; approved setup installs those dependencies
-on supported distributions. Add the curl installer's reported executable
-directory, commonly `~/.local/bin`, to your shell `PATH` if needed.
+on supported distributions. Ensure the reviewed local Tekvro executable and
+your selected Hopper launcher are available through their configured absolute paths.
 
 Tekvro starts Hopper when needed. On macOS, its launcher can bring a window or
 first-run dialog forward; choose demo mode or activate your existing license.
@@ -404,7 +404,7 @@ rea providers --json
 
 `rea setup` can configure supported Windows agents and install the bundled
 Tekvro skill after approval. Direct registrations use Node to launch Tekvro's entry
-script; package-runner registrations use the pinned `npx` command. Hopper
+script; new source registrations use Node.js and this checkout’s absolute entrypoint. Hopper
 installation remains unavailable on Windows. Setup never installs Ghidra,
 Java, or Python. It preserves valid detected Ghidra/JDK settings in agent
 registrations. See [Windows Ghidra P0](windows-ghidra-p0.md) for provider diagnostics.

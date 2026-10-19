@@ -10,7 +10,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: tekvro-providers-${{ github.event.pull_request.number || github.ref }}
+  # Keep an expensive provider proof tied to its exact revision while fixes run.
+  group: tekvro-providers-${{ github.event.pull_request.number || github.ref }}-${{ github.event.pull_request.head.sha || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
