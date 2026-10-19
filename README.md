@@ -84,3 +84,9 @@ TEKVRO_LANG=zh-CN node scripts/rea.mjs setup --client codex
 ## 许可证
 
 项目包含根据 MIT 许可证使用的 [REA](https://github.com/morluto/rea) 代码及其他第三方组件。许可证、版权声明和第三方告知见 [LICENSE](LICENSE) 与 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+
+## 技术参考
+
+- [安装与客户端列表](docs/installation.md#supported-agents)
+- [MCP Registry](docs/installation.md#mcp-registry)
+- [MCP tool catalog](docs/mcp-contracts.md#generated-catalog)

@@ -45,3 +45,12 @@
 - `npm run test:focused -- tests/boundary/cli/tekvroPrivateSourceUpdate.test.ts`: **通过**
 - `npm run docs:check`: **失败（exit 1）**，详情见本次工作流记录
 - `npm run format:check`: **通过**
+
+### 2026-10-19：文档检查修复
+
+- 文档事实检查改为校验 Tekvro 现有中英文 README 的技术入口和本地链接；不再读取不存在的上游网站翻译清单。
+- 安装文档按当前工具清单补齐客户端，移除会误安装公开上游包的命令，展示本地 Node + MCP 入口。
+- 本地 Linux / Node 24.19.0：npm ci、build:cached、check:fast、docs:check、format:check 通过。
+- 文档及 catalog 边界测试 14 项、中文 CLI 11 项、更新服务 35 项、README 一致性 5 项通过。
+- 本地全量 source suite 尚在执行，进程/套接字相关用例出现失败；完整结果须以独立 PR 的 GitHub Actions 为准。
+- 仍保留 private:true、安装器与发布保护。尚未验证外部商业工具或宣布跨平台引擎支持。

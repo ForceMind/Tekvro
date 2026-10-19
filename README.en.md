@@ -84,3 +84,9 @@ Tekvro currently runs **from source**. An independent npm package and MCP Regist
 ## License
 
 The project includes code from [REA](https://github.com/morluto/rea) under the MIT License alongside other third-party components. See [LICENSE](LICENSE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for applicable licenses and copyright notices.
+
+## Technical references
+
+- [Installation and supported clients](docs/installation.md#supported-agents)
+- [MCP Registry](docs/installation.md#mcp-registry)
+- [MCP tool catalog](docs/mcp-contracts.md#generated-catalog)

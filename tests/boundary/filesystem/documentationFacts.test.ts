@@ -1,49 +1,30 @@
-import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { copyFile, cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { afterEach, describe, expect, it } from "vitest";
 
 import { createTestTempDirectory } from "../../fixtures/temporaryDirectory.js";
-
 import { documentationFactIssues } from "../../../scripts/lib/docs-facts.mjs";
 import type { ProductCatalog } from "../../../scripts/lib/product-catalog.mjs";
 
 const root = fileURLToPath(new URL("../../..", import.meta.url));
 const temporaryRoots: string[] = [];
 
-const README_FACT_FIXTURE_PATHS = [
-  "README.md",
-  "docs/readme/README_zh.md",
-  "docs/readme/README_ja.md",
-  "docs/readme/README_ko.md",
-  "docs/readme/README_ar.md",
-  "website/locales/languages.json",
-  "docs/installation.md",
-  "AGENTS.md",
-  ".github/pull_request_template.md",
-] as const;
-
-const README_LINK_DRIFT_MUTATIONS = [
-  [
-    "(../installation.md#supported-agents)",
-    "(../installation.md#missing-agents)",
-  ],
-  ["https://rea.tools/zh-CN/guides/", "https://rea.tools/zh-CN/missing/"],
-  ["https://rea.tools/zh-CN/guides/", "https://rea.tools/zh-TW/guides/"],
-  [
-    "https://rea.tools/zh-CN/guides/",
-    "https://rea.tools/zh-CN/guides/?other=1",
-  ],
-  [
-    'src="../assets/rea-hopper-analysis.png"',
-    'src="../assets/missing-hopper.png"',
-  ],
-  ['href="https://discord.gg/GkcryMnJDM"', 'href="https://discord.gg/missing"'],
-] as const;
-
-const seedReadmeFactFixture = async (directory: string) => {
-  for (const path of README_FACT_FIXTURE_PATHS) {
+const seedReadmeFactFixture = async () => {
+  const directory = await createTestTempDirectory("tekvro-readme-facts-");
+  temporaryRoots.push(directory);
+  await cp(join(root, "docs"), join(directory, "docs"), { recursive: true });
+  for (const path of [
+    "README.md",
+    "README.en.md",
+    "README_zh.md",
+    "CONTRIBUTING.md",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md",
+    "AGENTS.md",
+    ".github/pull_request_template.md",
+  ]) {
     const destination = join(directory, path);
     await mkdir(dirname(destination), { recursive: true });
     await copyFile(join(root, path), destination);
@@ -51,6 +32,10 @@ const seedReadmeFactFixture = async (directory: string) => {
   await mkdir(join(directory, "skills/reverse-engineer-anything"), {
     recursive: true,
   });
+  const catalog: ProductCatalog = JSON.parse(
+    await readFile(join(root, "docs/public/product-catalog.json"), "utf8"),
+  );
+  return { directory, catalog };
 };
 
 afterEach(async () => {
@@ -61,31 +46,44 @@ afterEach(async () => {
   );
 });
 
-describe("translated README facts", () => {
-  it("keeps translated readmes linked to canonical setup and tool details", async () => {
-    const directory = await createTestTempDirectory("rea-readme-facts-");
-    temporaryRoots.push(directory);
-    await seedReadmeFactFixture(directory);
-    const translatedPath = join(directory, "docs/readme/README_zh.md");
-    const translated = await readFile(translatedPath, "utf8");
-    const catalog: ProductCatalog = JSON.parse(
-      await readFile(join(root, "docs/public/product-catalog.json"), "utf8"),
-    );
+describe("Tekvro bilingual documentation facts", () => {
+  it("checks the actual Chinese and English entry points without upstream website locales", async () => {
+    const { directory, catalog } = await seedReadmeFactFixture();
     await expect(documentationFactIssues(directory, catalog)).resolves.toEqual(
       [],
     );
-    for (const [original, changed] of README_LINK_DRIFT_MUTATIONS) {
-      expect(translated).toContain(original);
+  });
+
+  it.each(["README.md", "README.en.md"])(
+    "detects lost MCP references in %s",
+    async (path) => {
+      const { directory, catalog } = await seedReadmeFactFixture();
+      const destination = join(directory, path);
+      const content = await readFile(destination, "utf8");
       await writeFile(
-        translatedPath,
-        translated.replace(original, changed),
-        "utf8",
+        destination,
+        content.replaceAll(
+          "](docs/mcp-contracts.md#generated-catalog)",
+          "](docs/mcp-contracts.md#wrong)",
+        ),
       );
       await expect(
         documentationFactIssues(directory, catalog),
-      ).resolves.toEqual([
-        "docs/readme/README_zh.md: documentation links differ from README.md",
-      ]);
-    }
+      ).resolves.toContain(
+        `${path}: missing ](docs/mcp-contracts.md#generated-catalog)`,
+      );
+    },
+  );
+
+  it("detects broken local references and repository escapes", async () => {
+    const { directory, catalog } = await seedReadmeFactFixture();
+    await writeFile(
+      join(directory, "README.en.md"),
+      `${await readFile(join(directory, "README.en.md"), "utf8")}\n[broken](docs/missing.md)\n[outside](../outside.md)\n`,
+    );
+    await expect(documentationFactIssues(directory, catalog)).resolves.toEqual([
+      "README.en.md: missing documentation reference: docs/missing.md",
+      "README.en.md: reference escapes repository: ../outside.md",
+    ]);
   });
 });

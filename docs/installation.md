@@ -1,127 +1,40 @@
 # Installation and setup
 
-> **Tekvro（探核）维护提示 / Independent distribution notice：** 本页面是 REA 6.1.0 的原始发行与引擎安装技术参考，`rea-agents`、`rea.tools` 和 `io.github.morluto/rea` 属于**原上游**，不是 Tekvro 的独立发行渠道。开发和部署本项目请以[中文快速上手](./zh-CN/quick-start.md)和 [ForceMind 私有源码](https://github.com/ForceMind/Tekvro)为准，勿直接使用原项目的自动安装及更新步骤来升级当前研发版。
+Tekvro runs from a local source checkout. Node.js `^22.19.0 || ^24.11.0 || >=26.0.0`, npm, and Git are required. The development and CI baseline is Node.js 24.18.0 with npm 11.16.0. Optional engines are installed and configured separately; setup does not install Node.js, npm, Java, Ghidra, or Homebrew.
 
-REA separates installing its CLI from configuring external software and agents.
+## Build and start
+
+```bash
+git clone https://github.com/ForceMind/Tekvro.git
+cd Tekvro
+npm ci
+npm run build:cached
+node scripts/rea.mjs --help
+node scripts/rea.mjs capabilities --json
+node scripts/rea.mjs doctor --json
+```
+
+Initialize submodules only for workflows that require their external source trees:
+
+```bash
+git submodule update --init --recursive
+```
+
+Use `node /absolute/path/to/Tekvro/scripts/rea.mjs` for an explicit checkout, or `npm link` to make the compatibility command `rea` available locally. Examples below use that local command. The package name is `tekvro`, and the MCP identity is `io.github.forcemind/tekvro`. Neither a Tekvro npm package nor an MCP Registry entry has been released. The public `rea-agents` npm package is a different distribution and must not be used to install or update this checkout. `install.sh` and automatic source-build updates remain disabled.
 
 ## Start setup
 
-Start setup with:
-
 ```bash
-npx rea-agents setup
+node scripts/rea.mjs doctor --client codex --json
+node scripts/rea.mjs setup --client codex --dry-run --json
+node scripts/rea.mjs setup --client codex
 ```
 
-If npm asks to download and run REA, that approval applies only to downloading
-the package. REA shows its own plan and asks before changing agent configuration
-or installing Hopper.
-
-The short command can use a REA version installed in the current project. To
-request the latest release explicitly, use:
-
-```bash
-npx rea-agents@latest setup
-```
-
-REA runs the version npm selects. To update older agent registrations, run the
-latest-version command and review its setup plan. For unattended package
-downloads, add `--yes` before the package name; this does not approve REA's
-setup changes.
-
-For an intentional rollback, make the package request explicit:
-
-```bash
-npm exec --yes --package=rea-agents@2.4.0 -- rea setup
-```
-
-Setup continues to pin persistent MCP registrations to the exact version that
-performed setup. Running current setup later migrates unversioned or older
-managed registrations through the normal reviewed setup transaction.
-
-REA supports Node.js 22.x (>=22.19), 24.x (>=24.11), and 26+. Node.js 23, 25, and prereleases are unsupported. It uses the npm already paired with that runtime and never upgrades Node.js, npm, or Homebrew.
-
-Running `npm install rea-agents` without `--global` installs the executable only
-in the current project's `node_modules/.bin`; it does not make `rea` available
-on the shell `PATH`. Use the setup command above for the guided setup
-journey, `npx -y rea-agents@latest` for unattended one-off commands, or install globally
-with `npm install --global rea-agents` for a shell-visible `rea` command.
-
-The optional curl wrapper installs only the global npm package:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/morluto/rea/main/install.sh | bash
-```
-
-It prints the version, runtime, npm command, and destination before installing. When a controlling terminal exists it starts `rea setup`; otherwise it prints the command to run later.
-
-Pass options with `bash -s --`:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/morluto/rea/main/install.sh |
-  bash -s -- --dry-run
-```
-
-Supported options are `--version <semver>`, `--dry-run`, `--no-setup`, `--no-prompt`, and `--verbose`. Neither `--no-prompt` nor a non-interactive shell grants permission to install external dependencies.
-
-## Released package and main
-
-Repository main documents its current code and generated catalog. `@latest`
-selects the npm release, and persistent MCP registrations are pinned to the
-version that performed setup. Installing newer instructions does not update a
-running server or its registration.
-
-The release checked on **2026-10-07** was **5.0.0** (133 MCP tools), published
-from the fixed checkpoint
-[`b33236ec`](https://github.com/morluto/rea/releases/tag/rea-agents-5.0.0).
-The public CLI, MCP catalog and target-free session, and isolated update from
-4.1.0 to 5.0.0 were verified through npm. The artifact includes Windows native
-controls, Android/JADX and firmware tools, Ghidra function annotations, and
-retained application-Evidence references.
-
-Main's catalog describes the current code. A source build or a subsequent
-release containing changes after this checkpoint is required for newer
-functionality. Package startup alone does not verify a provider's real
-platform workflow.
-
-To check the published version, run `npm view rea-agents dist-tags.latest`.
-Use the connected server's actual tool list and advertised input schemas for
-feature selection. The same package version string in a development checkout
-does not establish that its bytes match the npm tarball. Update a registration
-through a reviewed, scoped setup plan, then restart/reconnect the agent.
-
-## Skill-only installation
-
-```bash
-npx skills add morluto/rea --skill reverse-engineer-anything
-```
-
-This installs agent instructions and bundled references, not REA MCP
-registration or analysis engines. Follow the skill's
-[conditional connection guide](https://github.com/morluto/rea/blob/main/skill-src/reverse-engineer-anything/SKILL.md#connect-only-when-needed).
-Working tools can be used immediately. If tools are missing, inspect the current
-client's registration with `doctor --client codex --json` (substitute its client
-ID), then plan repairs with `setup --client codex --dry-run --json`. Show and
-approve the exact changes before applying that scope. An aligned registration
-with tools absent from the active session needs a restart/reconnection;
-`doctor` checks files and prerequisites, not the live agent connection.
-
-Guided setup installs the package's matching skill by default. The skills.sh
-route can select newer repository instructions, so follow actual server schemas
-and the release boundary above. Static JavaScript CLI inspection can proceed
-while MCP is unavailable:
-
-```bash
-npx -y rea-agents@latest analyze-javascript-application /absolute/path/to/app --json
-```
-
-It returns the complete Evidence record directly and requires no native engine.
-Provider failures in doctor do not prevent unrelated target-free tools. To check
-readiness for one task instead of auditing every integration, see
-[Check readiness for your task](#check-readiness-for-your-task).
+Review the plan before applying changes. Setup registers this checkout's Node.js MCP entrypoint, retains unrelated configuration, and backs up changed files. An existing client session must reconnect after a registration change. Doctor checks configuration and prerequisites; it does not prove that a live agent session has loaded the tools. Static JavaScript CLI analysis works without an MCP connection or a native analysis engine.
 
 ## Supported agents
 
-Setup can configure these clients for REA's local MCP server. Grok Bot is
+Setup can configure these clients for Tekvro's local MCP server. Grok Bot is
 listed after the table because its connector is not one of these files:
 
 | Client             | `--client` value |
@@ -137,13 +50,24 @@ listed after the table because its connector is not one of these files:
 | Antigravity        | `antigravity`    |
 | GitHub Copilot CLI | `copilot_cli`    |
 | Command Code       | `commandcode`    |
+| Qwen Code          | `qwen_code`      |
+| Kimi Code          | `kimi`           |
 | VS Code            | `vscode`         |
+| Trae               | `trae`           |
+| WorkBuddy          | `workbuddy`      |
 | Grok Build         | `grok_build`     |
+| OMP                | `omp`            |
+| Pi                 | `pi`             |
+| Hermes             | `hermes`         |
+| Qoder              | `qoder`          |
+| Factory Droid      | `droid`          |
+| ZCode              | `zcode`          |
+| DeepSeek Harness   | `dsh`            |
 
 For OpenCode, setup writes the V1 `mcp.rea` entry, which OpenCode V1 and V2
 both load. If the configuration already uses OpenCode V2's native
-`mcp.servers` table, setup registers REA there instead and replaces any earlier
-`mcp.rea` entry from REA.
+`mcp.servers` table, setup registers Tekvro there instead and replaces any earlier
+`mcp.rea` entry from Tekvro.
 
 Grok Build loads `[mcp_servers.rea]` from `$GROK_HOME/config.toml`, or from
 `~/.grok/config.toml` when `GROK_HOME` is unset. Setup edits that server
@@ -163,7 +87,7 @@ the data directory as aligned. Ask the Grok Bot chat to add a custom MCP
 server named `rea` that runs on the Bot's computer:
 
 ```bash
-npx -y rea-agents@<version> mcp
+node /absolute/path/to/Tekvro/scripts/rea.mjs mcp
 ```
 
 Do not put credentials in that command or its arguments. `rea doctor --client grok_bot`
@@ -171,13 +95,13 @@ reports this manual step. `rea uninstall` does not remove the account connector.
 
 ## Review setup changes
 
-`rea setup` first offers the supported agents in a multi-select. Existing REA
+`rea setup` first offers the supported agents in a multi-select. Existing Tekvro
 registrations are selected by default. Newly detected clients remain available
 but unselected: detection gives setup context, not permission to add a new
 registration. Clients without a detected configuration can still be selected.
 Explicit `--client` flags skip this question.
 
-Setup adds MCP access for selected clients. It installs REA's bundled workflow
+Setup adds MCP access for selected clients. It installs Tekvro's bundled workflow
 with those integrations by default; use `--skill=false` to omit it. If no agent
 is selected, setup offers the workflow separately for CLI use, with No as the
 default. Hopper is a separate optional choice: setup shows its proposed
@@ -185,13 +109,13 @@ installation or connection and requires its own explicit approval. It can also
 save verified paths for an existing Ghidra installation.
 
 After selection, review the plan's exact paths and changes and approve before
-REA writes files or installs Hopper. You can cancel at any prompt.
+Tekvro writes files or installs Hopper. You can cancel at any prompt.
 
-Before applying changes, REA checks your current configuration. The plan lists:
+Before applying changes, Tekvro checks your current configuration. The plan lists:
 
 - an existing Hopper installation, a verified existing Ghidra installation, or the official Hopper package it proposes to install;
 - each detected agent configuration path;
-- the REA skill destination;
+- the Tekvro skill destination;
 - external software, network origins, integrity evidence, and package-manager
   commands.
 
@@ -201,7 +125,7 @@ changes. Agent configuration writes preserve unrelated entries and comments,
 create backups, use atomic replacement, and verify their result. Setup and
 uninstall retain an existing `.rea.backup` rather than replacing the first snapshot.
 
-After setup, REA reports which agents, analysis tools, and workflow files passed
+After setup, Tekvro reports which agents, analysis tools, and workflow files passed
 its final checks. Restart any agent named in the completion message, then begin
 your investigation. Failed steps and diagnostics remain in terminal history.
 
@@ -227,7 +151,7 @@ readiness projection without applying it. Use `rea doctor --json` for full
 health diagnostics and canonical tool catalog details. Pair
 `--yes` with explicit scope such as `--client codex`, or use
 `--all-detected` when the broad scope is intended. Without a scope flag,
-`--yes` is limited to existing REA-owned registrations; it does not select all
+`--yes` is limited to existing Tekvro-owned registrations; it does not select all
 detected clients. An unapproved actual apply reports `needs_confirmation` and
 exits 1. Installing missing Hopper non-interactively additionally requires
 `--install-hopper`:
@@ -236,14 +160,14 @@ exits 1. Installing missing Hopper non-interactively additionally requires
 rea setup --yes --all-detected --install-hopper --json
 ```
 
-Setup pins package-runner MCP registrations to the exact installed REA version,
+Setup pins package-runner MCP registrations to the exact installed Tekvro version,
 installs the matching skill and on-demand references in the same plan, and adds
 `startup_timeout_sec = 30` for Codex and Grok Build. `rea update` installs the exact resolved
 release into the npm prefix that owns the running package, then checks the new
 executable's version before reporting success. It does not reopen onboarding.
 Release lookup and installation both use npm's configured registry.
-Its maintenance plan selects only existing REA registrations and an already
-installed REA skill. Run the returned scoped setup command to review and approve
+Its maintenance plan selects only existing Tekvro registrations and an already
+installed Tekvro skill. Run the returned scoped setup command to review and approve
 those changes, then restart affected agents. The plan is returned in terminal,
 non-TTY, and JSON modes without applying configuration changes.
 
@@ -278,7 +202,7 @@ selected engine. See [provider selection](cli.md#choose-a-provider).
 ## Hopper
 
 Hopper is separate commercial software with its own license. Its free demo has
-vendor-defined limits, and a paid license is optional. REA reuses any detected
+vendor-defined limits, and a paid license is optional. Tekvro reuses any detected
 installation and preserves Hopper during uninstall.
 
 The supported native host baseline is macOS 12+, Ubuntu 24.04+, Fedora 41+,
@@ -287,35 +211,35 @@ host requirements; Windows Ghidra uses the [experimental P0 boundary](windows-gh
 
 On macOS, approved setup downloads the official DMG, checks its published size
 and digest, validates the application bundle, and atomically installs it to
-`~/Applications/Hopper Disassembler.app`. REA then opens Hopper so the
+`~/Applications/Hopper Disassembler.app`. Tekvro then opens Hopper so the
 operator can choose its demo mode or activate an existing license. Homebrew and
 administrator access are not used.
 
-The Hopper launcher action used by REA creates a document from an executable;
+The Hopper launcher action used by Tekvro creates a document from an executable;
 its supported command-line interface does not attach to an already-open
-document. While another live REA session owns the same target and loader
+document. While another live Tekvro session owns the same target and loader
 profile, a second session reports the owning run ID instead of opening a
-duplicate document. Closing the owning REA session releases this guard; Hopper
-keeps its document open. A later REA session can therefore open another
-document for the same target. REA does not currently identify, focus, or reuse
+duplicate document. Closing the owning Tekvro session releases this guard; Hopper
+keeps its document open. A later Tekvro session can therefore open another
+document for the same target. Tekvro does not currently identify, focus, or reuse
 that existing GUI document, and the supported launcher exposes no attach or
 reuse action for it.
 
 On supported Linux distributions, approved setup verifies Hopper's official
 `.deb`, `.rpm`, or Arch package before invoking the native package manager.
-REA runs the supported demo build on a private Xvfb display and selects Hopper's
+Tekvro runs the supported demo build on a private Xvfb display and selects Hopper's
 offered demo mode for each analysis session; it does not require the user's
 desktop display. Unattended package-manager access requires
 `--yes --install-hopper`. If the host exposes `/tmp/.X11-unix` as an immutable
-mount, REA first verifies the conflict and then uses an unprivileged user and
+mount, Tekvro first verifies the conflict and then uses an unprivileged user and
 mount namespace with a private mode-1777 tmpfs over that directory only. The
 host mount and the rest of `/tmp` remain unchanged; this fallback never invokes
 `sudo`. `rea doctor --provider hopper --json` reports the selected
 strategy and both host and effective mount facts.
 
 The supported Linux demo forwards additional launches into its existing
-application, even across private displays. REA therefore reserves one Linux
-Hopper application per user across cooperating REA processes. A competing
+application, even across private displays. Tekvro therefore reserves one Linux
+Hopper application per user across cooperating Tekvro processes. A competing
 CLI or MCP session receives the owning session ID before Hopper is launched,
 for both the same target and a different target. Switch targets through that
 MCP session, or close it before starting another session. Closing the owner
@@ -323,12 +247,12 @@ releases the reservation. This does not attach to or claim ownership of
 manually opened Hopper applications.
 
 Stale lease recovery is serialized. If an interrupted recovery leaves its
-reservation directory, the diagnostic identifies that exact path. Stop REA
+reservation directory, the diagnostic identifies that exact path. Stop Tekvro
 sessions before removing that recovery directory and retrying.
 
 ### Launcher paths and troubleshooting
 
-On macOS, REA uses
+On macOS, Tekvro uses
 `/Applications/Hopper Disassembler.app/Contents/MacOS/hopper` by default.
 On Linux, it prefers executable `/opt/hopper/bin/Hopper`, then executable
 `~/.local/share/rea/hopper/bin/Hopper`; if neither exists, the former remains
@@ -350,7 +274,7 @@ need Xvfb, Python 3, X11 and XTEST; approved setup installs those dependencies
 on supported distributions. Add the curl installer's reported executable
 directory, commonly `~/.local/bin`, to your shell `PATH` if needed.
 
-REA starts Hopper when needed. On macOS, its launcher can bring a window or
+Tekvro starts Hopper when needed. On macOS, its launcher can bring a window or
 first-run dialog forward; choose demo mode or activate your existing license.
 Hopper serializes analysis requests. Cancelling a wait can leave provider work
 running, which the session reports. Successful decompilation is cached until
@@ -365,17 +289,17 @@ memory has no original file offset. For FAT Mach-O, offsets refer to the origina
 container file. Results retain Hopper's image-relative offset, the observed slice
 base, and the source executable path.
 Loader selection reads the Mach-O container header, including FAT files with a
-single architecture. For FAT64, REA validates the architecture table and selected
+single architecture. For FAT64, Tekvro validates the architecture table and selected
 Mach-O header, prepares a private thin image, and loads it with Hopper's native
 Mach-O loader. It checks the entire source's SHA-256 while copying the slice;
 source identity and reported offsets still refer to the original container.
 An ambiguous architecture subtype requires an explicitly extracted thin image;
-REA does not guess. Configured loader arguments remain explicit overrides.
+Tekvro does not guess. Configured loader arguments remain explicit overrides.
 FAT64 is distinct from the CPU architecture: FAT32 containers can contain 64-bit
 executable images. This preparation avoids the Raw Binary loader dialog observed
 with native FAT64 loading on Hopper 6.1.0-demo.
 The prepared image and its owned document close together, including on MCP exit;
-if document closure is unconfirmed, REA retains the backing image and reports
+if document closure is unconfirmed, Tekvro retains the backing image and reports
 `cleanup_incomplete` with its path. Ordinary documents retain their existing
 MCP-exit behavior.
 Startup deadlines report missing bridge readiness and preserve the launcher
@@ -392,7 +316,7 @@ requires exact final readback. New bookmarks must point into mapped memory;
 existing legacy bookmarks outside it can still be removed.
 String results read each native typed object's complete bytes, retain the original
 provider display in `provider_value`, and report its encoding, byte length, and
-termination. `encoding_status: inferred` distinguishes REA's decoding from an
+termination. `encoding_status: inferred` distinguishes Tekvro's decoding from an
 observed source encoding. Hopper can split long literals into adjacent
 unterminated objects; search matches each object's decoded bytes independently.
 Undecodable objects retain native display text with `decoding.available: false`
@@ -404,21 +328,21 @@ Regex searches use ECMAScript Unicode syntax in a cancellable worker with a
 five-second matching deadline. Deadline or cancellation stops matching while
 leaving the Hopper API available. Literal mode retains Unicode casefold matching.
 
-Closing or switching a target closes its bound Hopper document, shuts down REA's
+Closing or switching a target closes its bound Hopper document, shuts down Tekvro's
 bridge and removes its temporary socket directory while preserving the Hopper
 application and unrelated documents. A `cleanup_incomplete`
 result identifies resources whose cleanup could not be verified.
 
 ### Hopper in CI
 
-REA's unattended Linux path is validated against Hopper's offered demo mode.
-A paid license is not required for that path, and REA does not read, install, or
+Tekvro's unattended Linux path is validated against Hopper's offered demo mode.
+A paid license is not required for that path, and Tekvro does not read, install, or
 automate license credentials. Licensed Hopper installations remain supported,
 but license activation is an operator-owned prerequisite rather than part of
-REA setup.
+Tekvro setup.
 
 macOS requires Hopper's first-run UI to be completed in the same user session
-that will run REA: choose the demo mode or activate an existing license before
+that will run Tekvro: choose the demo mode or activate an existing license before
 starting an unattended job. Ephemeral macOS runners therefore need a
 pre-provisioned user session or a deliberate interactive bootstrap step.
 
@@ -431,7 +355,7 @@ copying license secrets into logs, or killing unrelated Hopper processes.
 
 ## Ghidra
 
-REA connects to an existing Ghidra installation on Linux x64/arm64, macOS x64/arm64,
+Tekvro connects to an existing Ghidra installation on Linux x64/arm64, macOS x64/arm64,
 or experimental Windows x64 P0.
 It accepts Ghidra 12.1.x and the 64-bit full JDK declared by that installation's
 `application.java.min` and `application.java.max`. Current 12.1 releases require
@@ -440,7 +364,7 @@ and JDK 21. Each installation must include the native decompiler for the host
 architecture in `Ghidra/Features/Decompiler/os/<platform>/` or the corresponding
 `build/os/<platform>/` directory. Linux ARM64 uses `linux_arm_64`; official
 release archives may require you to build that native component separately.
-REA checks the executable prerequisite and does not build or install native
+Tekvro checks the executable prerequisite and does not build or install native
 tools, or change Gatekeeper quarantine settings.
 
 The adapter exposes 25 read-only operations: thirteen inventory/name/search
@@ -460,7 +384,7 @@ DACLs, and handle-based path admission; no separate addon installation is needed
 See the [Windows Ghidra P0 guide](windows-ghidra-p0.md) for verified scope and
 limitations.
 
-Extract Ghidra and install the JDK outside REA, then export absolute paths:
+Extract Ghidra and install the JDK outside Tekvro, then export absolute paths:
 
 ```bash
 export GHIDRA_INSTALL_DIR=/absolute/path/to/ghidra_12.1.4_PUBLIC
@@ -479,7 +403,7 @@ rea providers --json
 ```
 
 `rea setup` can configure supported Windows agents and install the bundled
-REA skill after approval. Direct registrations use Node to launch REA's entry
+Tekvro skill after approval. Direct registrations use Node to launch Tekvro's entry
 script; package-runner registrations use the pinned `npx` command. Hopper
 installation remains unavailable on Windows. Setup never installs Ghidra,
 Java, or Python. It preserves valid detected Ghidra/JDK settings in agent
@@ -494,15 +418,15 @@ environment entry in its plan, writes only after approval, and never downloads,
 installs, upgrades, or modifies Ghidra or Java.
 
 Each verified session uses an ephemeral temporary project and isolated
-home/cache/config/temp paths. REA passes `-readOnly`, `-deleteProject`, uses
+home/cache/config/temp paths. Tekvro passes `-readOnly`, `-deleteProject`, uses
 Ghidra's default analysis and resource settings, and loads its packaged Java
 bridge via `-scriptPath`; it never opens an existing user project. Linux and
 macOS use a current-user-only local bridge socket and descriptor. The
 project remains under the selected temporary directory. If its Unix socket
-pathname would exceed the host's byte limit, REA allocates a separate mode-0700
+pathname would exceed the host's byte limit, Tekvro allocates a separate mode-0700
 socket directory under `/tmp` and removes it on close, cancellation, or failure.
 Diagnostics retain the actual endpoint and both owned directories.
-On macOS, REA starts the inspected JVM directly using Ghidra's own LaunchSupport
+On macOS, Tekvro starts the inspected JVM directly using Ghidra's own LaunchSupport
 configuration. Apple platform shell wrappers hide their environments from
 ownership inspection, so retaining those wrappers would prevent verified
 process-group cancellation during startup.
@@ -518,7 +442,7 @@ The provider startup deadline is 330,000 ms by default for import, analysis,
 bridge, and health readiness. Large binaries can need more: set
 `REA_GHIDRA_STARTUP_TIMEOUT_MS` to an integer between 1 and 2,147,483,647
 milliseconds in the server environment. An absent, empty, invalid or out-of-range
-value keeps the default. REA parses the supplied configuration environment and
+value keeps the default. Tekvro parses the supplied configuration environment and
 passes the deadline to each provider client; a startup failure is returned by the query that triggered it,
 without exposing partial analysis. This deadline is separate from MCP transport
 initialization and the client's deadline for that individual tool call. A client
@@ -566,7 +490,7 @@ Ghidra/JDK installation; neither is inferred from startup alone.
 
 ## Diagnose, update, and remove
 
-`rea doctor --json` is strictly read-only. `rea update` updates only the npm installation that owns the running CLI. Source checkouts and package-runner copies must be updated through the mechanism that owns them; a fresh package-runner invocation can use `npx rea-agents@latest`. `rea uninstall` removes only REA-owned agent registrations and skill files; `--purge-data` additionally removes REA cache and state paths.
+`rea doctor --json` is strictly read-only. `rea update` updates only the npm installation that owns the running CLI. Source checkouts and package-runner copies must be updated through the mechanism that owns them; a fresh package-runner invocation can use `npx rea-agents@latest`. `rea uninstall` removes only Tekvro-owned agent registrations and skill files; `--purge-data` additionally removes Tekvro cache and state paths.
 
 ```bash
 rea update
@@ -575,7 +499,7 @@ rea uninstall --purge-data
 ```
 
 Uninstall preserves Hopper, Node.js, Evidence files, captures, unrelated skills
-and other MCP servers. Purging removes only REA's cache and state under
+and other MCP servers. Purging removes only Tekvro's cache and state under
 `~/.rea`. A client configuration that is malformed, unreadable, or at an unsafe
 path stops the operation before anything is removed, and a client that fails
 while being updated stops the remaining removals. A purge path that is a
@@ -584,32 +508,17 @@ symbolic link is retained and reported rather than followed. See the
 
 ## MCP Registry
 
-REA is published in the official MCP Registry as `io.github.morluto/rea`. Registry
-clients can discover the server and install the existing public `rea-agents` npm
-package; the Registry entry does not introduce a second distribution artifact.
-
-For a client that supports Registry discovery, search for `io.github.morluto/rea`
-and select the npm package. The published metadata launches the existing stdio
-server through `npx` with the `mcp` command.
-
-For a client that requires manual configuration, use:
-
-<!-- x-release-please-start-version -->
+The reserved product identity is `io.github.forcemind/tekvro`. No independent Registry entry or npm release is available. Configure a local source build instead:
 
 ```json
 {
   "mcpServers": {
     "rea": {
-      "command": "npx",
-      "args": ["-y", "rea-agents@6.1.0", "mcp"]
+      "command": "/absolute/path/to/node",
+      "args": ["/absolute/path/to/Tekvro/scripts/rea.mjs", "mcp"]
     }
   }
 }
 ```
 
-<!-- x-release-please-end -->
-
-Persistent registrations should use one exact package version. `rea setup`
-writes the same package-runner shape and pins it to the exact version that
-performed setup. Run current setup to refresh an older registration, then
-restart the client.
+The `rea` registration key remains for compatibility. Use absolute paths to the intended Node.js runtime and checkout. Setup resolves these paths automatically and displays them in its plan.
