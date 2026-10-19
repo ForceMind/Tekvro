@@ -1,3 +1,4 @@
+import { selectHumanText } from "./cli/localization.js";
 import { registerCaptureCommands } from "./cli/captureCommands.js";
 import { registerSignalCommands } from "./cli/signalCommands.js";
 import { registerWasmCommands } from "./cli/wasmCommands.js";
@@ -17,7 +18,7 @@ import { normalizeCliArguments } from "./cliOutput.js";
 import { createLogger, parseLogLevel } from "./logger.js";
 import { projectAnalysisError } from "./domain/analysisErrorProjection.js";
 import { PRODUCT_IDENTITY } from "./identity.js";
-import { npxRegistrationCommand } from "./application/ClientRegistrationIdentity.js";
+import { localRegistrationCommandText } from "./application/ClientRegistrationIdentity.js";
 import { registerSetupCommands } from "./cli/setupCommands.js";
 import { registerCoreAnalysisCommands } from "./cli/coreAnalysisCommands.js";
 import { registerUtilityCommands } from "./cli/utilityCommands.js";
@@ -88,10 +89,13 @@ export const createCli = (
   );
   const cli = Cli.create(PRODUCT_IDENTITY.cliBinary, {
     version: PRODUCT_IDENTITY.packageVersion,
-    description:
+    description: selectHumanText(
       "Tekvro: evidence-driven software analysis through CLI and MCP.",
+      "Tekvro 探核：从终端或 AI 智能体出发，用证据调查软件。",
+      environment,
+    ),
     mcp: {
-      command: npxRegistrationCommand().join(" "),
+      command: localRegistrationCommandText(),
       instructions:
         "Ask what software, artifact, protocol, or behavior the user wants to understand, then choose the available investigation capabilities that can produce evidence.",
     },

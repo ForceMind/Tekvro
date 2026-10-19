@@ -35,3 +35,9 @@
 固定 Electron 44.9.0 的 CLI/MCP 验收进入了 discovery、页面脚本检查、静态分析与 runtime reconciliation；作业因 Chromium 子进程 run-token mismatch 和 /proc/environ 权限限制在清理阶段失败。原始记录：[Linux 验收](https://github.com/ForceMind/Tekvro/actions/runs/39214005017)。这与上游 docs/verification/electron-cancellation-2026-10-16.md 记录的 Linux ownership gap 一致。
 
 不能将该结果写成 Linux Electron 完整运行成功，也不能用进程名称或 PID 推定归属来强行清理。完整 Electron 验收改在 macOS arm64 执行；Linux Electron 运行和取消仍保留 partial/cleanup_incomplete 边界，是否满足具体任务需逐项判断。Linux H5 静态、浏览器和 WASM 分别验证。
+
+### 已通过的真实核心验收（2026-10-19）
+
+[Linux 核心作业](https://github.com/ForceMind/Tekvro/actions/runs/39214005017)：精确 JavaScript source selection、retained MCP facts 分页、Electron 模块静态互操作与 Fuses 的 24 项测试通过、1 项按平台跳过。固定 WABT 1.0.42 的实际 WASM 制品检查与接口比较均通过，使用官方 release asset 并核对 SHA-256；未将跳过执行视作通过。
+
+后续修复恢复了顶层与 setup/doctor 的既有中文帮助，扩展 WASM 和 Evidence 查询中文帮助，并恢复带空格、单双引号源码路径的本地 MCP 注册序列化；19 项 CLI/注册/更新拒绝测试本地通过。完整资格 CI 以 PR 当前 head 为准。为避免旧的完整资格作业阻塞更新后的 head，ci:full 的并发分组绑定实际 PR head SHA；保留旧作业记录。

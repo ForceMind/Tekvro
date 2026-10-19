@@ -21,7 +21,7 @@ concurrency:
   # Main feedback also finishes, coalescing newer pushes to one pending run.
   # Scheduled/manual main runs coalesce to one active and the latest pending;
   # release and label-triggered qualification use exact-revision groups.
-  group: ci-${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || inputs.source_sha != '' || contains(github.event.pull_request.labels.*.name, 'ci:full')) && 'qualification' || 'feedback' }}-${{ inputs.source_sha || github.event.pull_request.number || github.ref }}
+  group: ci-${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || inputs.source_sha != '' || contains(github.event.pull_request.labels.*.name, 'ci:full')) && 'qualification' || 'feedback' }}-${{ inputs.source_sha || (contains(github.event.pull_request.labels.*.name, 'ci:full') && github.event.pull_request.head.sha) || github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' && inputs.source_sha == '' && !contains(github.event.pull_request.labels.*.name, 'ci:full') }}
 
 env:

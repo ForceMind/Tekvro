@@ -65,6 +65,14 @@ export const packageRunnerRegistrationCommand = (
   return platform === "win32" ? ["cmd.exe", "/d", "/c", ...command] : command;
 };
 
+/** Serialize the local command for Incur's quote-aware tokenizer, without shell expansion. */
+export const localRegistrationCommandText = (
+  entrypoint: string = process.argv[1] ?? "scripts/rea.mjs",
+): string =>
+  [process.execPath, resolve(entrypoint), "mcp"]
+    .map((part) => `'${part.replaceAll("'", `'"'"'`)}'`)
+    .join(" ");
+
 /** Resolve a pinned npx launcher that stdio clients can spawn on the host. */
 export const npxRegistrationCommand = (
   platform: NodeJS.Platform = process.platform,
@@ -184,7 +192,11 @@ export const classifyClientRegistrationCommand = (
   }
   if (command.length === 2 && command[1] === "mcp") {
     const executable = command[0] ?? "";
-    if (executable === PRODUCT_IDENTITY.cliBinary) return "owned";
+    if (
+      executable === PRODUCT_IDENTITY.cliBinary ||
+      executable === PRODUCT_IDENTITY.packageName
+    )
+      return "owned";
     if (isAbsolute(executable))
       return currentPathAvailable
         ? directEntrypointIdentity(executable, currentCommandPath)

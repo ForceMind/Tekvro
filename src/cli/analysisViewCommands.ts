@@ -1,3 +1,4 @@
+import { selectHumanText } from "./localization.js";
 import { z } from "incur";
 
 import { inspectAnalysisViewValidated } from "../application/analysisView/AnalysisViewService.js";
@@ -70,8 +71,10 @@ export const registerAnalysisViewCommands = (
       }),
   });
   cli.command(CLI_COMMANDS.inspectAnalysisView, {
-    description:
-      "Project a selected view of completed binary-layout, JavaScript application, native function, artifact-inventory, WASM, Mach-O, Interface Builder, EVM, managed, Android package, Dart AOT, web network capture or pcap Evidence JSON",
+    description: selectHumanText(
+      "Project selected views of completed analysis Evidence, including JavaScript facts filtered by exact paths and properties",
+      "查询已完成分析的证据视图；支持按精确路径和属性筛选 JavaScript Facts 并分页",
+    ),
     args: z.object({
       inputJson: z.string().describe("Inline workflow JSON or JSON file path"),
     }),

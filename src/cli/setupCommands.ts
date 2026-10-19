@@ -1,3 +1,4 @@
+import { selectHumanText } from "./localization.js";
 import { withCommandCancellation } from "./commandCancellation.js";
 import { z } from "incur";
 
@@ -49,43 +50,93 @@ const registerSetupCommand = (
   environment: Readonly<NodeJS.ProcessEnv>,
 ): void => {
   cli.command(CLI_COMMANDS.setup, {
-    description: "Configure agent integrations and optional analysis providers",
+    description: selectHumanText(
+      "Configure agent integrations and optional analysis providers",
+      "配置 AI 智能体接入及可选分析引擎",
+      environment,
+    ),
     outputPolicy: "agent-only",
     options: z.object({
       yes: z
         .boolean()
         .default(false)
-        .describe("Approve user-owned setup actions without prompting"),
+        .describe(
+          selectHumanText(
+            "Approve user-owned setup actions without prompting",
+            "无需交互确认已授权的配置操作",
+            environment,
+          ),
+        ),
       installHopper: z
         .boolean()
         .default(false)
-        .describe("Also approve Hopper installation with --yes"),
+        .describe(
+          selectHumanText(
+            "Also approve Hopper installation with --yes",
+            "与 --yes 一起批准安装 Hopper",
+            environment,
+          ),
+        ),
       client: z
         .array(supportedClientSchema)
         .default([])
-        .describe("Agent integration to configure; repeat for multiple agents"),
+        .describe(
+          selectHumanText(
+            "Agent integration to configure; repeat for multiple agents",
+            "指定要配置的智能体，可重复传入",
+            environment,
+          ),
+        ),
       skillClient: z
         .array(skillClientSchema)
         .default([])
-        .describe("Existing client skill destination to update; repeatable"),
+        .describe(
+          selectHumanText(
+            "Existing client skill destination to update; repeatable",
+            "要更新的现有客户端 Skill 位置，可重复传入",
+            environment,
+          ),
+        ),
       allDetected: z
         .boolean()
         .default(false)
-        .describe("Configure every detected supported agent"),
+        .describe(
+          selectHumanText(
+            "Configure every detected supported agent",
+            "配置所有检测到且受支持的智能体",
+            environment,
+          ),
+        ),
       skill: z
         .boolean()
         .optional()
         .describe(
-          "Override the bundled skill included with agent integrations",
+          selectHumanText(
+            "Override the bundled skill included with agent integrations",
+            "显式指定是否安装随智能体接入附带的 Skill",
+            environment,
+          ),
         ),
       dryRun: z
         .boolean()
         .default(false)
-        .describe("Print the resolved plan without applying it"),
+        .describe(
+          selectHumanText(
+            "Print the resolved plan without applying it",
+            "只显示操作计划，不修改配置",
+            environment,
+          ),
+        ),
       accessible: z
         .boolean()
         .default(false)
-        .describe("Use sequential accessible setup prompts"),
+        .describe(
+          selectHumanText(
+            "Use sequential accessible setup prompts",
+            "使用逐项确认的无障碍配置提示",
+            environment,
+          ),
+        ),
     }),
     alias: { yes: "y" },
     run: ({ options, formatExplicit }) =>
@@ -104,21 +155,52 @@ const registerDoctorCommand = (
   environment: Readonly<NodeJS.ProcessEnv>,
 ): void => {
   cli.command(CLI_COMMANDS.doctor, {
-    description: "Check whether REA is ready",
+    description: selectHumanText(
+      "Check whether Tekvro is ready",
+      "检查 Tekvro 环境和分析能力是否就绪",
+      environment,
+    ),
     options: z.object({
-      target: z.string().optional().describe("Optional app path to check"),
+      target: z
+        .string()
+        .optional()
+        .describe(
+          selectHumanText(
+            "Optional app path to check",
+            "可选：要检查的本地应用路径",
+            environment,
+          ),
+        ),
       client: z
         .array(supportedClientSchema)
         .default([])
-        .describe("Agent registration whose readiness is required; repeatable"),
+        .describe(
+          selectHumanText(
+            "Agent registration whose readiness is required; repeatable",
+            "指定必须就绪的智能体，可重复传入",
+            environment,
+          ),
+        ),
       provider: z
         .array(z.enum(DOCTOR_PROVIDER_IDS))
         .default([])
-        .describe("Deep-analysis provider whose readiness is required"),
+        .describe(
+          selectHumanText(
+            "Deep-analysis provider whose readiness is required",
+            "指定必须就绪的深度分析引擎",
+            environment,
+          ),
+        ),
       skill: z
         .boolean()
         .optional()
-        .describe("Require the installed REA skill identity to be aligned"),
+        .describe(
+          selectHumanText(
+            "Require the installed REA skill identity to be aligned",
+            "要求已安装的兼容 Skill 标识一致",
+            environment,
+          ),
+        ),
     }),
     run: ({ options }) =>
       withCommandCancellation((signal) =>
@@ -144,12 +226,22 @@ const registerMaintenanceCommands = (
   environment: Readonly<NodeJS.ProcessEnv>,
 ): void => {
   cli.command(CLI_COMMANDS.uninstall, {
-    description: "Remove REA-owned agent configuration and skill files",
+    description: selectHumanText(
+      "Remove Tekvro-managed agent configuration and skill files",
+      "移除 Tekvro 管理的智能体配置及 Skill 文件",
+      environment,
+    ),
     options: z.object({
       purgeData: z
         .boolean()
         .default(false)
-        .describe("Also remove REA caches and state"),
+        .describe(
+          selectHumanText(
+            "Also remove compatible local caches and state",
+            "同时清理兼容的本地缓存和状态",
+            environment,
+          ),
+        ),
     }),
     run: ({ options }) =>
       logCliCommand(
@@ -171,8 +263,11 @@ const registerMaintenanceCommands = (
       ),
   });
   cli.command(CLI_COMMANDS.update, {
-    description:
-      "Update this REA installation and verify the installed release",
+    description: selectHumanText(
+      "Update a published Tekvro installation (unavailable for source builds)",
+      "更新已发布的 Tekvro 安装（源码开发版暂不可用）",
+      environment,
+    ),
     run: ({ formatExplicit }) =>
       logCliCommand(
         logger,

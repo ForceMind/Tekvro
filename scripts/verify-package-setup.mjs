@@ -1,3 +1,4 @@
+import { localRegistrationCommandText } from "../dist/application/ClientRegistrationIdentity.js";
 import {
   lstat,
   mkdir,
@@ -49,7 +50,7 @@ const verifyMcpAdd = async ({ cli, environment, npxLog }) => {
   await run(cli, ["mcp", "add"], environment);
   const mcpRegistration = await readFile(npxLog, "utf8");
   const expected = PRODUCT_IDENTITY.privateSourceBuild
-    ? `add-mcp ${process.execPath} ${cli} mcp --name rea`
+    ? `add-mcp ${localRegistrationCommandText(cli)} --name rea`
     : `add-mcp npx -y ${PRODUCT_IDENTITY.registrationPackageSpecifier} mcp --name rea`;
   if (!mcpRegistration.includes(expected))
     throw new Error("Incur mcp add did not register the pinned npx command");

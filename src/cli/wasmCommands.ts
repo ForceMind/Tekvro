@@ -1,3 +1,4 @@
+import { selectHumanText } from "./localization.js";
 import { compareWasmInterfaces } from "../application/wasm/WasmInterfaceComparisonService.js";
 import { parseCliJsonInput } from "../cliJsonInput.js";
 import { CLI_COMMANDS } from "../cliCommandNames.js";
@@ -18,8 +19,11 @@ export const registerWasmCommands = (
   environment: Readonly<NodeJS.ProcessEnv>,
 ): void => {
   cli.command(CLI_COMMANDS.compareWasmInterfaces, {
-    description:
+    description: selectHumanText(
       "Compare core WASM interfaces from two exact inspection Evidence records",
+      "比较两份精确检查证据中的 WASM 核心接口",
+      environment,
+    ),
     args: z.object({
       input: z
         .string()
@@ -42,19 +46,39 @@ export const registerWasmCommands = (
   });
   const service = wasmArtifactModule.create(environment);
   cli.command(wasmArtifactModule.cliCommand, {
-    description: "Inspect an explicit local WASM artifact with WABT",
+    description: selectHumanText(
+      "Inspect an explicit local WASM artifact with WABT",
+      "使用 WABT 检查指定的本地 WASM 文件",
+      environment,
+    ),
     args: z.object({
-      path: z.string().describe("Local WASM artifact"),
+      path: z
+        .string()
+        .describe(
+          selectHumanText("Local WASM artifact", "本地 WASM 文件", environment),
+        ),
     }),
     options: z.object({
       glue_paths: z
         .array(z.string())
         .optional()
-        .describe("Selected local JavaScript glue paths"),
+        .describe(
+          selectHumanText(
+            "Selected local JavaScript glue paths",
+            "指定本地 JavaScript 胶水代码路径",
+            environment,
+          ),
+        ),
       candidate_paths: z
         .array(z.string())
         .optional()
-        .describe("Explicit local WASM candidates"),
+        .describe(
+          selectHumanText(
+            "Explicit local WASM candidates",
+            "指定本地 WASM 候选文件",
+            environment,
+          ),
+        ),
     }),
     run: ({ args, options }) =>
       withCommandCancellation((signal) =>
