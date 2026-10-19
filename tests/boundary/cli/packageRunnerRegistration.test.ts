@@ -1,8 +1,7 @@
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { expect } from "vitest";
 import { z } from "zod";
-import { packageRunnerRegistrationCommand } from "../../../src/application/ClientRegistrationIdentity.js";
 import { createTestTempDirectory } from "../../fixtures/temporaryDirectory.js";
 import { cliTest } from "../../support/cli/cliFixture.js";
 
@@ -18,7 +17,7 @@ for (const { runner, userAgent } of [
   { runner: "bunx", userAgent: "bun/1.4.2 npm/? node/v26.3.0 linux x64" },
 ] as const) {
   cliTest(
-    `${runner} setup registers the pinned ${runner} launcher instead of its cache`,
+    `${runner} environment preserves the private source launcher`,
     async ({ cli }) => {
       const home = await createTestTempDirectory("rea-package-runner-");
       const run = (arguments_: readonly string[]) =>
@@ -50,7 +49,9 @@ for (const { runner, userAgent } of [
       );
       const { command, args } = configuration.mcpServers.rea;
       expect([command, ...args]).toEqual(
-        packageRunnerRegistrationCommand(runner, process.platform),
+        process.platform === "win32"
+          ? [process.execPath, resolve("scripts/rea.mjs"), "mcp"]
+          : [resolve("scripts/rea.mjs"), "mcp"],
       );
       const doctor = await run(["doctor", "--client", "omp", "--json"]);
       expect(doctor.json).toMatchObject({

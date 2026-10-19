@@ -89,7 +89,7 @@ const serve = async (
 };
 
 it.each(["json", "jsonl", "yaml", "toon", "md"])(
-  "uses the verified update command and selected environment through direct serve with %s output",
+  "retains private source-update refusal through direct serve with %s output",
   async (format) => {
     const selected = { REA_SELECTED_UPDATE: "original" };
     const cli = createCli(selected);
@@ -97,17 +97,10 @@ it.each(["json", "jsonl", "yaml", "toon", "md"])(
     const expected = await serve(cli, ["update", "--format", format]);
     const actual = await serve(cli, ["--format", format, "--update"]);
     expect(actual).toEqual(expected);
-    expect(actual.exitCode).toBe(0);
+    expect(actual.exitCode).toBe(1);
     expect(actual.stdout).toContain(PRODUCT_IDENTITY.packageVersion);
-    expect(mocks.run).toHaveBeenCalledTimes(2);
-    expect(mocks.run).toHaveBeenLastCalledWith(
-      PRODUCT_IDENTITY.packageVersion,
-      { owner: "selected-update-host" },
-      "structured",
-    );
-    expect(mocks.host).toHaveBeenLastCalledWith(undefined, undefined, {
-      REA_SELECTED_UPDATE: "original",
-    });
+    expect(mocks.run).not.toHaveBeenCalled();
+    expect(mocks.host).not.toHaveBeenCalled();
     expect(mocks.dependencyInstall).not.toHaveBeenCalled();
   },
 );
@@ -121,7 +114,7 @@ it("preserves filtering, full output and unsuccessful update exit status", async
   for (const output of [filtered, canonical])
     expect(JSON.parse(output.stdout)).toMatchObject({
       ok: true,
-      data: "current",
+      data: "failed",
       meta: { command: expect.stringContaining("update") },
     });
   mocks.run.mockResolvedValue({
@@ -135,9 +128,11 @@ it("preserves filtering, full output and unsuccessful update exit status", async
   expect(failed.exitCode).toBe(1);
   expect(JSON.parse(failed.stdout)).toMatchObject({
     status: "failed",
-    reason: "install",
-    remediation: "EACCES owned installation",
+    reason: "unknown-install-method",
+    remediation: expect.stringContaining("Tekvro is a source checkout"),
   });
+  expect(mocks.run).not.toHaveBeenCalled();
+  expect(mocks.host).not.toHaveBeenCalled();
   expect(mocks.dependencyInstall).not.toHaveBeenCalled();
 });
 

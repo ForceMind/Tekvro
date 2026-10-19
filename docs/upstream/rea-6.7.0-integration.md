@@ -49,3 +49,13 @@
 [完整 CI](https://github.com/ForceMind/Tekvro/actions/runs/39215091650)的静态检查、包构建、文档生成、真实浏览器、Web runtime、HAR/PCAP 网络捕获、源映射、JavaScript recovery、二进制布局、Linux x64/arm64 包基线以及 Node 22/24/26 SQLite 检查已通过；六分片回归及剩余平台检查仍在执行。Ghidra 此处仅验证桥接源码编译，不能推导为所有架构实机成功。
 
 真实 Go metadata、packet capture 和 signal recording 独立工作流也已通过。录制崩溃的 Ubuntu/Debian 作业发现旧安装包路径，现已改为 `node_modules/tekvro` 并增加有限 stderr 诊断；需要新提交 CI 重新验证。本地包 canary 已进入 MCP 生命周期，但因 Work 的 procfs 限制失败，未计为通过。恢复发布工作流也增加了与主发布流程一致的上游仓库保护，Tekvro 不会执行 npm 或 MCP Registry 发布。
+
+回归依赖的 `javascript-interruption-applicability-2026-10-15.json` 从固定上游提交逐字保留；它是上游历史 Joplin 样本记录，仅用于检验 scope 归因的正确/错误对照，不能算作本次 Tekvro 运行证据。
+
+### 完整回归修复批次（2026-10-19 07:36 UTC）
+
+完整 CI 的六个分片已返回，发现并修复 Tekvro 产品适配遗漏：旧 npm 安装路径、源码更新拒绝、包身份夹具、本地 launcher 及 doctor 的入口身份、中文 PR 模板、README.en.md 文档分流、生成的翻译暂存目录和托管缓存策略。保留旧版精确 npm 注册的读取并提供迁移提示；新配置继续指向本地 Tekvro。没有删除有效检查或把未知身份提升为已对齐。
+
+本地针对性复测：文档分流 224 项通过；配置/模板/历史 scope 与 tar 清单批次中已修复的 287 项通过（含 1 项平台跳过），两项 CLI 文件单独复测 4 项通过；注册状态 39 项通过、3 项跳过；最后分片策略/缓存/分层配置 31 项通过；双语帮助及带引号路径本地 MCP 注册 18 项通过。check:ci 的 8 个任务、架构守卫、docs:check 和许可证检查通过。npm runner 模拟环境的 setup/doctor 两项在 Work 受限宿主仍无法运行，必须以托管运行器结果验收。
+
+真实 Windows 包/能力、Apple CLI/MCP、Linux 与 macOS 的四个架构包基线在旧 head 的完整 CI 均已通过；这些结果不代替本批次当前提交的完整资格。新 CI 需要重跑全部必要检查。

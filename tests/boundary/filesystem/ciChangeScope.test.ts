@@ -121,15 +121,18 @@ it("reuses only scheduled qualification and preserves every explicit full reques
 it("keeps every translated README and authored guide on the documentation lane", async () => {
   const { directory, base } = await fixture();
   const readmes = (await readdir(new URL("../../../", import.meta.url))).filter(
-    (name) => /^README(?:_.*)?\.md$/u.test(name),
+    (name) => /^README(?:[._].*)?\.md$/u.test(name),
   );
-  const translated = (
-    await readdir(new URL("../../../docs/readme/", import.meta.url))
-  )
-    .filter((name) => /^README_.*\.md$/u.test(name))
-    .map((name) => `docs/readme/${name}`);
+  const translated = [
+    "docs/zh-CN/quick-start.md",
+    "docs/zh-CN/distribution.md",
+  ];
   expect(readmes).toContain("README.md");
-  expect(translated.length).toBeGreaterThan(0);
+  expect(readmes).toContain("README.en.md");
+  for (const path of translated)
+    expect(
+      await readFile(new URL(`../../../${path}`, import.meta.url), "utf8"),
+    ).not.toHaveLength(0);
   const head = await change(directory, [
     ...readmes,
     ...translated,

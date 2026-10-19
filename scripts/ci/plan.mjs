@@ -171,7 +171,7 @@ if (tier === "reused") {
     for (const file of files) {
       if (matchesAny(file, SCOPES.reverse_tools)) selected.reverse_tools = true;
       if (
-        /^(README(?:_[^/]+)?\.md|AGENTS\.md|CONTRIBUTING\.md|CHANGELOG\.md|SECURITY\.md|native\/windows\/README\.md|\.github\/pull_request_template\.md)$/.test(
+        /^(README(?:[._][^/]+)?\.md|AGENTS\.md|CONTRIBUTING\.md|CHANGELOG\.md|SECURITY\.md|native\/windows\/README\.md|\.github\/pull_request_template\.md)$/.test(
           file,
         ) ||
         file.startsWith("docs/") ||

@@ -47,7 +47,7 @@ const layered = async (lower: unknown, upper: unknown) => {
   } as const;
   const status = async () =>
     (
-      await readClientRegistrationStatuses(home, "rea", {
+      await readClientRegistrationStatuses(home, command[1], {
         environment: { XDG_CONFIG_HOME: join(home, ".config") },
       })
     ).find(({ client }) => client === "opencode");

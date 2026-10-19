@@ -7,7 +7,7 @@ import {
   symlink,
   writeFile,
 } from "node:fs/promises";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { createTestTempDirectory } from "../../fixtures/temporaryDirectory.js";
@@ -22,9 +22,9 @@ import { resolveWindowsClaudeDesktopLocation } from "../../../src/application/Cl
 import { supportedClients } from "../../../src/application/SupportedClients.js";
 import { readClientRegistrationStatuses } from "../../../src/application/ClientRegistrationStatus.js";
 import { failedConfigurationMessage } from "../../../src/application/SetupClients.js";
-import { PRODUCT_IDENTITY } from "../../../src/identity.js";
 
-const pinnedPackage = PRODUCT_IDENTITY.registrationPackageSpecifier;
+// The unit worker is the current entrypoint here; CLI tests verify the real launcher.
+const sourceArguments = [resolve(process.argv[1] ?? "scripts/rea.mjs"), "mcp"];
 
 describe("JSON client configuration transaction: writing configuration through safe paths", () => {
   it.skipIf(typeof process.getuid !== "function")(
@@ -68,8 +68,8 @@ describe("JSON client configuration transaction: writing configuration through s
       mcpServers: {
         other: { command: "other" },
         rea: {
-          command: "npx",
-          args: ["-y", pinnedPackage, "mcp"],
+          command: process.execPath,
+          args: sourceArguments,
         },
       },
     });
@@ -96,8 +96,8 @@ describe("JSON client configuration transaction: writing configuration through s
       theme: "dark",
       mcpServers: {
         rea: {
-          command: "npx",
-          args: ["-y", pinnedPackage, "mcp"],
+          command: process.execPath,
+          args: sourceArguments,
         },
       },
     });
@@ -140,7 +140,7 @@ describe("JSON client configuration transaction: keeping matching configuration 
     const configPath = join(directory, "mcp.json");
     await writeFile(
       configPath,
-      `${JSON.stringify({ mcpServers: { rea: { command: "npx", args: ["-y", pinnedPackage, "mcp"] } } })}\n`,
+      `${JSON.stringify({ mcpServers: { rea: { command: process.execPath, args: sourceArguments } } })}\n`,
     );
     expect(
       await configureClientConfiguration({
@@ -168,8 +168,8 @@ describe("JSON client configuration transaction: keeping matching configuration 
               JAVA_HOME: "/usr/lib/jvm/jdk-21",
               GHIDRA_INSTALL_DIR: "/opt/ghidra",
             },
-            args: ["-y", pinnedPackage, "mcp"],
-            command: "npx",
+            args: sourceArguments,
+            command: process.execPath,
           },
         },
       })}\n`,
@@ -210,8 +210,8 @@ describe("JSON client configuration migration and provider paths", () => {
       theme: "dark",
       mcpServers: {
         rea: {
-          command: "npx",
-          args: ["-y", pinnedPackage, "mcp"],
+          command: process.execPath,
+          args: sourceArguments,
         },
         other: { command: "other" },
       },
@@ -236,8 +236,8 @@ describe("JSON client configuration migration and provider paths", () => {
     expect(JSON.parse(await readFile(configPath, "utf8"))).toMatchObject({
       mcpServers: {
         rea: {
-          command: "npx",
-          args: ["-y", pinnedPackage, "mcp"],
+          command: process.execPath,
+          args: sourceArguments,
           env: { HOPPER_LAUNCHER_PATH: hopperPath },
         },
       },

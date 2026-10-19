@@ -1,4 +1,5 @@
 import { z } from "incur";
+import { selectHumanText } from "./cli/localization.js";
 import { javaScriptAnalysisResourceControlsSchema } from "./domain/javascript/javascriptAnalysisResourceControls.js";
 import { javaScriptSourcePathsSchema } from "./domain/javascript/javascriptSourceSelection.js";
 
@@ -60,30 +61,62 @@ export const electronPageInspectionOptions = z.object({
     .describe("Include JavaScript source text"),
 });
 
+const humanResourceOption = <T extends z.ZodType>(
+  schema: T,
+  chinese: string,
+): T =>
+  schema.describe(
+    selectHumanText(
+      schema.description ?? "JavaScript resource control",
+      chinese,
+    ),
+  );
+
 export const javascriptApplicationOptions = z.object({
-  maxSemanticNodes:
+  maxSemanticNodes: humanResourceOption(
     javaScriptAnalysisResourceControlsSchema.shape.max_semantic_nodes,
-  maxSemanticNodesPerFile:
+    "整个应用保留的语义节点上限，默认 100000；仍受工作进程堆和结果接收预算约束。",
+  ),
+  maxSemanticNodesPerFile: humanResourceOption(
     javaScriptAnalysisResourceControlsSchema.shape.max_semantic_nodes_per_file,
-  maxSemanticUnknowns:
+    "单个源码文件保留的语义节点上限，默认 20000；同时受应用总上限及内存、传输预算约束。",
+  ),
+  maxSemanticUnknowns: humanResourceOption(
     javaScriptAnalysisResourceControlsSchema.shape.max_semantic_unknowns,
-  maxSemanticUnknownsPerFile:
+    "整个应用保留的语义未知记录上限，默认 100000；按类别和原因记录未保留的发生次数。",
+  ),
+  maxSemanticUnknownsPerFile: humanResourceOption(
     javaScriptAnalysisResourceControlsSchema.shape
       .max_semantic_unknowns_per_file,
+    "单个源码文件保留的语义未知记录上限，默认 20000；同时受总上限及内存、传输预算约束。",
+  ),
   sourcePath: javaScriptSourcePathsSchema
     .optional()
     .describe(
-      "Exact inventoried file path relative to the application root; repeat to select several. No implicit dependencies.",
+      selectHumanText(
+        "Exact inventoried file path relative to the application root; repeat to select several. No implicit dependencies.",
+        "相对于应用根目录的精确清单路径；可重复选择多个文件，不隐式加入依赖。",
+      ),
     ),
-  maxHeapMb: javaScriptAnalysisResourceControlsSchema.shape.max_heap_mb,
-  analysisTimeoutMs:
+  maxHeapMb: humanResourceOption(
+    javaScriptAnalysisResourceControlsSchema.shape.max_heap_mb,
+    "隔离 JavaScript 分析进程的 V8 老生代堆上限（MiB），默认 1024，不改变 CLI/MCP 堆。Bun 忽略 V8 参数：Windows 改用预算加 512 MiB 运行时余量限制提交内存，其他 Bun 平台不施加此限制。",
+  ),
+  analysisTimeoutMs: humanResourceOption(
     javaScriptAnalysisResourceControlsSchema.shape.analysis_timeout_ms,
+    "每个源码的启动、分析和传输总超时（毫秒），默认 300000；超时保留已采集的部分 Evidence 并停止分析。",
+  ),
   artifactFormat: z
     .enum(["auto", "asar", "directory"])
     .default("auto")
-    .describe("Application artifact format"),
+    .describe(selectHumanText("Application artifact format", "应用制品格式")),
   integrityPolicy: z
     .enum(["fail", "record-and-continue"])
     .default("fail")
-    .describe("Behavior when declared application integrity does not match"),
+    .describe(
+      selectHumanText(
+        "Behavior when declared application integrity does not match",
+        "应用声明的完整性不匹配时的处理策略",
+      ),
+    ),
 });

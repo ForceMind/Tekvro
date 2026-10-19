@@ -7,7 +7,7 @@ import { createTestTempDirectory } from "../../fixtures/temporaryDirectory.js";
 import { cliTest } from "../../support/cli/cliFixture.js";
 
 cliTest(
-  "root update flag uses the verified workflow and preserves executable output policies",
+  "root update flag preserves source-build refusal and output policies",
   async ({ cli }) => {
     const home = await createTestTempDirectory("rea-update-alias-");
     const bin = join(home, "bin");
@@ -68,14 +68,16 @@ cliTest(
         },
       });
     const canonical = await run(["update", "--json"]);
-    expect(canonical.exitCode, canonical.stderr).toBe(0);
+    expect(canonical.exitCode, canonical.stderr).toBe(1);
     expect(canonical.json).toMatchObject({
-      status: "current",
+      status: "failed",
       currentVersion: PRODUCT_IDENTITY.packageVersion,
-      latestVersion: PRODUCT_IDENTITY.packageVersion,
+      latestVersion: null,
+      reason: "unknown-install-method",
+      remediation: expect.stringContaining("Tekvro is a source checkout"),
     });
     const alias = await run(["--json", "--update"]);
-    expect(alias.exitCode, alias.stderr).toBe(0);
+    expect(alias.exitCode, alias.stderr).toBe(1);
     expect(alias.json).toEqual(canonical.json);
     const filtered = await run([
       "--update",
@@ -83,25 +85,11 @@ cliTest(
       "--full-output",
       "--filter-output=status",
     ]);
-    expect(filtered.exitCode, filtered.stderr).toBe(0);
+    expect(filtered.exitCode).toBe(1);
     expect(filtered.json).toMatchObject({
-      ok: true,
-      data: "current",
+      ok: false,
+      error: { status: "failed", reason: "unknown-install-method" },
       meta: { command: expect.stringContaining("update") },
-    });
-    const failed = await run(["--update", "--json"], true);
-    expect(failed.exitCode).toBe(1);
-    expect(failed.json).toMatchObject({
-      status: "failed",
-      reason: "version-check",
-      remediation: expect.stringContaining("owned fake registry denied"),
-    });
-    const oversized = await run(["update", "--json"], false, true);
-    expect(oversized.exitCode).toBe(1);
-    expect(oversized.json).toMatchObject({
-      status: "failed",
-      reason: "version-check",
-      remediation: expect.stringContaining("complete-output retention budget"),
     });
     const before = await readFile(log, "utf8");
     const ambiguous = await run(["providers", "--update", "--json"]);
@@ -115,14 +103,7 @@ cliTest(
     expect(help.exitCode, help.stderr).toBe(0);
     expect(help.stdout).toContain("update");
     expect(await readFile(log, "utf8")).toBe(before);
-    const commands: unknown[] = before
-      .trim()
-      .split("\n")
-      .map((line) => JSON.parse(line));
-    expect(commands.length).toBeGreaterThan(0);
-    expect(commands).toEqual(
-      expect.arrayContaining([expect.arrayContaining(["view"])]),
-    );
-    for (const command of commands) expect(command).not.toContain("install");
+    // A private source checkout must never consult or mutate a public registry.
+    expect(before).toBe("");
   },
 );

@@ -284,7 +284,14 @@ const registerJavaScriptApplicationCommand = (
       "静态分析本地 JavaScript/Electron 应用及其结构证据",
     ),
     args: z.object({
-      path: z.string().describe("ASAR or extracted application path"),
+      path: z
+        .string()
+        .describe(
+          selectHumanText(
+            "ASAR or extracted application path",
+            "ASAR 文件或已解包应用目录的路径",
+          ),
+        ),
     }),
     options: javascriptApplicationOptions,
     run: ({ args, options }) =>

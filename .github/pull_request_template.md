@@ -27,3 +27,17 @@
 - [ ] 新代码经过必要的格式、静态与回归检查
 
 > 构建生成的 `docs/public/product-catalog.json` 不应手工编辑或提交到仓库。
+
+## Author readiness
+
+项目所有者可授权代理执行开发、审查、验证和合并；依据实际结果填写声明，未验证的范围必须记录在检查结果中。
+
+Human owner: <!-- @GitHub-handle -->
+
+- [ ] I reviewed the final diff and relevant existing code, understand the change and its edge cases, and take responsibility for the complete PR, including AI-assisted work.
+- [ ] I checked the evidence above, confirmed it supports the current change, and recorded meaningful validation gaps.
+- [ ] I declare this PR ready for initial maintainer review.
+
+## Before merge
+
+确认当前提交的必要检查全部通过，身份、本地化、证据完整性和发行保护没有回退。

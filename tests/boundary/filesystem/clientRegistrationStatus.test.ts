@@ -248,7 +248,7 @@ describe("client registration launcher identity", () => {
       package_reference: "rea-agents@4.1.0",
       state: "stale",
       remediation: expect.stringContaining(
-        `current REA CLI package is ${PRODUCT_IDENTITY.packageVersion}`,
+        `current Tekvro CLI package is ${PRODUCT_IDENTITY.packageVersion}`,
       ),
     });
     expect(status?.remediation).toContain("does not resolve package-runner");

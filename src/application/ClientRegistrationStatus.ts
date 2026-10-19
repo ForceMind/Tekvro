@@ -572,8 +572,13 @@ const exactRegisteredPackageVersion = (
   packageReference: string | undefined,
 ): string | undefined => {
   if (packageReference === undefined) return undefined;
-  const prefix = `${PRODUCT_IDENTITY.packageName}@`;
-  if (!packageReference.startsWith(prefix)) return undefined;
+  const prefix = [
+    PRODUCT_IDENTITY.packageName,
+    PRODUCT_IDENTITY.legacyPackageName,
+  ]
+    .map((name) => `${name}@`)
+    .find((candidate) => packageReference.startsWith(candidate));
+  if (prefix === undefined) return undefined;
   const version = packageReference.slice(prefix.length);
   return valid(version) === version ? version : undefined;
 };
@@ -582,7 +587,7 @@ const packageVersionRemediation = (
   packageReference: string,
   client: SetupClient,
 ): string =>
-  `This registration requests ${packageReference}, while the current REA CLI package is ${PRODUCT_IDENTITY.packageVersion}. REA does not resolve package-runner requests during doctor; update the registration with rea setup --client ${client.name}, then restart the client.`;
+  `This registration requests ${packageReference}, while the current Tekvro CLI package is ${PRODUCT_IDENTITY.packageVersion}. Tekvro does not resolve package-runner requests during doctor; update the registration with rea setup --client ${client.name}, then restart the client.`;
 
 const unavailableStatus = (
   client: SetupClient,

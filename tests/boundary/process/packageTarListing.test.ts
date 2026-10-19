@@ -43,7 +43,7 @@ childProcess.execFile[promisify.custom] = async (command, args) => {
   if ((command === "npm" && args[0] === "pack") || (command === process.execPath && args[1] === "pack")) stdout = "fixture.tgz\\n";
   else if (command === "tar" && args[0] === "-tf") stdout = ${JSON.stringify(listing)};
   else if (command === "tar" && args[0] === "-xOf" && args[2] === "package/package.json")
-    stdout = JSON.stringify({ bin: { rea: "scripts/rea.mjs", "rea-agents": "scripts/rea.mjs" }, mcpName: "io.github.morluto/rea", dependencies: { "@lydell/node-pty": "1.1.0" } });
+    stdout = JSON.stringify({ name: "tekvro", private: true, bin: { tekvro: "scripts/rea.mjs", rea: "scripts/rea.mjs", "rea-agents": "scripts/rea.mjs" }, mcpName: "io.github.forcemind/tekvro", dependencies: { "@lydell/node-pty": "1.1.0" } });
   else if (command === "tar" && args[0] === "-xOf" && args[2] === "package/skills/reverse-engineer-anything/SKILL.md")
     stdout = "  tool_count: " + CATALOG_IDENTITY.counts.mcp_tools + "\\n";
   else if (command === "tar" && args[0] === "-xf") stdout = "";

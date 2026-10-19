@@ -200,7 +200,7 @@ describe("Windows Claude Desktop configuration location", () => {
         (await detectClients(home, "win32", env)).map(({ name }) => name),
       ).not.toContain("claude_desktop");
       const status = (
-        await readClientRegistrationStatuses(home, "unused", {
+        await readClientRegistrationStatuses(home, command[1], {
           platform: "win32",
           environment: env,
         })
@@ -273,7 +273,7 @@ it("preserves explicit AppData root whitespace throughout setup, doctor and unin
     backupPath: `${privateConfig}.rea.backup`,
   });
   const status = (
-    await readClientRegistrationStatuses(home, "unused", {
+    await readClientRegistrationStatuses(home, command[1], {
       platform: "win32",
       environment: selected,
     })
@@ -308,7 +308,7 @@ describe("MSIX Claude Desktop registration lifecycle", () => {
     const appDataOriginal = await readFile(appDataConfig, "utf8");
     const status = async () =>
       (
-        await readClientRegistrationStatuses(home, "unused", {
+        await readClientRegistrationStatuses(home, command[1], {
           platform: "win32",
           environment: env,
         })

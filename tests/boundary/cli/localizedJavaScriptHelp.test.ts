@@ -105,6 +105,12 @@ describe("Tekvro H5 JavaScript and Electron command help", () => {
       expect(en).toContain(command);
       expect(zh).toContain(command);
       expect(flagsIn(zh)).toEqual(flagsIn(en));
+      if (command === "analyze-javascript-application") {
+        expect(zh).toContain("精确清单路径");
+        expect(zh).toContain("语义未知记录上限");
+        expect(zh).toContain("部分 Evidence");
+        expect(en).toContain("No implicit dependencies");
+      }
       if ("option" in details) {
         expect(en).toContain(details.option);
         expect(zh).toContain(details.option);

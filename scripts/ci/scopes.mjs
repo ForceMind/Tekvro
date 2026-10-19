@@ -482,7 +482,6 @@ export const CI_FLAGS = [
 // checks and the source-test suite. Shared helpers under scripts/lib remain
 // broad inputs.
 export const MANUAL_VERIFIERS = [
-  "scripts/verify-real-electron.mjs",
   "scripts/verify-real-ghidra*.mjs",
   "scripts/verify-real-hopper*.mjs",
   "scripts/verify-real-ida.mjs",
@@ -493,6 +492,4 @@ export const MANUAL_VERIFIERS = [
   "scripts/verify-adb.mjs",
   "scripts/verify-agent-experience.mjs",
   "scripts/verify-packaged-ghidra-windows.mjs",
-  "scripts/verify-wasm-artifact.mjs",
-  "scripts/verify-packaged-wasm-artifact.mjs",
 ];
