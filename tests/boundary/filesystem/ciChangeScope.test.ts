@@ -97,6 +97,7 @@ async function classify(
         CI_FULL: String(full),
         CI_SKIP_FULL: String(skipFull),
         GITHUB_OUTPUT: output,
+        CI_TEST_SELECTION_PATH: join(directory, ".git", "scope-selection.json"),
       },
     },
   );
@@ -247,7 +248,16 @@ it("emits an observational owner proposal without changing ordinary or full port
     testSelection: { mode: "full", owners: [] },
   });
   const output = await readFile(join(directory, "scope-output"), "utf8");
-  expect(output).toContain('test_selection={"version":1,"mode":"full"');
+  expect(output).not.toContain("test_selection=");
+  expect(
+    JSON.parse(
+      await readFile(join(directory, ".git", "scope-selection.json"), "utf8"),
+    ),
+  ).toMatchObject({
+    version: 1,
+    mode: "full",
+    changedPaths: [],
+  });
 });
 
 it("does not charge a documentation PR for unrelated implementation updates on main", async () => {

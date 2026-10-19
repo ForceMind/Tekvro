@@ -58,8 +58,15 @@ const passed =
 // Successful shards and merged reports must account for the complete portable
 // inventory. Coverage thresholds alone cannot prove that every file ran.
 const verifyInventory = process.env.CI_VERIFY_TEST_INVENTORY === "true";
+if (process.env.CI_TEST_SELECTION_PATH && process.env.CI_TEST_SELECTION)
+  throw new Error(
+    "Supply one test selection file or legacy JSON value, not both",
+  );
+const selectionSource = process.env.CI_TEST_SELECTION_PATH
+  ? await readFile(process.env.CI_TEST_SELECTION_PATH, "utf8")
+  : process.env.CI_TEST_SELECTION;
 const expected =
-  verifyInventory || process.env.CI_TEST_SELECTION
+  verifyInventory || selectionSource
     ? execFileSync("git", ["ls-files", "-z", "--", "src", "tests"], {
         encoding: "utf8",
         maxBuffer: 8 * 1024 * 1024,
@@ -68,9 +75,9 @@ const expected =
         .filter((path) => path.endsWith(".test.ts"))
     : [];
 let selection;
-if (process.env.CI_TEST_SELECTION) {
+if (selectionSource) {
   const comparison = compareTestSelection(
-    JSON.parse(process.env.CI_TEST_SELECTION),
+    JSON.parse(selectionSource),
     expected,
     files,
   );
