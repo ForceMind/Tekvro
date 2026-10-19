@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
-import { appendFileSync } from "node:fs";
-import { matchesGlob } from "node:path";
+import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
+import { dirname, matchesGlob } from "node:path";
 import {
   CI_FLAGS as flags,
   HOSTED_PROVIDER_VERIFIERS,
@@ -276,6 +276,15 @@ const matrix = {
     : [linux],
 };
 const testSelection = planTestSelection(files, event, tier);
+// Large upgrades can exceed Linux's per-environment-string limit. Transport
+// the complete observational input as a file, never a job environment value.
+if (process.env.CI_TEST_SELECTION_PATH) {
+  mkdirSync(dirname(process.env.CI_TEST_SELECTION_PATH), { recursive: true });
+  writeFileSync(
+    process.env.CI_TEST_SELECTION_PATH,
+    JSON.stringify(testSelection),
+  );
+}
 const plan = { ...selected, tier, matrix, files, reasons, testSelection };
 if (process.env.GITHUB_OUTPUT)
   appendFileSync(
@@ -284,7 +293,6 @@ if (process.env.GITHUB_OUTPUT)
       ...selected,
       tier,
       matrix: JSON.stringify(matrix),
-      test_selection: JSON.stringify(testSelection),
     })
       .map(([key, value]) => `${key}=${value}\n`)
       .join(""),
