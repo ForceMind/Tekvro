@@ -16,7 +16,7 @@ The CLI and MCP server expose the same underlying analysis workflows, for direct
 
 ## Quick start
 
-Requirements: Node.js `^22.19.0 || ^24.11.0 || >=26.0.0`, npm, and Git. Optional native analysis engines are configured separately as needed.
+Requirements: Node.js `^22.23.4 || ^24.22.1 || >=26.12.1`, npm, and Git. Optional native analysis engines are configured separately as needed.
 
 ```bash
 git clone https://github.com/ForceMind/Tekvro.git
@@ -78,7 +78,7 @@ Tekvro currently runs **from source**. An independent npm package and MCP Regist
 
 - The source package is named `tekvro`. Existing `rea` and `rea-agents` CLI aliases, as well as selected MCP registration keys, remain for compatibility.
 - `scripts/rea.mjs` is the current source entrypoint. The public `rea-agents` npm package is not a Tekvro build; `npx tekvro` is not a supported installation method until an independent release is available.
-- The package retains the `6.1.0` compatibility version while main integrates the fixed, qualified REA `6.7.0` engine through PR #24. See `engine-metadata.json` and the [integration record](docs/upstream/rea-6.7.0-integration.md) for source provenance and validation. Neither version denotes an independent published release. See the [roadmap](docs/roadmap.md) and [distribution notes](docs/zh-CN/distribution.md).
+- The package retains the `6.1.0` compatibility version while main qualified REA `6.7.0` through PR #24. This update branch integrates fixed REA `6.8.0`; full current-head CI qualification is pending. See `engine-metadata.json` and the [integration record](docs/upstream/rea-6.8.0-integration.md) for source provenance and validation. Neither version denotes an independent published release. See the [roadmap](docs/roadmap.md) and [distribution notes](docs/zh-CN/distribution.md).
 - `install.sh` does not perform an automatic download or installation before the independent release.
 
 ## License

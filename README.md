@@ -16,7 +16,7 @@ CLI 和 MCP 使用相同的核心分析能力，可由开发者直接调用，�
 
 ## 快速开始
 
-运行环境：Node.js `^22.19.0 || ^24.11.0 || >=26.0.0`、npm 和 Git。可选的原生分析引擎按需单独配置。
+运行环境：Node.js `^22.23.4 || ^24.22.1 || >=26.12.1`、npm 和 Git。可选的原生分析引擎按需单独配置。
 
 ```bash
 git clone https://github.com/ForceMind/Tekvro.git
@@ -78,7 +78,7 @@ TEKVRO_LANG=zh-CN node scripts/rea.mjs setup --client codex
 
 - 源码包名为 `tekvro`，现有 `rea`、`rea-agents` 命令别名及部分 MCP 注册键保留用于兼容。
 - `scripts/rea.mjs` 是当前源码构建的命令入口；不要将公共 npm 上的 `rea-agents` 包视为 Tekvro，也不要将 `npx tekvro` 当成已发布的安装方式。
-- 产品包版本暂保留 `6.1.0` 兼容标记；主线已通过 PR #24 集成并验证固定 REA `6.7.0` 内核，具体提交及验证状态记录于 `engine-metadata.json` 和[集成记录](docs/upstream/rea-6.7.0-integration.md)，二者不代表正式发行版本。升级计划及独立发行准备情况见[开发路线](docs/roadmap.md)和[分发说明](docs/zh-CN/distribution.md)。
+- 产品包版本暂保留 `6.1.0` 兼容标记；主线已通过 PR #24 集成并验证 REA `6.7.0`；当前更新分支迁入固定 REA `6.8.0`，尚待当前提交的完整 CI 验收，具体提交及验证状态记录于 `engine-metadata.json` 和[集成记录](docs/upstream/rea-6.8.0-integration.md)，二者不代表正式发行版本。升级计划及独立发行准备情况见[开发路线](docs/roadmap.md)和[分发说明](docs/zh-CN/distribution.md)。
 - 正式发行前，`install.sh` 不提供自动下载安装。
 
 ## 许可证
