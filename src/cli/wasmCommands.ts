@@ -1,4 +1,5 @@
 import { selectHumanText } from "./localization.js";
+import { localPathStringSchema } from "../domain/localPath.js";
 import { compareWasmInterfaces } from "../application/wasm/WasmInterfaceComparisonService.js";
 import { parseCliJsonInput } from "../cliJsonInput.js";
 import { CLI_COMMANDS } from "../cliCommandNames.js";
@@ -11,6 +12,10 @@ import type { CliInstance } from "./types.js";
 import { withCommandCancellation } from "./commandCancellation.js";
 import { absoluteCallerPath } from "../filesystem/callerPath.js";
 import { finishAnalysisCommand } from "./finishAnalysisCommand.js";
+import {
+  inspectWasmArtifactInputSchema,
+  wasmArtifactPathsSchema,
+} from "../domain/wasm/wasmArtifact.js";
 
 /** Resolve all caller-selected artifact paths through the shared workflow. */
 export const registerWasmCommands = (
@@ -37,6 +42,7 @@ export const registerWasmCommands = (
           const input = await parseCliJsonInput(
             args.input,
             "compare_wasm_interfaces",
+            signal,
           );
           if (!input.ok) return input.error;
           const result = await compareWasmInterfaces(input.value, { signal });
@@ -52,15 +58,13 @@ export const registerWasmCommands = (
       environment,
     ),
     args: z.object({
-      path: z
-        .string()
-        .describe(
-          selectHumanText("Local WASM artifact", "本地 WASM 文件", environment),
-        ),
+      path: localPathStringSchema.describe(
+        selectHumanText("Local WASM artifact", "本地 WASM 文件", environment),
+      ),
     }),
     options: z.object({
-      glue_paths: z
-        .array(z.string())
+      commandTimeoutMs: inspectWasmArtifactInputSchema.shape.command_timeout_ms,
+      glue_paths: wasmArtifactPathsSchema(localPathStringSchema)
         .optional()
         .describe(
           selectHumanText(
@@ -69,8 +73,7 @@ export const registerWasmCommands = (
             environment,
           ),
         ),
-      candidate_paths: z
-        .array(z.string())
+      candidate_paths: wasmArtifactPathsSchema(localPathStringSchema)
         .optional()
         .describe(
           selectHumanText(
@@ -88,6 +91,9 @@ export const registerWasmCommands = (
               service.inspect(
                 {
                   path: absoluteCallerPath(args.path),
+                  ...(options.commandTimeoutMs === undefined
+                    ? {}
+                    : { command_timeout_ms: options.commandTimeoutMs }),
                   glue_paths: options.glue_paths?.map((path) =>
                     absoluteCallerPath(path),
                   ),
