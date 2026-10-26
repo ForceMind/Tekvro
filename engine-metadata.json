@@ -6,5 +6,6 @@
   "previousCommit": "27dc42d10249f0410904a75c0997842eb03b931c",
   "validation": "pending-current-head-ci",
   "integration": "source-integrated",
-  "validationRecord": "docs/upstream/rea-6.8.0-integration.md"
+  "validationRecord": "docs/upstream/rea-6.8.0-integration.md",
+  "integrationPullRequest": "https://github.com/ForceMind/Tekvro/pull/28"
 }

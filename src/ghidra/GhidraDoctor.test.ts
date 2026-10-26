@@ -243,7 +243,9 @@ describe("Windows Ghidra doctor authority", () => {
       ok: false,
       classification: "missing_dependency",
       detail: "Authored native artifact unavailable diagnostic",
-      remediation: expect.stringContaining("matching reviewed Windows x64 Tekvro package"),
+      remediation: expect.stringContaining(
+        "matching reviewed Windows x64 Tekvro package",
+      ),
     });
   });
 

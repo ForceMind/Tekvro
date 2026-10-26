@@ -34,6 +34,12 @@
 
 ## 验证与后续关口
 
-本轮实际命令、结果和限制在提交前补入此处。完整跨平台 CI、H5/WASM/Electron、固定可选提供方必须针对本轮提交重新执行；不能继承历史成功状态。Hopper/IDA/JEB 授权实例、ADB 真实设备和明确 Frida 目标仍未具备；不宣称实机通过。
+本轮更新提交见 [PR #28](https://github.com/ForceMind/Tekvro/pull/28)，源码提交 `8fbf24f27ff6a09414a01a1b7be048a4438acf66`，上传源码树与本地完全一致：`e1fd766649cc131a4771532ebca4de8c23f4f6ca`。恢复环境重建后再次得到同一源码树。
+
+本地环境 Node24.22.1/npm11.9.0：`npm ci`、`build:cached`、`check:fast`、`docs:check`（含许可证和5项 README 一致性测试）通过。全仓库格式检查通过（修复一处 Ghidra 测试断言的换行）。旧配置诊断、本地注册、npx/bunx 来源隔离与发行工作流复测共77通过、2跳过；另有11项H5/JS/Electron双语帮助与源码更新拒绝测试通过。
+
+新增能力及相关边界专项：9个文件中8个通过，共121项通过，1项失败。IL2CPP、模型文件、Python pyc、GPU code objects 的真实CLI/MCP调用，以及environment构建/写入拒绝、CI lane策略均通过。唯一失败为 `releaseArtifactCanary.test.ts`：Work宿主的 `ps -axo ...` 返回 `fatal library error, lookup self`，导致 binary_session 的 Apktool 前置进程归属探针不可用；保留原始失败，不绕过归属检查，不计为通过，交由托管CI重验。当前完整清单为229个MCP工具、175个CLI命令、6个prompts。
+
+已触发[完整PR资格](https://github.com/ForceMind/Tekvro/actions/runs/40309077119)、[普通CI](https://github.com/ForceMind/Tekvro/actions/runs/40309024874)及[核心引擎验收](https://github.com/ForceMind/Tekvro/actions/runs/40309024788)，截至记录时仍进行中。可选提供方标签触发的工作流出现skip/cancel，不计为提供方通过，需在当前提交继续核实触发条件。完整跨平台 CI、H5/WASM/Electron、固定可选提供方必须针对本轮提交重新执行；不能继承历史成功状态。Hopper/IDA/JEB 授权实例、ADB 真实设备和明确 Frida 目标仍未具备；不宣称实机通过。
 
 复现：`npm ci`、`npm run build:cached`、`npm run check:fast`、`npm run docs:check`，以及 `npm run test:focused -- <exact paths>`。本地运行 Turbo 时设置 `TURBO_TELEMETRY_DISABLED=1 DO_NOT_TRACK=1`，关闭可选遥测。平台/引擎工作流按仓库现有资格标签选择；发布保护保持启用。
