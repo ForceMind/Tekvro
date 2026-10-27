@@ -1,3 +1,4 @@
+import { selectHumanText } from "./localization.js";
 import { inspectSignalDecodersInputSchema } from "../domain/signals/signalDecoders.js";
 import { z } from "incur";
 import type { SignalRecordingService } from "../application/signals/SignalRecordingService.js";
@@ -25,7 +26,11 @@ export const registerSignalCommands = (
   > = createSignalRecordingService(environment),
 ): void => {
   cli.command(CLI_COMMANDS.inspectSignalDecoders, {
-    description: "Search installed sigrok decoders or selected decoder help",
+    description: selectHumanText(
+      "Search installed sigrok decoders or selected decoder help",
+      "搜索已安装的 sigrok 解码器或指定解码器的帮助",
+      environment,
+    ),
     options: z
       .object({
         ...inspectSignalDecodersInputSchema.shape,
@@ -36,12 +41,22 @@ export const registerSignalCommands = (
           .max(Number.MAX_SAFE_INTEGER)
           .optional()
           .describe(
-            "Maximum matching decoders or help lines to return; defaults to 50",
+            selectHumanText(
+              "Maximum matching decoders or help lines to return; defaults to 50",
+              "最多返回的匹配解码器或帮助行数；默认 50",
+              environment,
+            ),
           ),
         all: z
           .boolean()
           .default(false)
-          .describe("Return all remaining matches"),
+          .describe(
+            selectHumanText(
+              "Return all remaining matches",
+              "返回全部剩余匹配项",
+              environment,
+            ),
+          ),
       })
       .superRefine((options, context) => {
         if (options.all && options.limit !== undefined)
@@ -69,10 +84,19 @@ export const registerSignalCommands = (
       ),
   });
   cli.command(CLI_COMMANDS.decodeSignalRecording, {
-    description:
+    description: selectHumanText(
       "Decode an existing signal recording with caller-supplied sigrok",
+      "使用调用方提供的 sigrok 解码已有信号录制文件",
+      environment,
+    ),
     args: z.object({
-      path: localPathStringSchema.describe("Local signal recording"),
+      path: localPathStringSchema.describe(
+        selectHumanText(
+          "Local signal recording",
+          "本地信号录制文件",
+          environment,
+        ),
+      ),
     }),
     options: z
       .object({
@@ -82,12 +106,22 @@ export const registerSignalCommands = (
           .int()
           .positive()
           .optional()
-          .describe("Returned output lines per page; default 50"),
+          .describe(
+            selectHumanText(
+              "Returned output lines per page; default 50",
+              "每页返回的输出行数；默认 50",
+              environment,
+            ),
+          ),
         all_lines: z
           .boolean()
           .default(false)
           .describe(
-            "Return all remaining output lines instead of a bounded page",
+            selectHumanText(
+              "Return all remaining output lines instead of a bounded page",
+              "返回全部剩余输出行，不按页限制",
+              environment,
+            ),
           ),
       })
       .superRefine((options, context) => {
