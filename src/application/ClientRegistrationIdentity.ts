@@ -1,5 +1,5 @@
-import { realpathSync } from "node:fs";
-import { isAbsolute, resolve } from "node:path";
+import { accessSync, constants, realpathSync } from "node:fs";
+import { isAbsolute, join, resolve } from "node:path";
 import { normalizeEntrypointPath } from "../process/CurrentEntrypointPath.js";
 import { valid } from "semver";
 
@@ -91,7 +91,7 @@ const unwrapCmdCommand = (command: readonly string[]): readonly string[] => {
 };
 
 /** Preserve the package argument from a supported package-runner command. */
-export const clientRegistrationPackageReference = (
+const clientRegistrationPackageReference = (
   command: readonly string[],
 ): string | undefined => {
   const arguments_ = unwrapCmdCommand(command);
@@ -110,19 +110,6 @@ export const clientRegistrationPackageReference = (
     return arguments_[1];
   return undefined;
 };
-
-const isOwnedPackageReference = (packageReference: string): boolean =>
-  [PRODUCT_IDENTITY.packageName, PRODUCT_IDENTITY.legacyPackageName].some(
-    (name) => {
-      if (packageReference === name || packageReference === `${name}@latest`)
-        return true;
-      const prefix = `${name}@`;
-      return (
-        packageReference.startsWith(prefix) &&
-        valid(packageReference.slice(prefix.length)) !== null
-      );
-    },
-  );
 
 /** Check that one parsed command points to REA's MCP entry point. */
 export type ClientRegistrationCommandIdentity = "owned" | "foreign" | "unknown";
@@ -159,36 +146,134 @@ const directEntrypointIdentity = (
     : "unknown";
 };
 
-/** Classify the command once; uncertainty never grants positive ownership. */
+/** Prefer an executable PATH alias that proves the same selected REA file. */
+export const registrationEntrypointPath = (
+  entrypoint: string,
+  environment: Readonly<NodeJS.ProcessEnv>,
+  platform: NodeJS.Platform,
+): string => {
+  // A Windows command shim is a different program; file identity cannot prove
+  // its script target. Keep that platform's existing Node/script registration.
+  if (platform === "win32") return entrypoint;
+  for (const directory of (environment.PATH ?? "").split(":")) {
+    if (!isAbsolute(directory)) continue;
+    const candidate = join(directory, PRODUCT_IDENTITY.cliBinary);
+    if (directEntrypointIdentity(candidate, entrypoint) !== "owned") continue;
+    try {
+      accessSync(candidate, constants.X_OK);
+      return candidate;
+    } catch {
+      // An unexecutable alias cannot launch the selected program.
+    }
+  }
+  return entrypoint;
+};
+
+/** Preserve caller spelling only when both direct launchers prove the same file. */
+export const equivalentClientRegistrationCommands = (
+  previous: readonly string[],
+  requested: readonly string[],
+): boolean => {
+  if (
+    previous.length === requested.length &&
+    previous.every((value, index) => value === requested[index])
+  )
+    return true;
+  const current = inspectClientRegistrationCommand(
+    requested,
+    undefined,
+  ).entrypoint;
+  if (current === undefined) return false;
+  const prior = inspectClientRegistrationCommand(previous, current);
+  return prior.entrypoint !== undefined && prior.identity === "owned";
+};
+
+export interface ClientRegistrationCommandFacts {
+  readonly identity: ClientRegistrationCommandIdentity;
+  /** Selected absolute launcher/script path; excludes package and unresolved PATH commands. */
+  readonly entrypoint: string | undefined;
+  readonly package:
+    | {
+        readonly reference: string;
+        readonly exactVersion: string | undefined;
+      }
+    | undefined;
+}
+
+/** Parse package identity once, retaining exact source spelling and version facts. */
+export const inspectClientRegistrationCommand = (
+  command: readonly string[],
+  currentCommandPath: string | undefined,
+): ClientRegistrationCommandFacts => {
+  const reference = clientRegistrationPackageReference(command);
+  if (reference !== undefined) {
+    const packageNames: readonly string[] = [
+      PRODUCT_IDENTITY.packageName,
+      PRODUCT_IDENTITY.legacyPackageName,
+    ];
+    const prefix = packageNames
+      .map((name) => `${name}@`)
+      .find((candidate) => reference.startsWith(candidate));
+    const version =
+      prefix !== undefined ? reference.slice(prefix.length) : undefined;
+    const normalized = version === undefined ? null : valid(version);
+    const owned =
+      packageNames.includes(reference) ||
+      packageNames.some((name) => reference === `${name}@latest`) ||
+      reference === PRODUCT_IDENTITY.packageSpecifier ||
+      reference === PRODUCT_IDENTITY.registrationPackageSpecifier ||
+      normalized !== null;
+    return {
+      identity: owned ? "owned" : "foreign",
+      entrypoint: undefined,
+      package: {
+        reference,
+        exactVersion: normalized === version ? version : undefined,
+      },
+    };
+  }
+  return inspectDirectRegistrationCommand(command, currentCommandPath);
+};
+
+/** Ownership-only consumers share the same parsed command facts. */
 export const classifyClientRegistrationCommand = (
   command: readonly string[],
   currentCommandPath: string | undefined,
-): ClientRegistrationCommandIdentity => {
-  const packageReference = clientRegistrationPackageReference(command);
-  if (packageReference !== undefined)
-    return isOwnedPackageReference(packageReference) ? "owned" : "foreign";
+): ClientRegistrationCommandIdentity =>
+  inspectClientRegistrationCommand(command, currentCommandPath).identity;
+
+const inspectDirectRegistrationCommand = (
+  command: readonly string[],
+  currentCommandPath: string | undefined,
+): ClientRegistrationCommandFacts => {
   const currentPathAvailable =
     currentCommandPath !== undefined && currentCommandPath.length > 0;
   if (command.length === 3 && command[2] === "mcp") {
     const interpreter = command[0] ?? "";
     const entrypoint = command[1] ?? "";
-    if (
-      !isAbsolute(interpreter) ||
-      !isAbsolute(entrypoint) ||
-      !currentPathAvailable
-    )
-      return "unknown";
+    if (!isAbsolute(interpreter) || !isAbsolute(entrypoint))
+      return { identity: "unknown", entrypoint: undefined, package: undefined };
     const interpreterIdentity = entrypointIdentity(
       interpreter,
       process.execPath,
     );
-    if (interpreterIdentity !== "owned") return interpreterIdentity;
+    if (interpreterIdentity !== "owned")
+      return {
+        identity: currentPathAvailable ? interpreterIdentity : "unknown",
+        entrypoint: undefined,
+        package: undefined,
+      };
     // Node selects its script from normalized argv; executable paths use native
     // traversal semantics, where symlink/.. can denote a different file.
     const selectedEntrypoint = normalizeEntrypointPath(entrypoint);
-    return selectedEntrypoint === undefined
-      ? "unknown"
-      : entrypointIdentity(selectedEntrypoint, currentCommandPath);
+    return {
+      identity:
+        selectedEntrypoint === undefined || !currentPathAvailable
+          ? "unknown"
+          : entrypointIdentity(selectedEntrypoint, currentCommandPath),
+      entrypoint: selectedEntrypoint,
+      package: undefined,
+    };
   }
   if (command.length === 2 && command[1] === "mcp") {
     const executable = command[0] ?? "";
@@ -196,12 +281,17 @@ export const classifyClientRegistrationCommand = (
       executable === PRODUCT_IDENTITY.cliBinary ||
       executable === PRODUCT_IDENTITY.packageName
     )
-      return "owned";
+      return { identity: "owned", entrypoint: undefined, package: undefined };
     if (isAbsolute(executable))
-      return currentPathAvailable
-        ? directEntrypointIdentity(executable, currentCommandPath)
-        : "unknown";
-    if (/[./\\]/u.test(executable)) return "unknown";
+      return {
+        identity: currentPathAvailable
+          ? directEntrypointIdentity(executable, currentCommandPath)
+          : "unknown",
+        entrypoint: executable,
+        package: undefined,
+      };
+    if (/[./\\]/u.test(executable))
+      return { identity: "unknown", entrypoint: undefined, package: undefined };
   }
-  return "foreign";
+  return { identity: "foreign", entrypoint: undefined, package: undefined };
 };

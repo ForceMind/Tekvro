@@ -13,12 +13,9 @@ import { dirname, join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { Client } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
-import {
-  resolveJadxConfigurationInputs,
-  validateJadxConfiguration,
-} from "../../../dist/android/JadxConfiguration.js";
+import { resolveJadxConfigurationInputs } from "../../../dist/android/JadxConfiguration.js";
+import { validateVerifierJadxConfiguration } from "../../lib/jadx-configuration-inspection.mjs";
 import { verifyWindowsGuardianIsolation } from "./windows-guardian-isolation.mjs";
-import { withVerifierResourceOwner } from "../../lib/verifier-resource-owner.mjs";
 
 /** Verify real Windows cancellation, disconnect and abrupt CLI owner exit. */
 export async function verifyWindowsAndroidLifecycle(options) {
@@ -46,15 +43,10 @@ async function verifyJavaSelection(environment) {
     environment,
     "inspect_android_package",
   );
-  await withVerifierResourceOwner((resourceOwner) =>
-    validateJadxConfiguration(
-      selected,
-      environment,
-      "inspect_android_package",
-      {
-        resourceOwner,
-      },
-    ),
+  await validateVerifierJadxConfiguration(
+    selected,
+    environment,
+    "inspect_android_package",
   );
   const root = await mkdtemp(join(tmpdir(), "rea-windows-java-selection-"));
   const alias = join(root, "JDK 路径 with spaces");
@@ -71,15 +63,10 @@ async function verifyJavaSelection(environment) {
       pathEnvironment,
       "inspect_android_package",
     );
-    await withVerifierResourceOwner((resourceOwner) =>
-      validateJadxConfiguration(
-        onPath,
-        pathEnvironment,
-        "inspect_android_package",
-        {
-          resourceOwner,
-        },
-      ),
+    await validateVerifierJadxConfiguration(
+      onPath,
+      pathEnvironment,
+      "inspect_android_package",
     );
     assert.equal(onPath.java, await realpath(selected.java));
     console.log(

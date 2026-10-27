@@ -1,11 +1,11 @@
 {
   "upstream": "https://github.com/morluto/rea",
-  "version": "6.7.0",
-  "commit": "27dc42d10249f0410904a75c0997842eb03b931c",
-  "previousVersion": "6.5.0",
-  "previousCommit": "3b79af28e80785afce9f5998d8f03289402a1847",
-  "validation": "see-validation-record",
+  "version": "6.8.0",
+  "commit": "160d821ac9a0310afcb8d1fc427862dd6508add5",
+  "previousVersion": "6.7.0",
+  "previousCommit": "27dc42d10249f0410904a75c0997842eb03b931c",
+  "validation": "pending-current-head-ci",
   "integration": "source-integrated",
-  "validationRecord": "docs/upstream/rea-6.7.0-integration.md",
-  "integrationPullRequest": "https://github.com/ForceMind/Tekvro/pull/24"
+  "validationRecord": "docs/upstream/rea-6.8.0-integration.md",
+  "integrationPullRequest": "https://github.com/ForceMind/Tekvro/pull/28"
 }

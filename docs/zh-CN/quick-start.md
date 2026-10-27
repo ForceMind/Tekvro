@@ -1,11 +1,11 @@
 # Tekvro / 探核：中文快速开始
 
-[返回首页](../../README.md) · [架构](architecture.md) · [安全](security.md) · [发行身份](distribution.md)
+[返回首页](https://github.com/ForceMind/Tekvro/blob/main/README.md) · [架构](architecture.md) · [安全](security.md) · [发行身份](distribution.md)
 
 ## 1. 准备环境
 
-- Node.js：`^22.19.0 || ^24.11.0 || >=26.0.0`，检查 `node -v`。
-- npm：开发和 CI 固定 `11.16.0`；推荐使用 `.nvmrc` 的 Node.js `24.18.0`。
+- Node.js：`^22.23.4 || ^24.22.1 || >=26.12.1`，检查 `node -v`。
+- npm：开发和 CI 固定 `11.16.0`；推荐使用 `.nvmrc` 的 Node.js `24.22.1`。
 - Git：用于拉取公开代码及子模块。
 - Ghidra、Hopper、IDA、JADX 等为**可选**，仅在你实际需要的分析任务中配置；静态 JavaScript 目录分析无需先安装反编译器。
 

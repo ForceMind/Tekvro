@@ -5,7 +5,7 @@ import { join, isAbsolute } from "node:path";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { performance } from "node:perf_hooks";
-import { closeVerifierResources } from "../../scripts/lib/verifier-cleanup.mjs";
+import { withVerifierCleanup } from "../../scripts/lib/verifier-cleanup.mjs";
 
 const { values } = parseArgs({
   options: {
@@ -373,14 +373,13 @@ try {
   throw primaryError;
 } finally {
   try {
-    await closeVerifierResources(
-      [
-        async () => {
-          if (cleanupOwner === undefined) await workspace.close();
-        },
-      ],
-      primaryError,
-    );
+    await withVerifierCleanup(() => {
+      if (primaryError !== undefined) throw primaryError;
+    }, [
+      async () => {
+        if (cleanupOwner === undefined) await workspace.close();
+      },
+    ]);
     if (primaryError === undefined && controller.signal.aborted)
       throw new OwnedCommandFailure(
         "cancelled",

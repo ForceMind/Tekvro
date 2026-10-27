@@ -47,4 +47,4 @@ node scripts/rea.mjs doctor --json
 
 ## 来源与许可证
 
-Tekvro 使用原项目中依 MIT 授权的代码并继续维护；见 [LICENSE](../../LICENSE) 和 [THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md)。品牌独立并不意味着将原有源码重新声明为完全原创。
+Tekvro 使用原项目中依 MIT 授权的代码并继续维护；见 [LICENSE](https://github.com/ForceMind/Tekvro/blob/main/LICENSE) 和 [THIRD_PARTY_NOTICES.md](https://github.com/ForceMind/Tekvro/blob/main/THIRD_PARTY_NOTICES.md)。品牌独立并不意味着将原有源码重新声明为完全原创。

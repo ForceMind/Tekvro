@@ -1,5 +1,7 @@
+import { javascriptRouteDeliveryOptions } from "./cli/javascriptRouteDelivery.js";
 import { z } from "incur";
 import { selectHumanText } from "./cli/localization.js";
+import { webRuntimeCommandTimeoutSchema } from "./domain/browserDeadline.js";
 import { javaScriptAnalysisResourceControlsSchema } from "./domain/javascript/javascriptAnalysisResourceControls.js";
 import { javaScriptSourcePathsSchema } from "./domain/javascript/javascriptSourceSelection.js";
 
@@ -18,7 +20,16 @@ export const browserScopeOptions = {
     .array(z.string().min(1))
     .optional()
     .describe("Optional exact-origin filter"),
+  commandTimeoutMs: webRuntimeCommandTimeoutSchema,
 };
+
+/** Keep an omitted command deadline absent so Evidence records the caller selection only. */
+export const selectedCommandTimeout = (
+  commandTimeoutMs: number | undefined,
+): { readonly command_timeout_ms?: number } =>
+  commandTimeoutMs === undefined
+    ? {}
+    : { command_timeout_ms: commandTimeoutMs };
 
 export const browserPageInspectionOptions = z.object({
   ...browserScopeOptions,
@@ -59,6 +70,7 @@ export const electronPageInspectionOptions = z.object({
     .boolean()
     .default(false)
     .describe("Include JavaScript source text"),
+  commandTimeoutMs: webRuntimeCommandTimeoutSchema,
 });
 
 const humanResourceOption = <T extends z.ZodType>(
@@ -73,6 +85,7 @@ const humanResourceOption = <T extends z.ZodType>(
   );
 
 export const javascriptApplicationOptions = z.object({
+  ...javascriptRouteDeliveryOptions,
   maxSemanticNodes: humanResourceOption(
     javaScriptAnalysisResourceControlsSchema.shape.max_semantic_nodes,
     "整个应用保留的语义节点上限，默认 100000；仍受工作进程堆和结果接收预算约束。",
@@ -98,10 +111,14 @@ export const javascriptApplicationOptions = z.object({
         "相对于应用根目录的精确清单路径；可重复选择多个文件，不隐式加入依赖。",
       ),
     ),
-  maxHeapMb: humanResourceOption(
-    javaScriptAnalysisResourceControlsSchema.shape.max_heap_mb,
-    "隔离 JavaScript 分析进程的 V8 老生代堆上限（MiB），默认 1024，不改变 CLI/MCP 堆。Bun 忽略 V8 参数：Windows 改用预算加 512 MiB 运行时余量限制提交内存，其他 Bun 平台不施加此限制。",
-  ),
+  sourcePathsJson: z
+    .string()
+    .min(1)
+    .optional()
+    .describe(
+      "Inline JSON array or JSON file path of exact inventoried file paths relative to the application root, selected after any --source-path values. Use a file for selections that exceed the host command-line limit.",
+    ),
+  maxHeapMb: javaScriptAnalysisResourceControlsSchema.shape.max_heap_mb,
   analysisTimeoutMs: humanResourceOption(
     javaScriptAnalysisResourceControlsSchema.shape.analysis_timeout_ms,
     "每个源码的启动、分析和传输总超时（毫秒），默认 300000；超时保留已采集的部分 Evidence 并停止分析。",

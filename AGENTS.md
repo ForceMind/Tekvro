@@ -2,7 +2,7 @@
 
 ## Tekvro product constraints
 
-This repository is Tekvro (`tekvro`, MCP `io.github.forcemind/tekvro`). Keep `TEKVRO_LANG`, Chinese human CLI help, legacy command/configuration compatibility, MIT notices, `private: true`, source-update refusal, and repository guards on every publication entrypoint. New registrations must launch this local checkout; do not install public `rea-agents`. Product package version and inherited engine provenance are separate; see `engine-metadata.json` and `docs/upstream/rea-6.7.0-integration.md` for actual validation. Inherited provider descriptions below are upstream capability boundaries; only recorded Tekvro executions establish platform support. Do not add scheduled jobs or publish artifacts as part of engine integration.
+This repository is Tekvro (`tekvro`, MCP `io.github.forcemind/tekvro`). Keep `TEKVRO_LANG`, Chinese human CLI help, legacy command/configuration compatibility, MIT notices, `private: true`, source-update refusal, and repository guards on every publication entrypoint. New registrations must launch this local checkout; do not install public `rea-agents`. Product package version and inherited engine provenance are separate; see `engine-metadata.json` and `docs/upstream/rea-6.8.0-integration.md` for actual validation. Inherited provider descriptions below are upstream capability boundaries; only recorded Tekvro executions establish platform support. Do not add scheduled jobs or publish artifacts as part of engine integration.
 
 ## Product Direction
 
@@ -108,7 +108,7 @@ Keep tool catalogs complete and self-describing; prefer capability- and session-
 
 ## Cursor Cloud specific instructions
 
-Development requires Node.js 24.18.0 and npm 11.16.0 (`.nvmrc` and `packageManager`). The Cloud Agent image places an older `node` on `PATH` ahead of a normal install. Environment setup installs the pinned toolchain under `/usr/local` and prepends `/usr/local/bin` for login shells. Confirm `node -v` is `v24.18.0` before installing dependencies.
+Development requires Node.js 24.22.1 and npm 11.16.0 (`.nvmrc` and `packageManager`). The Cloud Agent image places an older `node` on `PATH` ahead of a normal install. Environment setup installs the pinned toolchain under `/usr/local` and prepends `/usr/local/bin` for login shells. Confirm `node -v` is `v24.22.1` before installing dependencies.
 
 `npm ci` installs locked dependencies. `npm run build:cached` produces the CLI and MCP server. `npm run check:fast` is the pre-push typecheck and lint. Hopper, Ghidra, and IDA are optional bring-your-own providers. JavaScript analysis and the deterministic Vitest suites do not need them. `rea doctor` reports those engines as missing until they are configured.
 

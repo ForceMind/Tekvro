@@ -14,12 +14,9 @@ import { verifyAndroidCliCancellation } from "./cli-cancellation.mjs";
 import { verifyAndroidMetadata } from "./metadata.mjs";
 import { verifyAndroidClassSearch } from "./class-search.mjs";
 import { verifyAndroidFailureRecovery } from "./failure-recovery.mjs";
-import {
-  resolveJadxConfigurationInputs,
-  validateJadxConfiguration,
-} from "../../../dist/android/JadxConfiguration.js";
+import { resolveJadxConfigurationInputs } from "../../../dist/android/JadxConfiguration.js";
+import { validateVerifierJadxConfiguration } from "../../lib/jadx-configuration-inspection.mjs";
 import { verifyWindowsAndroidLifecycle } from "./windows-lifecycle.mjs";
-import { withVerifierResourceOwner } from "../../lib/verifier-resource-owner.mjs";
 
 const repository = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const apk = process.env.REA_ANDROID_TEST_APK;
@@ -44,13 +41,10 @@ const configuration = await resolveJadxConfigurationInputs(
   process.env,
   "inspect_android_package",
 );
-await withVerifierResourceOwner((resourceOwner) =>
-  validateJadxConfiguration(
-    configuration,
-    process.env,
-    "inspect_android_package",
-    { resourceOwner },
-  ),
+await validateVerifierJadxConfiguration(
+  configuration,
+  process.env,
+  "inspect_android_package",
 );
 const { java, jvmArguments } = configuration;
 const execute = promisify(execFile);
