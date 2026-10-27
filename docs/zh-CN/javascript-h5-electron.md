@@ -148,7 +148,37 @@ node scripts/rea.mjs reconcile-javascript-runtime /absolute/path/to/reconciliati
 
 对于同一应用两个实际采集的版本，也可以进一步使用 `compare-application-versions`、`trace-application-feature` 等工作流，但需要对应的完整、已验证输入。请参阅[JavaScript 应用追踪与版本比较（英文）](../javascript-application-workflows.md)和[静态/运行时协调（英文）](../javascript-runtime-reconciliation.md)。
 
-## 六、向 AI Agent 提问的方法
+## 六、从捕获构建 Agent 环境（6.8.0）
+
+环境命令面向已经录制的 HAR 或符合契约的捕获 Evidence。它们将可观察行为整理为可供 Agent 调用的环境；这不意味着恢复了原服务器源码、隐藏规则或未捕获的运行行为。
+
+| 命令                  | 用途                                     | 执行边界                                                                     |
+| --------------------- | ---------------------------------------- | ---------------------------------------------------------------------------- |
+| `environment-build`   | 从捕获离线构建清单、状态和环境包         | 输出目录必须不存在或为空；`--dry-run` 只检查和报告，不写出环境包             |
+| `environment-export`  | 导出已有清单及其父捕获 Evidence          | 保留输入字节；不覆盖已有内容；本项目使用本地打包文件                         |
+| `environment-compare` | 用重新复位的原应用探测捕获与环境逐步比较 | 每段序列单独提供 `--probe`，不把未知或缺失结果当作一致                       |
+| `environment-serve`   | 在本机通过 streamable HTTP 提供环境      | 启动监听并持续运行；写工具只使用捕获已证实的效果，`--replay-only` 不推导状态 |
+
+先查看当前构建的中文帮助，核对参数和影响：
+
+```bash
+TEKVRO_LANG=zh-CN node scripts/rea.mjs environment-build --help
+TEKVRO_LANG=zh-CN node scripts/rea.mjs environment-export --help
+TEKVRO_LANG=zh-CN node scripts/rea.mjs environment-compare --help
+TEKVRO_LANG=zh-CN node scripts/rea.mjs environment-serve --help
+```
+
+使用已有捕获进行离线预检时，省略输出目录并显式选择 dry-run：
+
+```bash
+node scripts/rea.mjs environment-build /absolute/path/to/capture.har --dry-run --json
+```
+
+输入路径应替换成你有权使用的真实捕获。默认模板规则及推导状态有覆盖局限，应检查报告中的回放、状态响应和写入拒绝原因。需要导出可运行环境包时，通过 `--package-tarball` 指定当前 Tekvro 源码实际打出的本地包；不要使用上游公开包替代未发行的 Tekvro。导出不自动构建 Docker 镜像或启动服务。
+
+`environment-serve` 默认监听 `MCP_HOST` 或 `127.0.0.1`，端口取 `MCP_PORT` 或临时端口；显式选择远程监听地址前，应评估它暴露的捕获内容与写工具。详细格式和操作顺序见[Agent 环境（英文）](../agent-environments.md)。
+
+## 七、向 AI Agent 提问的方法
 
 推荐直接提供分析对象的路径、要回答的问题以及证据要求。例如：
 
@@ -156,7 +186,7 @@ node scripts/rea.mjs reconcile-javascript-runtime /absolute/path/to/reconciliati
 
 若需要多次比较，应保存每次输入、工具版本、证据对象、实际命令和目标文件哈希。不能只保存 AI 的自然语言总结。
 
-## 七、常见问题与安全边界
+## 八、常见问题与安全边界
 
 - **是否能得到完整游戏源码？** 不能保证。混淆、动态加载、压缩、WebAssembly 和缺少源码映射都可能限制恢复。
 - **为什么工具返回 unknown/unavailable？** 这是明确的覆盖或授权边界，不是可以自行补写的运行事实。

@@ -1,3 +1,4 @@
+import { selectHumanText } from "./localization.js";
 import { basename } from "node:path";
 import { localPathStringSchema } from "../domain/localPath.js";
 import { absoluteCallerPath } from "../filesystem/callerPath.js";
@@ -492,16 +493,24 @@ const registerBuildCommand = (
   environment: Readonly<NodeJS.ProcessEnv>,
 ): void => {
   cli.command(CLI_COMMANDS.environmentBuild, {
-    description:
+    description: selectHumanText(
       "Build an agent environment bundle from a recorded capture in one offline step: inspect a HAR (or read capture Evidence), project the environment manifest, derive the state, report which tools the environment answers from state, which replay and why each write is withheld, then write the bundle environment-export writes",
+      "从录制捕获离线构建 Agent 环境包：读取 HAR 或捕获 Evidence，生成清单并推导状态，报告状态响应、回放及写入拒绝原因，再导出环境包",
+    ),
     args: z.object({
       capture: localPathStringSchema.describe(
-        "A .har file, or capture Evidence JSON from inspect-web-network-capture (HAR) or capture-browser-scenario",
+        selectHumanText(
+          "A .har file, or capture Evidence JSON from inspect-web-network-capture (HAR) or capture-browser-scenario",
+          ".har 文件，或 inspect-web-network-capture（HAR）/capture-browser-scenario 输出的捕获 Evidence JSON",
+        ),
       ),
       directory: localPathStringSchema
         .optional()
         .describe(
-          "Bundle directory to create; must be absent or empty, nothing is overwritten; omit only with --dry-run",
+          selectHumanText(
+            "Bundle directory to create; must be absent or empty, nothing is overwritten; omit only with --dry-run",
+            "要创建的环境包目录；必须不存在或为空，不覆盖已有内容；仅 --dry-run 时可省略",
+          ),
         ),
     }),
     options: z.object({
@@ -509,27 +518,46 @@ const registerBuildCommand = (
         .string()
         .optional()
         .describe(
-          "Env folder and env id (kebab-case); default the manifest's name, or the capture file's name when the origin is a loopback or IP address",
+          selectHumanText(
+            "Env folder and env id (kebab-case); default the manifest's name, or the capture file's name when the origin is a loopback or IP address",
+            "环境目录和标识（kebab-case）；默认使用清单名称，来源为回环或 IP 地址时使用捕获文件名",
+          ),
         ),
       templateRule: z
         .array(z.enum(TEMPLATE_RULES))
         .optional()
         .describe(
-          "Opt-in template rule; repeat to select several. Replaces the default after-uid-literal, opaque-token, sibling-variance and prefix-variance",
+          selectHumanText(
+            "Opt-in template rule; repeat to select several. Replaces the default after-uid-literal, opaque-token, sibling-variance and prefix-variance",
+            "显式选择模板规则，可重复指定多个；替换默认的 after-uid-literal、opaque-token、sibling-variance 和 prefix-variance",
+          ),
         ),
       formatRulesOnly: z
         .boolean()
         .default(false)
-        .describe("Apply only the four format rules, the views' own default"),
+        .describe(
+          selectHumanText(
+            "Apply only the four format rules, the views' own default",
+            "仅应用四个格式规则，与视图默认行为一致",
+          ),
+        ),
       packageTarball: localPathStringSchema
         .optional()
         .describe(
-          "Packed rea-agents tarball (npm pack) copied into the env folder and installed by the Dockerfile instead of the registry package pinned to this version",
+          selectHumanText(
+            "Packed Tekvro tarball (npm pack) copied into the env folder and installed by the Dockerfile instead of the registry package pinned to this version",
+            "打包后的 Tekvro tarball（npm pack），复制到环境目录并由 Dockerfile 安装，替代版本固定的注册表包；本项目尚未正式发行，应使用本地包",
+          ),
         ),
       dryRun: z
         .boolean()
         .default(false)
-        .describe("Run every stage and report, but write nothing"),
+        .describe(
+          selectHumanText(
+            "Run every stage and report, but write nothing",
+            "执行各阶段并生成报告，但不写入文件",
+          ),
+        ),
       captureTimeoutMs:
         inspectWebNetworkCaptureInputSchema.shape.capture_timeout_ms,
     }),
@@ -559,12 +587,18 @@ const registerBuildCommand = (
 const manifestArgument = z
   .string()
   .describe(
-    "Environment manifest Evidence JSON path (inspect-analysis-view environment-manifest output)",
+    selectHumanText(
+      "Environment manifest Evidence JSON path (inspect-analysis-view environment-manifest output)",
+      "环境清单 Evidence JSON 路径（inspect-analysis-view environment-manifest 的输出）",
+    ),
   );
 const evidenceOption = z
   .string()
   .describe(
-    "Parent capture Evidence JSON path (inspect-web-network-capture or capture-browser-scenario output) the manifest cites",
+    selectHumanText(
+      "Parent capture Evidence JSON path (inspect-web-network-capture or capture-browser-scenario output) the manifest cites",
+      "清单引用的父捕获 Evidence JSON 路径（inspect-web-network-capture 或 capture-browser-scenario 的输出）",
+    ),
   );
 
 interface CompareArguments {
@@ -615,8 +649,10 @@ const compareEnvironmentCommand = async (
 /** Register the comparison of an environment with probe captures of its application. */
 const registerCompareCommand = (cli: CliInstance, logger: Logger): void => {
   cli.command(CLI_COMMANDS.environmentCompare, {
-    description:
+    description: selectHumanText(
       "Compare an environment with probe captures of the application it was captured from: each probe is one call sequence recorded against a freshly reset application, answered by the environment from a reset state, with agreement reported per step, tool and probe",
+      "比较环境与原应用的探测捕获：每个探测是在重新复位的应用上录制的一段调用序列，环境从复位状态响应，并按步骤、工具和探测报告一致性",
+    ),
     args: z.object({ manifest: manifestArgument }),
     options: z.object({
       evidence: evidenceOption,
@@ -624,7 +660,10 @@ const registerCompareCommand = (cli: CliInstance, logger: Logger): void => {
         .array(z.string())
         .min(1)
         .describe(
-          "Probe capture Evidence JSON path (inspect-web-network-capture or capture-browser-scenario output) of one call sequence made against a freshly reset application; repeat once per sequence",
+          selectHumanText(
+            "Probe capture Evidence JSON path (inspect-web-network-capture or capture-browser-scenario output) of one call sequence made against a freshly reset application; repeat once per sequence",
+            "重新复位应用后录制的调用序列 Evidence JSON 路径（inspect-web-network-capture 或 capture-browser-scenario 的输出）；每段序列重复指定一次",
+          ),
         ),
     }),
     run: ({ args, options }) =>
@@ -641,12 +680,17 @@ const registerCompareCommand = (cli: CliInstance, logger: Logger): void => {
 /** Register the one-shot bundle export command. */
 const registerExportCommand = (cli: CliInstance, logger: Logger): void => {
   cli.command(CLI_COMMANDS.environmentExport, {
-    description:
+    description: selectHumanText(
       "Export an environment manifest and its capture Evidence as an agent environment bundle folder the agentenv framework runs with agent-env run",
+      "将环境清单及其捕获 Evidence 导出为 Agent 环境包目录，供 agentenv 框架通过 agent-env run 运行",
+    ),
     args: z.object({
       manifest: manifestArgument,
       directory: localPathStringSchema.describe(
-        "Bundle directory to create; must be absent or empty, nothing is overwritten",
+        selectHumanText(
+          "Bundle directory to create; must be absent or empty, nothing is overwritten",
+          "要创建的环境包目录；必须不存在或为空，不覆盖已有内容",
+        ),
       ),
     }),
     options: z.object({
@@ -654,13 +698,19 @@ const registerExportCommand = (cli: CliInstance, logger: Logger): void => {
       packageTarball: localPathStringSchema
         .optional()
         .describe(
-          "Packed rea-agents tarball (npm pack) copied into the env folder and installed by the Dockerfile instead of the registry package pinned to this version",
+          selectHumanText(
+            "Packed Tekvro tarball (npm pack) copied into the env folder and installed by the Dockerfile instead of the registry package pinned to this version",
+            "打包后的 Tekvro tarball（npm pack），复制到环境目录并由 Dockerfile 安装，替代版本固定的注册表包；本项目尚未正式发行，应使用本地包",
+          ),
         ),
       name: z
         .string()
         .optional()
         .describe(
-          "Env folder and env id (kebab-case); default the manifest's name",
+          selectHumanText(
+            "Env folder and env id (kebab-case); default the manifest's name",
+            "环境目录和标识（kebab-case），默认使用清单名称",
+          ),
         ),
     }),
     run: ({ args, options }) =>
@@ -686,8 +736,10 @@ export const registerEnvironmentCommands = (
   registerExportCommand(cli, logger);
   registerCompareCommand(cli, logger);
   cli.command(CLI_COMMANDS.environmentServe, {
-    description:
+    description: selectHumanText(
       "Serve an environment manifest as an agent environment over streamable HTTP until SIGINT or SIGTERM: read tools, and write tools whose effect the capture confirmed, answer from the state the capture observed, derived at startup, or every tool replays retained capture records with --replay-only or when the state is unavailable",
+      "通过 streamable HTTP 提供 Agent 环境，直到 SIGINT 或 SIGTERM：读取工具及捕获已证实效果的写入工具使用启动时推导的状态响应；指定 --replay-only 或状态不可用时，所有工具回放保留的捕获记录",
+    ),
     args: z.object({ manifest: manifestArgument }),
     options: z.object({
       evidence: evidenceOption,
@@ -695,17 +747,28 @@ export const registerEnvironmentCommands = (
         .boolean()
         .default(false)
         .describe(
-          "Serve pure replay: derive no state, serve every manifest tool from its retained records and answer every /agentenv method as not found",
+          selectHumanText(
+            "Serve pure replay: derive no state, serve every manifest tool from its retained records and answer every /agentenv method as not found",
+            "仅提供回放：不推导状态，各清单工具使用保留记录响应，所有 /agentenv 方法均返回未找到",
+          ),
         ),
       host: z
         .string()
         .min(1)
         .optional()
-        .describe("Listener address; default MCP_HOST, else 127.0.0.1"),
+        .describe(
+          selectHumanText(
+            "Listener address; default MCP_HOST, else 127.0.0.1",
+            "监听地址；默认使用 MCP_HOST，否则为 127.0.0.1",
+          ),
+        ),
       port: mcpHttpListenerPortSchema
         .optional()
         .describe(
-          "Listener port; default MCP_PORT, else 0 for an ephemeral port",
+          selectHumanText(
+            "Listener port; default MCP_PORT, else 0 for an ephemeral port",
+            "监听端口；默认使用 MCP_PORT，否则为 0（临时端口）",
+          ),
         ),
     }),
     run: ({ args, options }) =>
