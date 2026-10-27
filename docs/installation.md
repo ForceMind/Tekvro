@@ -1,6 +1,9 @@
+Warning: truncated output (original token count: 21069)
+Total output lines: 1463
+
 # Installation and setup
 
-Tekvro runs from a local source checkout. Node.js `^22.19.0 || ^24.11.0 || >=26.0.0`, npm, and Git are required. The development and CI baseline is Node.js 24.18.0 with npm 11.16.0. Optional engines are installed and configured separately; setup does not install Node.js, npm, Java, Ghidra, or Homebrew.
+Tekvro runs from a local source checkout. Node.js `^22.23.4 || ^24.22.1 || >=26.12.1`, npm, and Git are required. The development and CI baseline is Node.js 24.22.1 with npm 11.16.0. Optional engines are installed and configured separately; setup does not install Node.js, npm, Java, Ghidra, or Homebrew.
 
 ## Build and start
 
@@ -31,6 +34,20 @@ node scripts/rea.mjs setup --client codex
 ```
 
 Review the plan before applying changes. Setup registers this checkout's Node.js MCP entrypoint, retains unrelated configuration, and backs up changed files. An existing client session must reconnect after a registration change. Doctor checks configuration and prerequisites; it does not prove that a live agent session has loaded the tools. Static JavaScript CLI analysis works without an MCP connection or a native analysis engine.
+
+For a client that accepts a JSON MCP server map, use this local entrypoint.
+Replace both absolute paths with the Node executable and checkout on that client's machine:
+
+```json
+{
+  "mcpServers": {
+    "rea": {
+      "command": "/absolute/path/to/node",
+      "args": ["/absolute/path/to/Tekvro/scripts/rea.mjs", "mcp"]
+    }
+  }
+}
+```
 
 ## Supported agents
 
@@ -96,7 +113,7 @@ the upstream dependency tree and does not affect REA or indicate setup failure.
 
 For Tekvro, build this reviewed checkout and use `node scripts/rea.mjs setup`. The public `rea-agents` npm package is not Tekvro.
 [Package-runner and global-installation options](#package-runners-and-global-installation)
-cover explicit versions, Bun, runtime requirements, and the curl wrapper.
+cover explicit versions, Bun, runtime requirements, and the source-build boundary.
 
 ## Review setup changes
 
@@ -306,7 +323,7 @@ For REA setup, an empty `CLAUDE_CONFIG_DIR` is treated as unset: registration
 goes to `~/.claude.json` and the skill goes to `~/.claude/skills`.
 
 ```bash
-CLAUDE_CONFIG_DIR=~/.claude-rea npx rea-agents setup --client claude_code
+CLAUDE_CONFIG_DIR=~/.claude-rea node /absolute/path/to/Tekvro/scripts/rea.mjs setup --client claude_code
 CLAUDE_CONFIG_DIR=~/.claude-rea claude
 ```
 
@@ -322,8 +339,8 @@ environment and can otherwise inspect or recreate default-profile state:
 
 ```bash
 CLAUDE_CONFIG_DIR=~/.claude-rea claude mcp list
-CLAUDE_CONFIG_DIR=~/.claude-rea npx rea-agents doctor --client claude_code --skill --json
-CLAUDE_CONFIG_DIR=~/.claude-rea npx -y rea-agents@latest setup --client claude_code --dry-run
+CLAUDE_CONFIG_DIR=~/.claude-rea node /absolute/path/to/Tekvro/scripts/rea.mjs doctor --client claude_code --skill --json
+CLAUDE_CONFIG_DIR=~/.claude-rea node /absolute/path/to/Tekvro/scripts/rea.mjs setup --client claude_code --dry-run
 ```
 
 After reviewing an update plan, rerun that same prefixed setup command without
@@ -346,10 +363,10 @@ restore the previous selection afterward:
 $previousClaudeConfigDir = $env:CLAUDE_CONFIG_DIR
 try {
   $env:CLAUDE_CONFIG_DIR = Join-Path $HOME ".claude-rea"
-  npx rea-agents setup --client claude_code
+  node /absolute/path/to/Tekvro/scripts/rea.mjs setup --client claude_code
   claude mcp list
-  npx rea-agents doctor --client claude_code --skill --json
-  npx -y rea-agents@latest setup --client claude_code --dry-run
+  node /absolute/path/to/Tekvro/scripts/rea.mjs doctor --client claude_code --skill --json
+  node /absolute/path/to/Tekvro/scripts/rea.mjs setup --client claude_code --dry-run
   # After reviewing the plan, repeat setup without --dry-run and approve it.
   claude
   # Profile removal, when intended, also belongs inside this selected scope:
@@ -368,9 +385,9 @@ into cmd.exe. Keep profile updates, readiness checks and removal inside the
 same selected environment; the `finally` block restores the previous profile
 or unsets the variable when it was absent.
 
-**One project.** Install without configuring Claude Code: use the curl
-installer's `--no-setup`, or run setup only for other clients. Then register
-REA from the project directory at Claude Code's local scope.
+**One project.** Build the local checkout without configuring Claude Code,
+or run setup only for other clients. Then register Tekvro from the project
+directory at Claude Code's local scope.
 
 This route uses the default Claude profile. Keep `CLAUDE_CONFIG_DIR` unset for
 the entire local lifecycle: registration, backup, listing, version replacement
@@ -385,14 +402,14 @@ Register with the variable unset:
 <!-- x-release-please-start-version -->
 
 ```bash
-claude mcp add --scope local rea -- npx -y rea-agents@6.8.0 mcp
+claude mcp add --scope local rea -- node /absolute/path/to/Tekvro/scripts/rea.mjs mcp
 ```
 
 On native Windows, use the same project directory and wrap the package-runner
 shim so the stdio client can launch it:
 
 ```powershell
-claude mcp add --scope local rea -- cmd.exe /d /c npx -y rea-agents@6.8.0 mcp
+claude mcp add --scope local rea -- cmd.exe /d /c node /absolute/path/to/Tekvro/scripts/rea.mjs mcp
 ```
 
 `rea update` refuses automatic updates in this private source build. Update the
@@ -452,7 +469,7 @@ provider-specific recovery advice.
 
 ## Diagnose, update, and remove
 
-`rea doctor --json` is strictly read-only. `rea update` updates only the npm or Bun global installation that owns the running CLI. Source checkouts and package-runner copies must be updated through the mechanism that owns them; a fresh package-runner invocation can use `npx rea-agents@latest` or `bunx rea-agents@latest`. `rea uninstall` removes only REA-owned agent registrations and skill files; `--purge-data` additionally removes REA cache and state paths.
+`rea doctor --json` is strictly read-only. `rea update` updates only the npm or Bun global installation that owns the running CLI. Source checkouts and package-runner copies must be updated through the mechanism that owns them; a fresh package-runner invocation can use `node /absolute/path/to/Tekvro/scripts/rea.mjs` or `bun /absolute/path/to/Tekvro/scripts/rea.mjs`. `rea uninstall` removes only REA-owned agent registrations and skill files; `--purge-data` additionally removes REA cache and state paths.
 
 ```bash
 rea update
@@ -596,7 +613,7 @@ through a reviewed, scoped setup plan, then restart/reconnect the agent.
 ## Skill-only installation
 
 ```bash
-npx skills add morluto/rea --skill reverse-engineer-anything
+node /absolute/path/to/Tekvro/scripts/rea.mjs setup --skill=true
 ```
 
 This installs agent instructions and bundled references, not REA MCP
@@ -615,7 +632,7 @@ and the release boundary above. Static JavaScript CLI inspection can proceed
 while MCP is unavailable:
 
 ```bash
-npx -y rea-agents@latest analyze-javascript-application /absolute/path/to/app --json
+node /absolute/path/to/Tekvro/scripts/rea.mjs analyze-javascript-application /absolute/path/to/app --json
 ```
 
 It returns the complete Evidence record directly and requires no native engine.
@@ -720,69 +737,7 @@ primary fingerprint `7C2D73BAFAF5B9A710A69DA1A26DF815099B1BCD`, then checks
 that the signed package and installed launcher agree with `main_exe_hash`.
 Rotating signing subkeys remain bound to that primary identity.
 The feed row itself is not PGP-signed; doctor labels its display version as
-`reported_release_version`, separately from the authenticated launcher identity.
-
-The approval plan includes the caller-selected cache location. Approved setup
-retains the signed archive, public key and release metadata under
-`${XDG_CACHE_HOME:-$HOME/.cache}/rea/hopper-releases/<launcher-sha256>`.
-An empty `XDG_CACHE_HOME` uses `$HOME/.cache`. Approved setup can repair a
-damaged caller-owned entry after authenticating a fresh package; the previous
-entry is preserved beside it as `<launcher-sha256>.backup-<id>`. Ordinary doctor
-and launches reject damaged evidence and never repair it implicitly.
-Approved publications of the same canonical cache entry share a process-backed
-lease. Concurrent setup waits without moving another writer's evidence; a
-failed replacement restores the previous directory when possible and reports
-any retained backup path. Unavailable reads or native inspection tools do not
-authorize replacing existing evidence.
-Doctor and launches authenticate this evidence for offline use; an editable
-digest receipt alone cannot authorize a launcher. Verification reuses at most
-eight immutable package proofs per process, keyed by the complete package,
-key, signature, package format and expected launcher digest. Cached file reads
-still check identity and content. Without retained evidence, inspecting an
-existing install requires the matching current official package and network
-access. Successful live inspection can be reused within that process after
-rehashing the launcher; it does not write a persistent cache or claim that a
-previously observed release is still the latest. Older uncached builds require
-an approved update while the feed exposes only its current release.
-
-REA runs the supported demo build on a private Xvfb display and selects Hopper's
-offered demo mode for each analysis session; it does not require the user's
-desktop display. Unattended package-manager access requires
-`--yes --install-hopper`. If the host exposes `/tmp/.X11-unix` as an immutable
-mount, Tekvro first verifies the conflict and then uses an unprivileged user and
-mount namespace with a private mode-1777 tmpfs over that directory only. The
-host mount and the rest of `/tmp` remain unchanged; this fallback never invokes
-`sudo`. `rea doctor --provider hopper --json` reports the selected
-strategy and both host and effective mount facts.
-
-Hopper also embeds Python; the Python executable and standard library alone
-are insufficient on Ubuntu. Approved setup checks the system interpreter
-at `/usr/bin/python3` and, when necessary, installs its matching
-`libpython3.X` package, then verifies that its shared library can load.
-APT resolves the concrete package (for example, `libpython3.12t64` on Ubuntu
-24.04). Doctor includes these fresh observations in the `embedded_python`
-details of its `hopper-demo-runtime` check, alongside the private-display
-diagnostic. Failed inspections remain unknown rather than proving a library
-absent. Run `rea setup --yes --install-hopper` to repair a supported install.
-This prerequisite check does not launch the bridge or validate a custom Python
-interpreter configured inside Hopper; that interpreter needs its own matching
-shared runtime. Custom installation prefixes or shared-library ABIs require
-manual dependency repair.
-
-When the package-manager step fails, setup reports the failing command and its
-captured output, so a package conflict is distinguishable from an authorization
-failure. Hopper is optional, so setup still applies the approved client
-registrations and skill, then reports `needs_human` with the Hopper failure. On
-Arch Linux and CachyOS, the unversioned compatibility package `zlib-ng-compat`
-may conflict with Hopper's versioned `zlib` dependency. Resolve the package
-conflict yourself, install Hopper's official package manually, or use another
-provider such as Ghidra; rerun `rea setup` after installing Hopper.
-
-If setup cannot finish releasing its resources, a normally returned structured
-result reports `needs_human` and includes `cleanup.reason` with the identified
-paths in `cleanup.resources`. A thrown typed failure reports the same retained
-paths in `details.resources`, preserving the primary failure separately. Reasons
-that do not identify a resource remain explicit without guessing paths from text.
+`reported_relea…1069 tokens truncated…rom text.
 For in-process callers retaining REA's setup host, a successful retry of its close
 updates the original failure's cleanup state and removes released resource labels.
 Custom `SetupHost` implementations must bind returned or thrown cleanup errors
@@ -1410,8 +1365,8 @@ The reserved product identity is `io.github.forcemind/tekvro`. No independent Re
 {
   "mcpServers": {
     "rea": {
-      "command": "npx",
-      "args": ["-y", "rea-agents@6.8.0", "mcp"]
+      "command": "/absolute/path/to/node",
+      "args": ["/absolute/path/to/Tekvro/scripts/rea.mjs", "mcp"]
     }
   }
 }
@@ -1420,7 +1375,7 @@ The reserved product identity is `io.github.forcemind/tekvro`. No independent Re
 <!-- x-release-please-end -->
 
 Persistent registrations should use one exact package version. `rea setup`
-writes the same package-runner shape, or `bunx rea-agents@<version> mcp` when
+writes the same package-runner shape, or `bun /absolute/path/to/Tekvro/scripts/rea.mjs mcp` when
 setup runs through `bunx`, and pins it to the exact version that performed
 setup. Run current setup to refresh an older registration, then restart the
 client.
@@ -1434,128 +1389,16 @@ the client's MCP startup deadline and may need one more restart.
 
 ## Package runners and global installation
 
-A package-runner invocation can use a REA version installed in the current project. To
-request the latest release explicitly, use:
-
-```bash
-npx rea-agents@latest setup
-```
-
-REA runs the version npm selects. To update older agent registrations, run the
-latest-version command and review its setup plan. For unattended package
-downloads, add `--yes` before the package name; this does not approve REA's
-setup changes.
-
-For an intentional rollback, make the package request explicit:
-
-```bash
-npm exec --yes --package=rea-agents@2.4.0 -- rea setup
-```
-
-Setup continues to pin persistent MCP registrations to the exact version that
-performed setup. Running current setup later migrates unversioned or older
-managed registrations through the normal reviewed setup transaction.
-
-With Bun, `bunx rea-agents setup` (or `bunx rea-agents@latest setup`) is the
-equivalent entry point. Setup run through `npx` registers
-`npx -y rea-agents@<version> mcp`; setup run through `bunx` or `bun x` registers
-`bunx rea-agents@<version> mcp`. On Windows, setup wraps either command in
-`cmd.exe /d /c` so clients can start the runner's command shim. Neither
-registration points into the runner's temporary package cache.
-
-REA supports Node.js 22.x (>=22.23.4), 24.x (>=24.22.1), and 26.12.1+. Node.js 23, 25, earlier 26.x releases, and prereleases are unsupported. It uses the npm already paired with that runtime and never upgrades Node.js, npm, or Homebrew.
-
-When REA runs on Bun, the `rea doctor` `node` check reports the Bun version and
-the Node.js compatibility version Bun declares, and passes when that
-compatibility version is in the supported range. Bun does not enforce the V8
-heap flags REA gives its owned helper processes, so Evidence that reports those
-limits on Node.js records them as unavailable under Bun. On Windows, the owned
-Job Object of each JavaScript helper (source analyzer, source-map codec and HAR
-decoder) instead limits its committed memory to that helper's heap budget plus
-a 512 MiB reserve for Bun itself, and Evidence reports that limit. This needs
-the matching bundled Windows native artifact; an artifact without the control
-refuses to start the helper rather than running it unlimited. CI tests Node.js
-only.
-
-Running `npm install rea-agents` without `--global` installs the executable only
-in the current project's `node_modules/.bin`; it does not make `rea` available
-on the shell `PATH`. Use the setup command above for the guided setup
-journey, `npx -y rea-agents@latest` for unattended one-off commands, or install globally
-with `npm install --global rea-agents` for a shell-visible `rea` command.
-
-For many concurrent agent sessions, run setup directly from a global installation
-to avoid keeping a separate npm launcher process for each MCP connection:
-
-```bash
-npm install --global rea-agents
-rea setup
-```
-
-Review the plan, approve the selected client changes, then restart those clients.
-This registers the installed entrypoint directly; installing the global package
-alone does not replace existing `npx` registrations. Each client still has its own
-REA process and analysis state. Direct registrations follow the installed CLI;
-use `rea update` to update it. Running setup through `npx` again selects the pinned
-package-runner command. Do not register paths inside npm's temporary package cache.
+Tekvro is a private source build. npm/Bun registry installation and upstream curl
+installers do not install this checkout. Use the local build and MCP configuration
+above; do not substitute the public upstream distribution.
 
 ### npm workspace errors before REA starts
 
-An `npx` launch can inspect the caller's npm project before executing REA. For
-example, a direct dependency whose override conflicts with its declared spec
-can cause npm's `EOVERRIDE`, even when the requested REA package is already
-cached. This is a package-runner failure: REA has not started and cannot return
-an MCP error. [#3690](https://github.com/morluto/rea/issues/3690) reproduced it
-outside OpenCode as well as through that client's workspace-default launch.
-
-Use the direct global-installation setup flow above to replace the affected
-package-runner registration, then restart the client. If REA is already installed
-globally, run that installed `rea setup --client <client-id> --dry-run`, review
-the direct launcher in the plan, and apply the approved scope. Installing a
-global copy alone does not change an existing registration. Keep the client's
-working directory: changing it to bypass npm inspection can change the meaning
-of relative target paths. A direct REA entrypoint preserves that directory
-without asking npm to resolve the workspace's dependency graph.
+Launch the checkout directly with Node to avoid package-runner workspace resolution.
+Keep the caller's intended working directory for relative analysis targets.
 
 ### Global installation wrapper
 
-The optional curl wrapper installs only the global npm package:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/morluto/rea/main/install.sh | bash
-```
-
-It prints the version, runtime, npm command, and destination before installing. When a controlling terminal exists it starts `rea setup`; otherwise it prints the command to run later.
-
-Pass options with `bash -s --`:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/morluto/rea/main/install.sh |
-  bash -s -- --dry-run
-```
-
-To review a version-pinned installer before running it, select the release
-version, download its tagged script, and inspect the downloaded file:
-
-```bash
-rea_version=6.7.0
-curl -fsSL "https://raw.githubusercontent.com/morluto/rea/rea-agents-${rea_version}/install.sh" -o rea-install.sh
-less rea-install.sh
-```
-
-After reviewing it, install the same package version:
-
-```bash
-bash rea-install.sh --version "$rea_version"
-```
-
-The tag pins the selected script revision; `--version` selects the npm package
-version. Neither command verifies a signature on the downloaded script.
-
-Supported options are `--version <semver>`, `--dry-run`, `--no-setup`, `--no-prompt`, and `--verbose`. Neither `--no-prompt` nor a non-interactive shell grants permission to install external dependencies.
-
-Hopper setup distinguishes a confirmed occupied destination from a failed
-destination inspection. It also reports local archive staging and installed
-launcher inspection failures separately from download failure or launcher
-absence. Follow the reported operation, path, and available filesystem code; an
-unresolved inspection does not establish that a destination exists or a launcher
-is missing.
+`install.sh` remains disabled. Update the reviewed Git checkout, run `npm ci`,
+and rebuild with `npm run build:cached`; no installer upgrades Node or external engines.
