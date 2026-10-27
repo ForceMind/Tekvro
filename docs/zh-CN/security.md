@@ -10,4 +10,4 @@ Tekvro 为开发与研究工具，并非隔离恶意代码的沙箱。
 - **发布**：Tekvro 的 GitHub 源代码已公开，但 npm 包仍标记 `private: true`、MCP Registry 尚未正式发布；不得使用原项目发行凭据或官网密钥自动发布。
 - **漏洞报告**：请使用 [ForceMind/Tekvro 的私有安全报告入口](https://github.com/ForceMind/Tekvro/security/advisories/new)，不要在公开 Issue 中披露可复现漏洞细节。
 
-详细技术边界与运行时防护可继续参考 [SECURITY.md](../../SECURITY.md)。
+详细技术边界与运行时防护可继续参考 [SECURITY.md](https://github.com/ForceMind/Tekvro/blob/main/SECURITY.md)。

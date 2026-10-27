@@ -43,3 +43,13 @@
 已触发[完整PR资格](https://github.com/ForceMind/Tekvro/actions/runs/40309077119)、[普通CI](https://github.com/ForceMind/Tekvro/actions/runs/40309024874)及[核心引擎验收](https://github.com/ForceMind/Tekvro/actions/runs/40309024788)，截至记录时仍进行中。可选提供方标签触发的工作流出现skip/cancel，不计为提供方通过，需在当前提交继续核实触发条件。完整跨平台 CI、H5/WASM/Electron、固定可选提供方必须针对本轮提交重新执行；不能继承历史成功状态。Hopper/IDA/JEB 授权实例、ADB 真实设备和明确 Frida 目标仍未具备；不宣称实机通过。
 
 复现：`npm ci`、`npm run build:cached`、`npm run check:fast`、`npm run docs:check`，以及 `npm run test:focused -- <exact paths>`。本地运行 Turbo 时设置 `TURBO_TELEMETRY_DISABLED=1 DO_NOT_TRACK=1`，关闭可选遥测。平台/引擎工作流按仓库现有资格标签选择；发布保护保持启用。
+
+## 2026-10-27 CI 修复轮
+
+已逐项读取初次托管 CI 失败日志。修复中文文档的五个站外源码链接、发布 CLI 的 Knip 入口声明及无调用的旧资源包装器；修复 Notes Electron 示例的异步错误处理，并为 Tekvro 现有网站加入启动异常报告。网站不含上游的翻译模块/主题切换，测试改为执行实际 DOM 启动失败路径，不引入不存在的产品功能。恢复后的 Notes 示例也重新符合已知答案夹具的部分覆盖事实。
+
+环境导出测试按 `tekvro` 精确包名断言；本地注册测试使用实际选中的入口；Windows 原生组件恢复测试要求同提交 Tekvro 构建。WASM 的两份 import grammar 夹具仅含两个引用，按各自实际源文本核对，其余五份仍验证全部换行查询/片段引用与坐标。Android 缺 Java 的恢复文案明确选中 launcher 和完整 JDK。
+
+缓存策略测试验证 Tekvro 未启用上游自动缓存删除工作流，并允许提供方验收不携带远程缓存凭据；保留已有缓存写权限约束。深度检查另暴露 Python agent harness 在清理失败时丢失主错误，改用现有 `withVerifierCleanup` 保留两者。
+
+本地文档站构建、网站20页/412个本地引用/ZIP验证通过；相关6个文件76项通过、11项平台跳过，另缓存/Windows控制10项通过。已知答案 MCP 在当前 Work 宿主因 `ps -axo ... uid= ...` 返回 `fatal library error, lookup self` 无法运行，未绕过进程归属检查，需由本轮托管 CI 复验。后续完整资格以最新提交结果为准。

@@ -295,6 +295,10 @@ try {
     assert.equal(report.glue.length, glueSources.length);
     for (const [index, source] of glueSources.entries()) {
       const observed = report.glue[index];
+      const expectedValues =
+        index === 1 || index === 2 ? glueValues.slice(0, 2) : glueValues;
+      const expectedLiterals =
+        index === 1 || index === 2 ? glueLiterals.slice(0, 2) : glueLiterals;
       assert.equal(observed.artifact.path, gluePaths[index]);
       assert.equal(observed.artifact.sha256, sha256(source));
       assert.equal(observed.artifact.bytes, Buffer.byteLength(source));
@@ -302,23 +306,23 @@ try {
       assert.equal(observed.parse_status, "complete");
       assert.deepEqual(
         observed.references.map(({ value }) => value),
-        glueValues,
+        expectedValues,
       );
       assert.deepEqual(
         observed.references.map(({ candidate_paths }) => candidate_paths),
-        glueValues.map((_, index) =>
+        expectedValues.map((_, index) =>
           index === 0 ? [path] : [path, candidate],
         ),
       );
       assert.deepEqual(
         observed.references.map(({ association }) => association),
-        glueValues.map((_, index) =>
+        expectedValues.map((_, index) =>
           index === 0 ? "local-path-candidate" : "basename-candidates",
         ),
       );
       assert.deepEqual(
         observed.references.map(({ line, column }) => ({ line, column })),
-        glueLiterals.map((literal) => {
+        expectedLiterals.map((literal) => {
           const offset = source.indexOf(literal);
           assert.notEqual(offset, -1);
           return {

@@ -1,6 +1,6 @@
 # Tekvro / 探核：中文快速开始
 
-[返回首页](../../README.md) · [架构](architecture.md) · [安全](security.md) · [发行身份](distribution.md)
+[返回首页](https://github.com/ForceMind/Tekvro/blob/main/README.md) · [架构](architecture.md) · [安全](security.md) · [发行身份](distribution.md)
 
 ## 1. 准备环境
 

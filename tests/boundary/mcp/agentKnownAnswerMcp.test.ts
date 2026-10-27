@@ -531,7 +531,7 @@ const notesWorkflow = async (
     name: "analyze_javascript_application",
     arguments: { input_path: inputPath },
   });
-  expect(analysis.isError).not.toBe(true);
+  expect(analysis.isError, JSON.stringify(analysis)).not.toBe(true);
   const application = resultEvidence(analysis);
   const feature = await harness.client.callTool({
     name: "trace_application_feature",

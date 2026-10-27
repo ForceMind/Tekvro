@@ -133,10 +133,14 @@ it.each(["win32", "linux"] as const)(
         },
       }),
     );
-    const statuses = await readClientRegistrationStatuses(home, "rea", {
-      platform,
-      environment: {},
-    });
+    const statuses = await readClientRegistrationStatuses(
+      home,
+      process.argv[1],
+      {
+        platform,
+        environment: {},
+      },
+    );
     expect(statuses.find(({ client }) => client === "cursor")).toMatchObject({
       state: platform === "win32" ? "invalid" : "aligned",
     });

@@ -7,7 +7,7 @@ import { createTestTempDirectory } from "../../fixtures/temporaryDirectory.js";
 import { processTest } from "../../support/process/processFixture.js";
 
 processTest(
-  "reports the original website translation import failure at the startup boundary",
+  "reports the original website DOM initialization failure at the startup boundary",
   async ({ processes }) => {
     const root = await createTestTempDirectory("rea-website-initialization-");
     const main = join(root, "main.mjs");
@@ -19,22 +19,19 @@ processTest(
         main,
       ),
       writeFile(join(root, "package.json"), '{"type":"module"}\n'),
-      writeFile(
-        join(root, "i18n.js"),
-        "throw globalThis.translationFailure;\n",
-      ),
     ]);
     // Execute the public startup code; this does not exercise browser DOM behavior.
     const source = `
 import assert from "node:assert/strict";
-globalThis.translationFailure = new Error("selected translation import failed");
+globalThis.initializationFailure = new Error("selected DOM initialization failed");
+globalThis.document = { querySelectorAll() { throw globalThis.initializationFailure; } };
 const reported = new Promise((resolve) => {
   console.error = (...arguments_) => resolve(arguments_);
 });
 await import(${JSON.stringify(pathToFileURL(main).href)});
 const [message, cause] = await reported;
 assert.equal(message, "Website initialization failed");
-assert.equal(cause, globalThis.translationFailure);
+assert.equal(cause, globalThis.initializationFailure);
 `;
     const result = await processes.run(
       process.execPath,

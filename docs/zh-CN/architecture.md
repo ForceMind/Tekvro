@@ -44,4 +44,4 @@
 - `tests/`：契约、单元、真实工具测试
 - `skill-src/`：Agent 操作指引
 
-详见 [原架构示意](../architecture.mermaid) 与 [工具契约（英文）](../mcp-contracts.md)。
+详见 [原架构示意](https://github.com/ForceMind/Tekvro/blob/main/docs/architecture.mermaid) 与 [工具契约（英文）](../mcp-contracts.md)。

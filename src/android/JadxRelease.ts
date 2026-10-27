@@ -18,7 +18,7 @@ export const JADX_JAR_CONFIGURATION_REMEDIATION = `Set REA_JADX_MCP_JAR to the a
 
 /** Remediation when the selected Java runtime cannot satisfy the JADX bridge. */
 export const JADX_JAVA_RUNTIME_REMEDIATION =
-  "Select a full JDK including jdk.compiler via JAVA_HOME or PATH, then verify it with java --list-modules. REA does not install Java.";
+  "Select a full JDK including jdk.compiler via JAVA_HOME or PATH, then verify the selected launcher with java --list-modules. REA does not install Java.";
 
 /** Remediation when a JADX JVM resource override is malformed. */
 export const JADX_JVM_OPTIONS_REMEDIATION =
