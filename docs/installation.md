@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 21069)
-Total output lines: 1463
-
 # Installation and setup
 
 Tekvro runs from a local source checkout. Node.js `^22.23.4 || ^24.22.1 || >=26.12.1`, npm, and Git are required. The development and CI baseline is Node.js 24.22.1 with npm 11.16.0. Optional engines are installed and configured separately; setup does not install Node.js, npm, Java, Ghidra, or Homebrew.
@@ -737,7 +734,69 @@ primary fingerprint `7C2D73BAFAF5B9A710A69DA1A26DF815099B1BCD`, then checks
 that the signed package and installed launcher agree with `main_exe_hash`.
 Rotating signing subkeys remain bound to that primary identity.
 The feed row itself is not PGP-signed; doctor labels its display version as
-`reported_relea…1069 tokens truncated…rom text.
+`reported_release_version`, separately from the authenticated launcher identity.
+
+The approval plan includes the caller-selected cache location. Approved setup
+retains the signed archive, public key and release metadata under
+`${XDG_CACHE_HOME:-$HOME/.cache}/rea/hopper-releases/<launcher-sha256>`.
+An empty `XDG_CACHE_HOME` uses `$HOME/.cache`. Approved setup can repair a
+damaged caller-owned entry after authenticating a fresh package; the previous
+entry is preserved beside it as `<launcher-sha256>.backup-<id>`. Ordinary doctor
+and launches reject damaged evidence and never repair it implicitly.
+Approved publications of the same canonical cache entry share a process-backed
+lease. Concurrent setup waits without moving another writer's evidence; a
+failed replacement restores the previous directory when possible and reports
+any retained backup path. Unavailable reads or native inspection tools do not
+authorize replacing existing evidence.
+Doctor and launches authenticate this evidence for offline use; an editable
+digest receipt alone cannot authorize a launcher. Verification reuses at most
+eight immutable package proofs per process, keyed by the complete package,
+key, signature, package format and expected launcher digest. Cached file reads
+still check identity and content. Without retained evidence, inspecting an
+existing install requires the matching current official package and network
+access. Successful live inspection can be reused within that process after
+rehashing the launcher; it does not write a persistent cache or claim that a
+previously observed release is still the latest. Older uncached builds require
+an approved update while the feed exposes only its current release.
+
+REA runs the supported demo build on a private Xvfb display and selects Hopper's
+offered demo mode for each analysis session; it does not require the user's
+desktop display. Unattended package-manager access requires
+`--yes --install-hopper`. If the host exposes `/tmp/.X11-unix` as an immutable
+mount, Tekvro first verifies the conflict and then uses an unprivileged user and
+mount namespace with a private mode-1777 tmpfs over that directory only. The
+host mount and the rest of `/tmp` remain unchanged; this fallback never invokes
+`sudo`. `rea doctor --provider hopper --json` reports the selected
+strategy and both host and effective mount facts.
+
+Hopper also embeds Python; the Python executable and standard library alone
+are insufficient on Ubuntu. Approved setup checks the system interpreter
+at `/usr/bin/python3` and, when necessary, installs its matching
+`libpython3.X` package, then verifies that its shared library can load.
+APT resolves the concrete package (for example, `libpython3.12t64` on Ubuntu
+24.04). Doctor includes these fresh observations in the `embedded_python`
+details of its `hopper-demo-runtime` check, alongside the private-display
+diagnostic. Failed inspections remain unknown rather than proving a library
+absent. Run `rea setup --yes --install-hopper` to repair a supported install.
+This prerequisite check does not launch the bridge or validate a custom Python
+interpreter configured inside Hopper; that interpreter needs its own matching
+shared runtime. Custom installation prefixes or shared-library ABIs require
+manual dependency repair.
+
+When the package-manager step fails, setup reports the failing command and its
+captured output, so a package conflict is distinguishable from an authorization
+failure. Hopper is optional, so setup still applies the approved client
+registrations and skill, then reports `needs_human` with the Hopper failure. On
+Arch Linux and CachyOS, the unversioned compatibility package `zlib-ng-compat`
+may conflict with Hopper's versioned `zlib` dependency. Resolve the package
+conflict yourself, install Hopper's official package manually, or use another
+provider such as Ghidra; rerun `rea setup` after installing Hopper.
+
+If setup cannot finish releasing its resources, a normally returned structured
+result reports `needs_human` and includes `cleanup.reason` with the identified
+paths in `cleanup.resources`. A thrown typed failure reports the same retained
+paths in `details.resources`, preserving the primary failure separately. Reasons
+that do not identify a resource remain explicit without guessing paths from text.
 For in-process callers retaining REA's setup host, a successful retry of its close
 updates the original failure's cleanup state and removes released resource labels.
 Custom `SetupHost` implementations must bind returned or thrown cleanup errors
