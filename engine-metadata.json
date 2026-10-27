@@ -4,8 +4,12 @@
   "commit": "160d821ac9a0310afcb8d1fc427862dd6508add5",
   "previousVersion": "6.7.0",
   "previousCommit": "27dc42d10249f0410904a75c0997842eb03b931c",
-  "validation": "pending-current-head-ci",
-  "integration": "source-integrated",
+  "validation": "qualified-source-tree",
+  "integration": "merged",
   "validationRecord": "docs/upstream/rea-6.8.0-integration.md",
-  "integrationPullRequest": "https://github.com/ForceMind/Tekvro/pull/28"
+  "integrationPullRequest": "https://github.com/ForceMind/Tekvro/pull/28",
+  "qualifiedSourceCommit": "7333a6c7a71ff32fba1a74fe64d6b4ea0e1827e5",
+  "qualifiedSourceTree": "43d2bc4bc1cfb41e80329523aacc5762bd418bd1",
+  "qualifiedMainCommit": "4582d229e6587888f2ae980ddf670566e479631b",
+  "qualificationWorkflow": "https://github.com/ForceMind/Tekvro/actions/runs/40477324764"
 }

@@ -1,6 +1,23 @@
 # REA 6.8.0 内核集成记录
 
-## 来源与状态（2026-10-26）
+## 当前交付状态（2026-10-27）
+
+[PR #28](https://github.com/ForceMind/Tekvro/pull/28) 已合并，主线交付提交为 `4582d229e6587888f2ae980ddf670566e479631b`。已验收源提交 `7333a6c7a71ff32fba1a74fe64d6b4ea0e1827e5` 与该合并提交的完整代码树相同：`43d2bc4bc1cfb41e80329523aacc5762bd418bd1`。引擎来源为下述固定 REA 6.8.0 标签；产品包 6.1.0 兼容标记不代表引擎版本。
+
+- [完整资格 CI](https://github.com/ForceMind/Tekvro/actions/runs/40477324764)：42 个任务中 41 成功，Source tests 按 full 分流策略跳过；六个完整覆盖率分片和汇总均成功，33,591 项通过、234 项跳过、0 失败。
+- [合并后主线 CI](https://github.com/ForceMind/Tekvro/actions/runs/40481067436)：成功，同样为 33,591/234/0。Windows 能力与包安装、Linux/macOS x64/arm64 包基线、Node 22/24/26 SQLite 和必要契约检查通过。
+- [核心引擎](https://github.com/ForceMind/Tekvro/actions/runs/40477324993)与[提供方验收](https://github.com/ForceMind/Tekvro/actions/runs/40477324875)成功，包含 Linux x64 的 H5/WASM、Ghidra 主机/ARM/m68k 静态样本、Kuna、JADX、编译 APK 多语言资源，以及 macOS arm64 Electron 生命周期/IPC/清理。静态跨目标样本不等于真实 ARM/m68k 硬件验收。
+- 镜像准备、包名与本地入口、Windows Kimi、WASM 夹具、网站异步错误、安装文档和日期夹具阻塞均已修复。没有跳过失败检查；早期的失败、排队和 pending 描述保留在下方历史记录中，不再表示当前交付状态。
+
+`engine-metadata.json` 的资格字段绑定上述固定提交及代码树；后续文档或代码提交不能仅凭该字段继承完整资格，必须读取自己提交的检查结果。正式发行、商用引擎和设备验证是独立关口，不能从本次源码资格推断。
+
+### 下一阶段接手
+
+从最新 main 开始，先读 AGENTS.md、本记录、[研发路线](../roadmap.md)、[测试指南](../testing.md)和 Issues #8/#9/#21。优先完成新增 6.8 命令的人类帮助与中文使用说明，机器工具名、参数、JSON/MCP 协议保持稳定；继续推进独立版本与发行工程准备，但保留 `private:true`、本地注册、源码更新拒绝和发布保护。
+
+未具备的授权 Hopper/IDA/JEB 实例、ADB 设备、选定 Frida 实机目标及 Linux active Electron 归属/清理边界仍需实测。不把它们写成已验证，不安装到用户个人电脑，不自动发布 npm/MCP Registry/Release，也不新增计划任务。
+
+## 历史：来源与状态（2026-10-26）
 
 已验收主线基线为 `feefdd595422f7a450f363c1f50a8f3e625aa0d9`，内核 REA 6.7.0 `27dc42d10249f0410904a75c0997842eb03b931c`。上一轮 19,179 通过、170 跳过以及真实提供方记录仅适用于 6.7.0，见[历史记录](rea-6.7.0-integration.md)。
 
@@ -21,7 +38,7 @@
 
 | 入口                 | 调整与迁移方式                                                                                   |
 | -------------------- | ------------------------------------------------------------------------------------------------ |
-| Node.js              | 要求 `^22.23.4                                                                                   |     | ^24.22.1 |     | >=26.12.1`；开发固定 24.22.1，Node23/25 不支持 |
+| Node.js              | 要求 `^22.23.4`、`^24.22.1` 或 `>=26.12.1`；开发固定 24.22.1，Node 23/25 不支持                  |
 | MCP analyze_function | 默认返回 retained summary；需要原完整内联结果时选 `detail: "complete"`                           |
 | CLI JSONL            | 输出集合行及 `$rea: "jsonl/v1"` 元数据记录；消费者必须区分控制记录；完整文档用 JSON              |
 | MCP schema           | 默认 compact 广告；完整说明用 `REA_MCP_INPUT_SCHEMA_PROFILE=full`                                |
