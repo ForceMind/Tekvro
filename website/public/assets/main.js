@@ -156,7 +156,7 @@ async function initializeWebsite() {
     }
   }
 
-  initializeGitHubStars();
+  await initializeGitHubStars();
 }
 
 initializeWebsite().catch((cause) => {
