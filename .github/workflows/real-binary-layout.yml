@@ -57,8 +57,14 @@ jobs:
           build_cache_artifact: ${{ inputs.build_cache_artifact }}
       - name: Install ELF32 cross toolchains for source-owned fixtures
         run: |
-          sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends \
+          # Keep Ubuntu's signed packages while avoiding the slow Azure HTTP mirror.
+          for source in /etc/apt/apt-mirrors.txt /etc/apt/sources.list /etc/apt/sources.list.d/ubuntu.sources; do
+            if [ -f "$source" ]; then
+              sudo sed -i 's|azure.archive.ubuntu.com|archive.ubuntu.com|g; s|http://archive.ubuntu.com|https://archive.ubuntu.com|g' "$source"
+            fi
+          done
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::https::Timeout=30 update
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::https::Timeout=30 install --yes --no-install-recommends \
             gcc-i686-linux-gnu gcc-arm-linux-gnueabi gcc-mips-linux-gnu gcc-mipsel-linux-gnu \
             libc6-dev-i386-cross libc6-dev-armel-cross libc6-dev-mips-cross libc6-dev-mipsel-cross
       - name: Acquire exact upstream libraries in an isolated runner environment
