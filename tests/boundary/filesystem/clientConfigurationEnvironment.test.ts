@@ -237,9 +237,13 @@ it.skipIf(process.platform !== "win32")(
     expect(effectiveClientServer(parsed, "rea")).toHaveProperty("env", {
       rea_mcp_input_schema_profile: "full",
     });
-    const statuses = await readClientRegistrationStatuses(home, "rea", {
-      environment: {},
-    });
+    const statuses = await readClientRegistrationStatuses(
+      home,
+      process.argv[1],
+      {
+        environment: {},
+      },
+    );
     expect(statuses.find(({ client }) => client === "kimi")).toMatchObject({
       state: "aligned",
     });
