@@ -22,6 +22,7 @@ export default defineConfig({
             text: "H5 / JavaScript / Electron",
             link: "/zh-CN/javascript-h5-electron",
           },
+          { text: "抓包与信号录制", link: "/zh-CN/offline-captures" },
           { text: "项目架构", link: "/zh-CN/architecture" },
           { text: "常见问题", link: "/zh-CN/faq" },
           { text: "安全与授权", link: "/zh-CN/security" },
