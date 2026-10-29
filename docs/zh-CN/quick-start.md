@@ -70,4 +70,13 @@ npm run docs:build
 
 ## 6. 已知兼容边界
 
+产品包保留 `6.1.0` 兼容标记，当前主线内核已集成为固定 REA `6.8.0`。在仓库根目录分别查看产品包和内核来源：
+
+```bash
+node scripts/rea.mjs --version --json
+node -p "JSON.stringify(require('./engine-metadata.json'), null, 2)"
+```
+
+具体资格提交、运行范围及后续提交的检查要求见[集成记录](../upstream/rea-6.8.0-integration.md)。
+
 源码 npm 包名是 `tekvro`，MCP Registry 草案标识是 `io.github.forcemind/tekvro`，二者均**未正式发行**。旧 CLI `rea` / `rea-agents` 别名和 MCP 客户端键 `rea` 暂时保留；旧注册命令仍可识别，但新安装默认使用本地 Tekvro。详细说明见[发行身份与兼容策略](distribution.md)，高级英文技术资料可从[文档导航](../index.md)找到。
