@@ -1,4 +1,5 @@
 import { z } from "incur";
+import { selectHumanText } from "./localization.js";
 import { localPathStringSchema } from "../domain/localPath.js";
 import { absoluteCallerPath } from "../filesystem/callerPath.js";
 import { createBeamService } from "../composition/erlang.js";
@@ -22,21 +23,43 @@ export const registerErlangCommands = (
   logger: Logger,
 ): void => {
   cli.command(CLI_COMMANDS.inspectErlangBeam, {
-    description:
+    description: selectHumanText(
       "Inspect Erlang BEAM atoms, exports, imports and Code header without executing bytecode",
+      "检查 Erlang BEAM 原子表、导出、导入和 Code 文件头，不执行字节码",
+    ),
     args: z.object({
-      path: localPathStringSchema.describe("Local BEAM file"),
+      path: localPathStringSchema.describe(
+        selectHumanText("Local BEAM file", "本地 BEAM 文件"),
+      ),
     }),
     options: z.object({
-      maxFileBytes: inspectErlangBeamInputSchema.shape.max_file_bytes,
-      maxChunks: inspectErlangBeamInputSchema.shape.max_chunks,
-      maxAtoms: inspectErlangBeamInputSchema.shape.max_atoms,
+      maxFileBytes: inspectErlangBeamInputSchema.shape.max_file_bytes.describe(
+        selectHumanText(
+          "Maximum stable artifact bytes to read (default 64 MiB)",
+          "最多读取的稳定制品字节数（默认 64 MiB）",
+        ),
+      ),
+      maxChunks: inspectErlangBeamInputSchema.shape.max_chunks.describe(
+        selectHumanText(
+          "Maximum IFF chunks to examine; exceeding the budget fails without partial success",
+          "最多检查的 IFF 区块数；超出预算则失败，不作为部分成功返回",
+        ),
+      ),
+      maxAtoms: inspectErlangBeamInputSchema.shape.max_atoms.describe(
+        selectHumanText(
+          "Maximum atom-table entries to decode; exceeding the budget fails without partial success",
+          "最多解码的原子表条目数；超出预算则失败，不作为部分成功返回",
+        ),
+      ),
       ...analysisEvidenceDeliveryOptions,
       view: z
         .string()
         .optional()
         .describe(
-          "JSON beam view; requires --detail summary and --evidence_output",
+          selectHumanText(
+            "JSON beam view; requires --detail summary and --evidence_output",
+            "beam 视图的 JSON；需要 --detail summary 和 --evidence_output",
+          ),
         ),
     }),
     run: ({ args, options }) =>

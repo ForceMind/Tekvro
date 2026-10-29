@@ -15,16 +15,25 @@ import { absoluteCallerPath } from "../filesystem/callerPath.js";
 import { finishAnalysisCommand } from "./finishAnalysisCommand.js";
 import { analysisInputErrorFromIssues } from "../domain/inputIssueProjection.js";
 import type { ZodSafeParseResult } from "zod";
+import { selectHumanText } from "./localization.js";
 
 export const analysisEvidenceDeliveryOptions = {
   detail: z
     .enum(["complete", "summary"])
     .default("complete")
-    .describe("Deliver complete Evidence, or a summary with --evidence_output"),
+    .describe(
+      selectHumanText(
+        "Deliver complete Evidence, or a summary with --evidence_output",
+        "返回完整 Evidence，或配合 --evidence_output 返回摘要",
+      ),
+    ),
   evidence_output: localPathStringSchema
     .optional()
     .describe(
-      "Save complete Evidence as a bundle; required for summary delivery. Never overwrites.",
+      selectHumanText(
+        "Save complete Evidence as a bundle; required for summary delivery. Never overwrites.",
+        "将完整 Evidence 保存为证据包；摘要输出时必填，不覆盖已有文件",
+      ),
     ),
 };
 

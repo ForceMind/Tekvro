@@ -5,11 +5,12 @@ lane. Start with the commands below; use [real-toolchain lanes](#real-toolchain-
 for engine prerequisites and [client verification](client-verification.md) for
 installed-client and agent runs.
 
-## Tekvro 6.7 qualification record
+## Tekvro engine qualification records
 
 The current product/engine distinction, merged implementation, real execution
 links and platform limitations are maintained in the
-[6.7 integration record](upstream/rea-6.7.0-integration.md). Upstream historical
+[6.8 integration record](upstream/rea-6.8.0-integration.md); the previous baseline
+remains in the [6.7 record](upstream/rea-6.7.0-integration.md). Upstream historical
 verification reports establish upstream observations only. A fake provider test
 or successful bridge compilation does not establish a real engine run.
 

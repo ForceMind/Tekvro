@@ -1,4 +1,5 @@
 import { inspectModelArtifactInputSchema } from "../domain/model/modelArtifactQuery.js";
+import { selectHumanText } from "./localization.js";
 import { analysisInputErrorFromIssues } from "../domain/inputIssueProjection.js";
 import { AnalysisInputError } from "../domain/analysisErrorCore.js";
 import { projectAnalysisError } from "../domain/analysisErrorProjection.js";
@@ -23,11 +24,16 @@ export const registerModelCommands = (
   logger: Logger,
 ): void => {
   cli.command(CLI_COMMANDS.inspectModelArtifact, {
-    description:
+    description: selectHumanText(
       "Inspect GGUF or safetensors headers without loading model weights",
+      "检查 GGUF 或 safetensors 文件头，不加载模型权重",
+    ),
     args: z.object({
       path: localPathStringSchema.describe(
-        "Local model file, detected by content",
+        selectHumanText(
+          "Local model file, detected by content",
+          "本地模型文件，按内容识别格式",
+        ),
       ),
     }),
     options: z.object({
@@ -36,13 +42,19 @@ export const registerModelCommands = (
         .string()
         .optional()
         .describe(
-          "JSON model page selection; requires --detail summary and --evidence_output",
+          selectHumanText(
+            "JSON model page selection; requires --detail summary and --evidence_output",
+            "模型分页选择的 JSON；需要 --detail summary 和 --evidence_output",
+          ),
         ),
       hash: z
         .enum(["header", "full"])
         .default("header")
         .describe(
-          "header reads declarations only; full additionally streams all bytes for SHA-256",
+          selectHumanText(
+            "header reads declarations only; full additionally streams all bytes for SHA-256",
+            "header 仅读取声明；full 另行流式读取全部字节以计算 SHA-256",
+          ),
         ),
     }),
     run: ({ args, options }) =>

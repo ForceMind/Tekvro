@@ -1,4 +1,5 @@
 import { inspectGpuCodeObjectsInputSchema } from "../domain/gpu/gpuCodeObjects.js";
+import { selectHumanText } from "./localization.js";
 import { analysisInputErrorFromIssues } from "../domain/inputIssueProjection.js";
 import { AnalysisInputError } from "../domain/analysisErrorCore.js";
 import { projectAnalysisError } from "../domain/analysisErrorProjection.js";
@@ -20,11 +21,16 @@ import {
 /** One-shot summaries export the same complete observations used by MCP retained pages. */
 export const registerGpuCommands = (cli: CliInstance, logger: Logger): void => {
   cli.command(CLI_COMMANDS.inspectGpuCodeObjects, {
-    description:
+    description: selectHumanText(
       "Inspect embedded CUDA/HIP targets and selected static kernel metadata",
+      "检查内嵌 CUDA/HIP 目标及所选内核的静态元数据",
+    ),
     args: z.object({
       path: localPathStringSchema.describe(
-        "Local ELF/PE, CUDA fatbin, CUBIN, PTX or HIP bundle",
+        selectHumanText(
+          "Local ELF/PE, CUDA fatbin, CUBIN, PTX or HIP bundle",
+          "本地 ELF/PE、CUDA fatbin、CUBIN、PTX 或 HIP 包",
+        ),
       ),
     }),
     options: z.object({
@@ -33,24 +39,47 @@ export const registerGpuCommands = (cli: CliInstance, logger: Logger): void => {
         .string()
         .optional()
         .describe(
-          "JSON GPU object/kernel/PTX page selection; requires --detail summary and --evidence_output",
+          selectHumanText(
+            "JSON GPU object/kernel/PTX page selection; requires --detail summary and --evidence_output",
+            "GPU 对象、内核或 PTX 分页选择的 JSON；需要 --detail summary 和 --evidence_output",
+          ),
         ),
       analysis: z
         .enum(["inventory", "kernels"])
         .default("inventory")
-        .describe("Inventory GPU targets or decode selected kernel metadata"),
+        .describe(
+          selectHumanText(
+            "Inventory GPU targets or decode selected kernel metadata",
+            "inventory 列出 GPU 目标，kernels 解码所选内核元数据",
+          ),
+        ),
       expected_sha256: z
         .string()
         .optional()
-        .describe("Inventory SHA-256; required with --object_ids"),
+        .describe(
+          selectHumanText(
+            "Inventory SHA-256; required with --object_ids",
+            "清单记录的 SHA-256；使用 --object_ids 时必填",
+          ),
+        ),
       object_ids: z
         .string()
         .optional()
-        .describe("JSON array of exact object IDs to decode"),
+        .describe(
+          selectHumanText(
+            "JSON array of exact object IDs to decode",
+            "要解码的精确对象 ID 的 JSON 数组",
+          ),
+        ),
       targets: z
         .string()
         .optional()
-        .describe("JSON array of exact target declarations to decode"),
+        .describe(
+          selectHumanText(
+            "JSON array of exact target declarations to decode",
+            "要解码的精确目标声明的 JSON 数组",
+          ),
+        ),
     }),
     run: ({ args, options }) =>
       withCommandCancellation((signal) =>
