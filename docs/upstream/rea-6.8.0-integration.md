@@ -17,6 +17,16 @@
 
 未具备的授权 Hopper/IDA/JEB 实例、ADB 设备、选定 Frida 实机目标及 Linux active Electron 归属/清理边界仍需实测。不把它们写成已验证，不安装到用户个人电脑，不自动发布 npm/MCP Registry/Release，也不新增计划任务。
 
+## 2026-10-29：静态格式中文帮助与使用入口
+
+在已合并的 6.8.0 主线上补齐 IL2CPP、GPU、模型文件、Python pyc 和 Erlang BEAM 五类命令的人类帮助、路径、选择、预算及证据导出说明。共享 `detail` / `evidence_output` 帮助也支持中文，复用原 schema、默认值、范围和枚举；机器参数、MCP 字段与分析行为保持兼容。
+
+[中文静态格式指南](../zh-CN/static-formats.md)已接入首页和侧栏，覆盖只读范围、显式种子文件写入、完整摘要的区别、模型哈希范围、对象 SHA-256 绑定、分页和未知覆盖。测试指南的当前资格入口已指向 6.8，6.7 记录保留为历史。
+
+本轮云端 Node 24.22.1/npm 11.9.0 实际通过 `npm ci`、`npm run build:cached`、`npm run check:fast`、`npm run docs:check`、`npm run docs:build` 和 `npm run format:check`。九个专项文件 105 项通过：24 项中英 CLI 帮助、81 项静态格式 CLI/MCP 测试（含新增中英模型 JSON Evidence 一致性）；README 一致性另有 5 项通过。专项命令为 `npm run test:focused --` 加 `tests/boundary/cli/localized{StaticFormat,JavaScript,Environment,Capture}Help.test.ts` 四个实际路径，以及 `tests/acceptance/{il2cppMetadata,pythonPyc,erlangBeam,modelArtifact,gpuCodeObjects}Cli.test.ts` 五个实际路径；花括号表示这里列举的文件集合。
+
+合并资格以实施 PR 当前提交的 CI 为准；本轮静态样本与 SDK 调用不扩展物理设备、商业引擎或真实 GPU 执行的验证范围。共享诊断及其余格式/工具的中文化继续跟踪 #9，独立发行保护保持启用。
+
 ## 历史：来源与状态（2026-10-26）
 
 已验收主线基线为 `feefdd595422f7a450f363c1f50a8f3e625aa0d9`，内核 REA 6.7.0 `27dc42d10249f0410904a75c0997842eb03b931c`。上一轮 19,179 通过、170 跳过以及真实提供方记录仅适用于 6.7.0，见[历史记录](rea-6.7.0-integration.md)。

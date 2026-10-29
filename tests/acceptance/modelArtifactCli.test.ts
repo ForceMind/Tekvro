@@ -25,6 +25,28 @@ import { createTestTempDirectory } from "../fixtures/temporaryDirectory.js";
 import { cliTest } from "../support/cli/cliFixture.js";
 
 cliTest(
+  "keeps model Evidence identical across CLI help locales",
+  async ({ cli }) => {
+    const root = await createTestTempDirectory("tekvro-model-locale-");
+    const path = join(root, "model.safetensors");
+    await writeFile(path, safetensorsFixture().bytes);
+    const observations = [];
+    for (const language of ["en", "zh-CN"]) {
+      const result = await cli.run({
+        arguments: ["inspect-model-artifact", path, "--hash", "full", "--json"],
+        environment: { TEKVRO_LANG: language },
+      });
+      expect(result.exitCode, result.stderr).toBe(0);
+      const evidence = toolContract(
+        "inspect_model_artifact",
+      ).outputSchema.parse(result.json);
+      observations.push(evidence.normalized_result);
+    }
+    expect(observations[1]).toEqual(observations[0]);
+  },
+);
+
+cliTest(
   "preserves lowercase hyphenated GGUF architecture metadata from the published writer",
   async ({ cli }) => {
     const root = await createTestTempDirectory(

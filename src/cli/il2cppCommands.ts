@@ -1,4 +1,5 @@
 import { localPathStringSchema } from "../domain/localPath.js";
+import { selectHumanText } from "./localization.js";
 import { absoluteCallerPath } from "../filesystem/callerPath.js";
 import { z } from "incur";
 import { AnalysisInputError } from "../domain/analysisErrorCore.js";
@@ -20,11 +21,16 @@ export const registerIl2cppCommands = (
   logger: Logger,
 ): void => {
   cli.command(CLI_COMMANDS.inspectIl2cppMetadata, {
-    description:
+    description: selectHumanText(
       "Inventory IL2CPP global-metadata.dat names, owners and string literals, optionally linking method addresses from the native binary",
+      "列出 IL2CPP global-metadata.dat 的名称、归属和字符串字面量，可关联原生二进制中的方法地址",
+    ),
     args: z.object({
       path: localPathStringSchema.describe(
-        "Local global-metadata.dat (version 24, 27, 29, 31 or 39)",
+        selectHumanText(
+          "Local global-metadata.dat (version 24, 27, 29, 31 or 39)",
+          "本地 global-metadata.dat（版本 24、27、29、31 或 39）",
+        ),
       ),
     }),
     options: z.object({
@@ -32,29 +38,46 @@ export const registerIl2cppCommands = (
       binary: localPathStringSchema
         .optional()
         .describe(
-          "Matching native binary (Mach-O GameAssembly.dylib, PE GameAssembly.dll or ELF libil2cpp.so) to link method addresses; read only",
+          selectHumanText(
+            "Matching native binary (Mach-O GameAssembly.dylib, PE GameAssembly.dll or ELF libil2cpp.so) to link method addresses; read only",
+            "用于关联方法地址的匹配原生二进制（Mach-O GameAssembly.dylib、PE GameAssembly.dll 或 ELF libil2cpp.so）；只读",
+          ),
         ),
       architecture: z
         .enum(["arm64", "amd64"])
         .optional()
-        .describe("Slice of a universal Mach-O binary"),
+        .describe(
+          selectHumanText(
+            "Slice of a universal Mach-O binary",
+            "通用 Mach-O 二进制的架构切片",
+          ),
+        ),
       genericInstances: z
         .boolean()
         .optional()
         .describe(
-          "Also link generic method instances (Type<Args>$$Method<Args>) and include them in --ghidra-seeds; needs --binary",
+          selectHumanText(
+            "Also link generic method instances (Type<Args>$$Method<Args>) and include them in --ghidra-seeds; needs --binary",
+            "同时关联泛型方法实例（Type<Args>$$Method<Args>）并纳入 --ghidra-seeds；需要 --binary",
+          ),
         ),
       ghidraSeeds: localPathStringSchema
         .optional()
         .describe(
-          "Also write REA_GHIDRA_SEED_FILE function seeds named Type$$Method for every linked method; needs --binary",
+          selectHumanText(
+            "Also write REA_GHIDRA_SEED_FILE function seeds named Type$$Method for every linked method; needs --binary",
+            "另行写入供 REA_GHIDRA_SEED_FILE 使用的函数种子，以 Type$$Method 命名各个已关联方法；需要 --binary",
+          ),
         ),
       seedBase: z
         .string()
         .regex(/^0x[0-9a-fA-F]{1,16}$/u)
         .optional()
         .describe(
-          "Address Ghidra loads the binary at; seeds are seed-base + RVA (default: Ghidra's loader default, 0x100000 for an ELF linked at 0, else the link base)",
+          selectHumanText(
+            "Address Ghidra loads the binary at; seeds are seed-base + RVA (default: Ghidra's loader default, 0x100000 for an ELF linked at 0, else the link base)",
+            "Ghidra 加载二进制的基址；种子地址为 seed-base + RVA（默认遵循 Ghidra 加载器：链接于 0 的 ELF 使用 0x100000，其余使用链接基址）",
+          ),
         ),
     }),
     run: ({ args, options }) =>
