@@ -66,10 +66,19 @@ describe("Tekvro offline capture command help", () => {
       if (command === "inspect-signal-decoders") {
         expect(zh).toContain("返回全部剩余匹配项");
         expect(zh).toContain("默认 50");
+        expect(zh).toContain("准确 ID");
+        expect(zh).toContain("字面子串");
+        expect(zh).toContain("跳过的匹配解码器");
+        expect(en).toContain("Case-insensitive literal substring");
       }
       if (command === "decode-signal-recording") {
         expect(zh).toContain("每页返回的输出行数");
         expect(zh).toContain("不按页限制");
+        expect(zh).toContain("解码器栈");
+        expect(zh).toContain("省略则自动识别");
+        expect(zh).toContain("注解筛选");
+        expect(zh).toContain("行数不是注解数量");
+        expect(en).toContain("sigrok decoder stack");
       }
     },
     40_000,
