@@ -50,6 +50,15 @@ must remain unavailable or unknown, with their original diagnostics.
 
 ## Developer commands
 
+The oversized-timeout MCP recovery fixture retains 1,500 source observations.
+Its parent uses a 1 GiB heap so the subsequent tiny analysis tests deadline
+recovery independently of parent GC timing. The worker remains limited to
+128 MiB and a 1 ms deadline. The separate
+`javascriptParentResultAdmission.test.ts` and `javascriptCheckpointReserveCli.test.ts`
+lanes continue to verify parent-budget refusal and retained facts; the recovery
+fixture does not change production admission budgets or promise recovery when
+the caller's parent heap is exhausted.
+
 Use source feedback while editing, explicit boundary checks for the changed
 behavior, and complete CI evidence before merging.
 
