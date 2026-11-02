@@ -71,3 +71,33 @@ node scripts/rea.mjs inspect-model-artifact /artifacts/model.gguf \
 `--view` 的结构按格式区分：模型/GPU 使用各自的集合选择；pyc 使用 `kind: "python-pyc"`，BEAM 使用 `kind: "beam"`。它需要摘要输出及完整证据包目的路径。IL2CPP CLI 没有 `--view` 参数，可通过 MCP 或已保存 Evidence 的 `inspect-analysis-view` 查询。
 
 对应 MCP 工具为 `inspect_il2cpp_metadata`、`inspect_gpu_code_objects`、`inspect_model_artifact`、`inspect_python_pyc`、`inspect_erlang_beam`，MCP 文件路径必须是绝对路径。按当前工具契约选择 `detail`，摘要的 `normalized_result.parent_evidence_id` 指向完整父证据。使用该 ID 与 `inspect_analysis_view` 查询同一会话中保留的事实；离线查询使用导出的证据包，不假设另一会话仍保存该 ID。源覆盖范围、分页覆盖和实际宿主验证是不同事实，不能相互替代。
+
+### 离线检查证据包与查询父证据
+
+在上面的模型导出成功后，可以先检查包内的发现元数据：
+
+```bash
+TEKVRO_LANG=zh-CN node scripts/rea.mjs inspect-evidence-bundle --help
+TEKVRO_LANG=zh-CN node scripts/rea.mjs inspect-analysis-view --help
+node scripts/rea.mjs inspect-evidence-bundle '{"path":"/output/model-evidence.json","detail":"summary"}' --json
+```
+
+将导出结果中真实的 `summary.normalized_result.parent_evidence_id` 填入下面的 `evidence_id`，保存为 `query.json`。`<实际父证据ID>` 是占位符，不能直接当成已存在的 ID 使用。
+
+```json
+{
+  "source": { "kind": "retained-evidence", "evidence_id": "<实际父证据ID>" },
+  "view": {
+    "kind": "model-artifact",
+    "collection": "tensors",
+    "offset": 0,
+    "limit": 20
+  }
+}
+```
+
+```bash
+node scripts/rea.mjs inspect-analysis-view query.json --evidence-bundle /output/model-evidence.json --json
+```
+
+模型分页行位于 `normalized_result.items`。CLI 从指定包查找精确父证据，不重新打开模型；原模型删除后仍可查询已保存的事实。不要把证据包 ID、派生摘要的 Evidence ID 或其他会话的 ID 替代父证据 ID。包被修改、来源缺失或不符合当前契约时，应读取真实错误并保留原文件，不能补造记录来使查询成功。
