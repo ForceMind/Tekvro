@@ -30,7 +30,7 @@ const cases = [
     "inspect-evidence-bundle",
     "Inspect complete or selected discovery metadata",
     "检查本地 Evidence 证据包",
-    "证据包绝对路径",
+    "完整内容，或按条件返回发现元数据",
   ],
   [
     "inspect-analysis-view",

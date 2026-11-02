@@ -29,7 +29,7 @@ export const registerAnalysisViewCommands = (
   cli.command(CLI_COMMANDS.inspectEvidenceBundle, {
     description: selectHumanText(
       "Inspect complete or selected discovery metadata from a local Evidence bundle",
-      "检查本地 Evidence 证据包的完整或所选发现元数据",
+      "检查本地 Evidence 证据包的完整内容，或按条件返回发现元数据",
     ),
     args: z.object({
       inputJson: z
