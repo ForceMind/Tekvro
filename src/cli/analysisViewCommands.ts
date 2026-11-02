@@ -27,13 +27,18 @@ export const registerAnalysisViewCommands = (
   logger: Logger,
 ): void => {
   cli.command(CLI_COMMANDS.inspectEvidenceBundle, {
-    description:
+    description: selectHumanText(
       "Inspect complete or selected discovery metadata from a local Evidence bundle",
+      "检查本地 Evidence 证据包的完整内容，或按条件返回发现元数据",
+    ),
     args: z.object({
       inputJson: z
         .string()
         .describe(
-          "JSON or JSON file with absolute path, detail and optional record filters",
+          selectHumanText(
+            "JSON or JSON file with absolute path, detail and optional record filters",
+            "内联 JSON 或 JSON 文件路径；内容包含证据包绝对路径、detail 及可选记录筛选条件",
+          ),
         ),
     }),
     run: ({ args }) =>
@@ -84,13 +89,23 @@ export const registerAnalysisViewCommands = (
       "查询支持的分析操作已完成证据 JSON 的指定视图",
     ),
     args: z.object({
-      inputJson: z.string().describe("Inline workflow JSON or JSON file path"),
+      inputJson: z
+        .string()
+        .describe(
+          selectHumanText(
+            "Inline workflow JSON or JSON file path",
+            "内联工作流 JSON 或 JSON 文件路径",
+          ),
+        ),
     }),
     options: z.object({
       evidenceBundle: localPathStringSchema
         .optional()
         .describe(
-          "Read the exact retained-evidence source ID from this local Evidence bundle without reopening the target; omit for inline Evidence",
+          selectHumanText(
+            "Read the exact retained-evidence source ID from this local Evidence bundle without reopening the target; omit for inline Evidence",
+            "从此本地证据包读取精确的 retained-evidence 源 ID，不重新打开分析目标；使用内联 Evidence 时省略",
+          ),
         ),
     }),
     run: ({ args, options }) =>
