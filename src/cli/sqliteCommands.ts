@@ -9,6 +9,7 @@ import { localPathStringSchema } from "../domain/localPath.js";
 import { absoluteCallerPath } from "../filesystem/callerPath.js";
 import { finishAnalysisCommand } from "./finishAnalysisCommand.js";
 import { inspectSqliteDatabaseInputSchema } from "../domain/sqlite/sqliteDatabase.js";
+import { selectHumanText } from "./localization.js";
 
 /** Resolve an operator-selected SQLite snapshot through the shared inspection workflow. */
 export const registerSqliteCommands = (
@@ -18,28 +19,59 @@ export const registerSqliteCommands = (
 ): void => {
   const service = createSqliteDatabaseService(environment);
   cli.command(CLI_COMMANDS.inspectSqliteDatabase, {
-    description:
+    description: selectHumanText(
       "Inspect SQLite schema and optional ordinary-table rows from a local snapshot",
+      "检查本地 SQLite 快照的结构，并可选读取普通表行样本",
+      environment,
+    ),
     args: z.object({
-      path: localPathStringSchema.describe("Local SQLite database snapshot"),
+      path: localPathStringSchema.describe(
+        selectHumanText(
+          "Local SQLite database snapshot",
+          "本地离线 SQLite 数据库快照路径",
+          environment,
+        ),
+      ),
     }),
     options: z.object({
-      workerTimeoutMs: inspectSqliteDatabaseInputSchema.shape.worker_timeout_ms,
+      workerTimeoutMs:
+        inspectSqliteDatabaseInputSchema.shape.worker_timeout_ms.describe(
+          selectHumanText(
+            inspectSqliteDatabaseInputSchema.shape.worker_timeout_ms
+              .description ?? "SQLite worker deadline in milliseconds",
+            "工作进程启动、查询和写出回复的超时毫秒数（默认 30000），不含快照获取，也不是整次调用的总时限；客户端须为获取、读取回复、清理和交付预留时间。固定字节/堆限制不变。",
+            environment,
+          ),
+        ),
       table: z
         .string()
         .optional()
-        .describe("Exact ordinary table name to read"),
+        .describe(
+          selectHumanText(
+            "Exact ordinary table name to read",
+            "要读取的普通表精确名称；不执行视图、虚拟表或影子表",
+            environment,
+          ),
+        ),
       column: z
         .array(z.string())
         .optional()
         .describe(
-          "Repeat to select exact row columns in the requested order; requires table",
+          selectHumanText(
+            "Repeat to select exact row columns in the requested order; requires table",
+            "重复指定精确列名，按指定顺序返回；须同时提供 table",
+            environment,
+          ),
         ),
       schemaScope: z
         .enum(["inventory", "selected_table", "database"])
         .optional()
         .describe(
-          "Compact inventory by default, or selected-table details when table is supplied; database requests full schema",
+          selectHumanText(
+            "Compact inventory by default, or selected-table details when table is supplied; database requests full schema",
+            "默认返回精简清单；提供 table 时默认返回所选表结构。selected_table 须提供 table；database 请求完整数据库结构",
+            environment,
+          ),
         ),
       rowLimit: z
         .number()
@@ -47,7 +79,11 @@ export const registerSqliteCommands = (
         .min(1)
         .optional()
         .describe(
-          "Positive safe integer row count; default 20; requires table",
+          selectHumanText(
+            "Positive safe integer row count; default 20; requires table",
+            "行样本数量，须为正安全整数；默认 20，须提供 table，仍受字节及工作进程资源限制",
+            environment,
+          ),
         ),
     }),
     run: ({ args, options }) =>
