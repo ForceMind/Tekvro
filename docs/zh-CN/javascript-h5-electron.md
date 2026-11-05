@@ -176,7 +176,7 @@ node scripts/rea.mjs environment-build /absolute/path/to/capture.har --dry-run -
 
 输入路径应替换成你有权使用的真实捕获。默认模板规则及推导状态有覆盖局限，应检查报告中的回放、状态响应和写入拒绝原因。需要导出可运行环境包时，通过 `--package-tarball` 指定当前 Tekvro 源码实际打出的本地包；不要使用上游公开包替代未发行的 Tekvro。导出不自动构建 Docker 镜像或启动服务。
 
-`environment-serve` 默认监听 `MCP_HOST` 或 `127.0.0.1`，端口取 `MCP_PORT` 或临时端口；显式选择远程监听地址前，应评估它暴露的捕获内容与写工具。详细格式和操作顺序见[Agent 环境（英文）](../agent-environments.md)。
+`environment-serve` 默认监听 `MCP_HOST` 或 `127.0.0.1`，端口取 `MCP_PORT` 或临时端口。`--port` 与 `MCP_PORT` 使用十进制整数文本（0–65535，0 为临时端口），不接受空值、十六进制或科学计数法；`--host` 与 `MCP_HOST` 去除首尾空白后不能为空。显式选择远程监听地址前，应评估它暴露的捕获内容与写工具。详细格式和操作顺序见[Agent 环境（英文）](../agent-environments.md)。
 
 ## 七、向 AI Agent 提问的方法
 

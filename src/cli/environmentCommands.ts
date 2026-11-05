@@ -17,8 +17,9 @@ import { parseCliJsonInput } from "../cliJsonInput.js";
 import { logCliCommand } from "../cliLogging.js";
 import { parseEnvironmentName } from "../config/environmentName.js";
 import {
+  mcpHttpHostSchema,
+  mcpHttpPortSchema,
   parseMcpHttpEndpoint,
-  mcpHttpListenerPortSchema,
   type McpHttpEndpoint,
 } from "../config/mcpHttpEndpoint.js";
 import { AnalysisError } from "../domain/analysisErrorBase.js";
@@ -752,9 +753,8 @@ export const registerEnvironmentCommands = (
             "仅提供回放：不推导状态，各清单工具使用保留记录响应，所有 /agentenv 方法均返回未找到",
           ),
         ),
-      host: z
-        .string()
-        .min(1)
+      // Use the same flag parsers as the MCP HTTP listener and its environment.
+      host: mcpHttpHostSchema
         .optional()
         .describe(
           selectHumanText(
@@ -762,7 +762,7 @@ export const registerEnvironmentCommands = (
             "监听地址；默认使用 MCP_HOST，否则为 127.0.0.1",
           ),
         ),
-      port: mcpHttpListenerPortSchema
+      port: mcpHttpPortSchema
         .optional()
         .describe(
           selectHumanText(

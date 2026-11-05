@@ -1,5 +1,15 @@
 # REA 6.8.0 内核集成记录
 
+## 2026-11-04：发布后上游核实与选择性修复
+
+上游最新正式 Release 仍是 `rea-agents-6.8.0`；本次核实的主线固定为 [`92f332652d352e60b550567adf2399d83d8ebe78`](https://github.com/morluto/rea/commit/92f332652d352e60b550567adf2399d83d8ebe78)，比已集成标签提交多 1,054 个提交。上游包版本仍为 6.8.0；这些主线变更不能被称为已发布的新版本，也没有整体集成到 Tekvro。GitHub compare 的文件列表有截断，不能用它代替完整文件审计。
+
+本轮选择性移植 [`0686ea60f60613e3e3ac03abae4a5b1ba609cf6c`](https://github.com/morluto/rea/commit/0686ea60f60613e3e3ac03abae4a5b1ba609cf6c)：`environment-serve` 与 MCP HTTP 共用 host/port 解析。端口按十进制文本验证（0–65535，0 为临时端口），拒绝空值、十六进制和科学计数法；host 去除首尾空白后不能为空。保留中文帮助、默认回环地址、环境变量优先级、证据认证及监听生命周期。
+
+可重复验证：构建后运行 `npm run test:focused -- tests/boundary/cli/environmentServeCli.test.ts tests/boundary/cli/environmentServeRemediation.test.ts tests/boundary/cli/localizedEnvironmentHelp.test.ts tests/boundary/mcp/mcpHttpOptions.test.ts`，验证 CLI 拒绝、合法参数、环境变量及双语帮助。当前提交的资格与合并后结果由实施 PR 和 [Issue #21](https://github.com/ForceMind/Tekvro/issues/21)记录；不能从下方 10 月的历史结果继承成功。
+
+其余主线变更仍需分组核实依赖及各自验收。尤其 Electron 路径检查还依赖标签之后的路径访问修复，本轮未移植；新增 `.deb` 捕获、MCP 分页等也未计为 Tekvro 已支持。本次不改变 `engine-metadata.json` 的固定标签来源，不发布 npm/MCP Registry/Release。
+
 ## 当前交付状态（2026-10-27）
 
 [PR #28](https://github.com/ForceMind/Tekvro/pull/28) 已合并，主线交付提交为 `4582d229e6587888f2ae980ddf670566e479631b`。已验收源提交 `7333a6c7a71ff32fba1a74fe64d6b4ea0e1827e5` 与该合并提交的完整代码树相同：`43d2bc4bc1cfb41e80329523aacc5762bd418bd1`。引擎来源为下述固定 REA 6.8.0 标签；产品包 6.1.0 兼容标记不代表引擎版本。
