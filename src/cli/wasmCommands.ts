@@ -33,7 +33,11 @@ export const registerWasmCommands = (
       input: z
         .string()
         .describe(
-          "Inline JSON or input file containing left/right complete Evidence and required scope",
+          selectHumanText(
+            "Inline JSON or input file containing left/right complete Evidence and required scope",
+            "内联 JSON 或 JSON 文件路径，包含 left/right 完整 Evidence 及必填 scope",
+            environment,
+          ),
         ),
     }),
     run: ({ args }) =>
@@ -63,7 +67,15 @@ export const registerWasmCommands = (
       ),
     }),
     options: z.object({
-      commandTimeoutMs: inspectWasmArtifactInputSchema.shape.command_timeout_ms,
+      commandTimeoutMs:
+        inspectWasmArtifactInputSchema.shape.command_timeout_ms.describe(
+          selectHumanText(
+            inspectWasmArtifactInputSchema.shape.command_timeout_ms
+              .description ?? "WABT command deadline in milliseconds",
+            "每条 WABT 版本探测或分析命令的超时毫秒数（默认 30000），不是整次检查的总时限；客户端须为所有命令、文件检查和清理预留时间。固定输入/输出安全限制不变。",
+            environment,
+          ),
+        ),
       glue_paths: wasmArtifactPathsSchema(localPathStringSchema)
         .optional()
         .describe(

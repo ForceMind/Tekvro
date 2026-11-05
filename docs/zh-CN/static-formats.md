@@ -60,7 +60,9 @@ pyc 的 `--max-file-bytes`、`--max-objects`、`--max-depth`、`--max-string-byt
 
 ## 摘要、分页与可追溯证据
 
-CLI 默认返回完整 Evidence。上述命令均可通过 `--detail summary --evidence_output /output/new-evidence.json` 返回摘要并保存完整证据包；目的文件必须不存在，避免覆盖已有记录。
+本节适用于前述 IL2CPP、GPU、模型、pyc 和 BEAM 命令；WASM 与 SQLite 的独立入口见后文。
+
+CLI 默认返回完整 Evidence。这五类命令均可通过 `--detail summary --evidence_output /output/new-evidence.json` 返回摘要并保存完整证据包；目的文件必须不存在，避免覆盖已有记录。
 
 ```bash
 node scripts/rea.mjs inspect-model-artifact /artifacts/model.gguf \
@@ -101,3 +103,36 @@ node scripts/rea.mjs inspect-analysis-view query.json --evidence-bundle /output/
 ```
 
 模型分页行位于 `normalized_result.items`。CLI 从指定包查找精确父证据，不重新打开模型；原模型删除后仍可查询已保存的事实。不要把证据包 ID、派生摘要的 Evidence ID 或其他会话的 ID 替代父证据 ID。包被修改、来源缺失或不符合当前契约时，应读取真实错误并保留原文件，不能补造记录来使查询成功。
+
+## WASM 静态检查与接口比较
+
+```bash
+TEKVRO_LANG=zh-CN node scripts/rea.mjs inspect-wasm-artifact --help
+TEKVRO_LANG=zh-CN node scripts/rea.mjs compare-wasm-interfaces --help
+node scripts/rea.mjs inspect-wasm-artifact /artifacts/module.wasm --json
+```
+
+WASM 检查需要配置受支持的 WABT 工具；具体版本、配置与验证边界见 [WASM 技术说明](../wasm-artifacts.md)。它读取所选文件，不执行 WASM。`--glue_paths` 选择本地 JavaScript 胶水代码，`--candidate_paths` 选择本地 WASM 候选文件，引用不会触发下载。`--command-timeout-ms` 默认 30000，分别约束每条版本探测或分析命令；整次检查还包括多条命令、文件检查和清理，客户端总时限应留出余量。延长超时不提高固定输入/输出限制。
+
+接口比较接受包含 `left`、`right` 和 `scope` 的 JSON 文件；两侧须放入真实 `inspect_wasm_artifact` 生成的完整 Evidence，而不是摘要、Evidence ID 或 `.wasm` 路径。`scope` 必须显式选择 `imports`、`exports` 或 `both`。
+
+```bash
+node scripts/rea.mjs compare-wasm-interfaces /artifacts/compare.json --json
+```
+
+比较基于已有证据中的核心接口，不重新检查目标或执行模块；接口一致不能证明程序行为一致。输入覆盖不足时保留限制，不能据此宣布整个模块完全兼容。
+
+## SQLite 离线快照
+
+```bash
+TEKVRO_LANG=zh-CN node scripts/rea.mjs inspect-sqlite-database --help
+node scripts/rea.mjs inspect-sqlite-database /artifacts/app.db --json
+node scripts/rea.mjs inspect-sqlite-database /artifacts/app.db \
+  --table levels --column id --column name --row-limit 10 --json
+```
+
+选择已稳定保存的离线数据库快照；需要 WAL 时保留同目录、同名前缀的 `app.db-wal`。先停止写入，或通过应用自身的备份流程取得一致的数据库/WAL 对；直接复制活跃文件不建立原子快照。工具获取私有副本用于检查，保留数据库与 WAL 的身份及覆盖事实，不替调用方完成在线应用的一致性备份。运行时要求及格式限制见 [SQLite 技术说明](../sqlite-databases.md)。
+
+不选表时默认返回精简结构清单；选择精确普通表名后默认返回该表结构及最多 20 行样本。重复 `--column` 按所选顺序返回列；`--row-limit`、`--column` 和 `--schema-scope selected_table` 均要求 `--table`。`--schema-scope database` 显式展开数据库结构，不代表读取所有表行；不执行视图、虚拟表或影子表。
+
+`--worker-timeout-ms` 默认 30000，覆盖工作进程启动、查询和写出回复，不包含快照获取及整个调用的读取、清理和交付时间。增加行数或超时仍受固定字节、堆及工作进程预算约束；行样本不能证明整表或数据库内容完整。
