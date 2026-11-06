@@ -140,6 +140,22 @@ window-targeted renderer reload/crash actions, and synthetic `open-url` or
 WebContents identities, process metrics, and IPC channel and value-shape metadata.
 Payload values are not retained.
 
+Selected filesystem paths are admitted before canonicalization. An explicit
+`application_root` must be a directory; obstructed selections such as
+`file/../app.js` are refused before a provider launches, even on hosts whose
+`realpath` would collapse that spelling. Native directory-symlink traversal is
+preserved. Request parameters and `scenario_sha256` retain the selected scenario,
+including an omitted root. `parameters.resolved_paths` records the admitted
+executable, application and effective root; the normalized capture describes
+those execution paths. These representations must not be substituted for one another.
+
+Runtime reconciliation accepts historical captures with canonical application
+and root parameters, and newer captures with selected parameters plus
+`resolved_paths`. It checks application/root binding and, for the newer form,
+the observed executable binding. Missing historical root facts are refused,
+not synthesized. Active captures remain partial, target-only runtime evidence;
+these path bindings do not establish complete executed-script coverage.
+
 `window_index` selects from Playwright's current Page list at the start of each action. REA resolves that Page to its corresponding BrowserWindow once; the action's `target` uses the BrowserWindow's capture-scoped `window_id`, matching the window inventory. Reordering either enumeration after selection does not retarget the action. Handle cleanup failures retain the completed action records and remain owned for provider cleanup retry.
 
 Run the real fixture verifier with an operator-provided Electron runtime:

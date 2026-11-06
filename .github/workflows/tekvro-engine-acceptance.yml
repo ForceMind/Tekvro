@@ -72,6 +72,10 @@ jobs:
         uses: ./.github/actions/npm-cache
       - run: npm ci
       - run: npm run build:cached
+      - name: Verify native Electron path admission and retained request provenance
+        run: |
+          npm run test:local -- src/application/javascript/ElectronActiveObservationService.test.ts
+          npm run test:focused -- tests/acceptance/applications/electronInvalidPaths.test.ts tests/boundary/mcp/electronMcp.test.ts
       - name: Prepare fixed Electron release in the fixture workspace
         shell: bash
         run: |
