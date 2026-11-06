@@ -176,8 +176,14 @@ export const valueAt = (
 ): JsonValue | undefined => {
   let value: JsonValue | undefined = body;
   for (const token of pointerTokens(pointer)) {
-    if (Array.isArray(value)) value = value[Number(token)];
-    else if (isObject(value) && Object.hasOwn(value, token))
+    if (Array.isArray(value)) {
+      // Only canonical decimal array indexes are JSON Pointer tokens here;
+      // numeric coercion would alias /01, /1e0 or /+1 to /1.
+      if (!/^(?:0|[1-9]\d*)$/u.test(token)) return undefined;
+      const index = Number(token);
+      if (!Number.isSafeInteger(index)) return undefined;
+      value = value[index];
+    } else if (isObject(value) && Object.hasOwn(value, token))
       value = value[token];
     else return undefined;
   }

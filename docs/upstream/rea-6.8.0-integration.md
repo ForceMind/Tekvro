@@ -1,5 +1,18 @@
 # REA 6.8.0 内核集成记录
 
+## 环境状态数字边界修复组（2026-11-06）
+
+在已通过主线 CI 的 `9d3f48f` 基础上，选择性移植上游
+[`cfa7ebb`](https://github.com/morluto/rea/commit/cfa7ebb0206aaf3cf5aeaf583f9b9336d2f9fea4)
+和 [`772d609`](https://github.com/morluto/rea/commit/772d6098f0228675a4cb35e2c5bbe98adcfa1c32)：
+
+- 录制请求包含超出 JavaScript 安全整数范围的分页数字时，不从舍入值或无穷大推断页面容量；同一请求中的小容量参数不能掩盖不安全数字。原始查询、录制内容和未知覆盖保持。
+- 环境写入模型及录制对象查找中的 JSON Pointer 数组索引只接受规范十进制安全整数。`01`、空索引、符号、指数和十六进制不再别名到有效数组成员；对象中同名的真实字段仍可读取，转义和空对象字段名保持兼容。
+
+回归先在未修复源码上复现数字边界失败，再验证修复、正常分页、零容量的录制语义、嵌套数组/对象及复制字段拒绝。共享消费者包括写入模型检查、环境列表回答及录制实体读取；现有应用层与 CLI/MCP 环境服务测试继续验证其行为。此组不新增监听或修改输入证据，不改变工具 Schema、固定内核来源、Tekvro 中文帮助、包身份、许可证及发布保护。
+
+复现入口：`npm run test:local -- src/domain/analysisView/environmentStatePaging.test.ts src/domain/analysisView/environmentStateWriteApply.test.ts`；应用层及服务边界使用 `environmentStateAnswer.test.ts`、`environmentStateWriteAnswer.test.ts` 和既有 `environmentServeCli.test.ts` / `environmentServeWritesMcp.test.ts`。当前提交的 CI 资格与合并结果继续记录在实施 PR 和 [Issue #21](https://github.com/ForceMind/Tekvro/issues/21)，不继承下文的历史成功结果。回滚时整体撤销本组生产修复与回归，不改动证据文件或引擎来源元数据。
+
 ## Retained MCP 指令引用分页修复组
 
 选择性集成上游 [`71f680d`](https://github.com/morluto/rea/commit/71f680d7c1aa7a45ba0325fe87b104744b0c105f) 的原生指令引用保留分页，以及 [`1951cdc`](https://github.com/morluto/rea/commit/1951cdc98038fe16cb6c1981c3a14bca936d13b8) 对已支持参数类型视图的发现说明。基于 Tekvro 现有单文件分析视图契约及其共享验证器适配，没有导入上游后续整体拆分或尚未支持的其他原生视图。
