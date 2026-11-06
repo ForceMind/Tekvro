@@ -1,5 +1,17 @@
 # REA 6.8.0 内核集成记录
 
+## Electron 场景路径与证据修复组
+
+继首项监听参数修复 [PR #38](https://github.com/ForceMind/Tekvro/pull/38)，本组选择性移植固定上游的 Electron 变更：
+
+- [`f2b4468`](https://github.com/morluto/rea/commit/f2b4468183e0c1fdc6dbf196283c580213cc7d73) 的 Electron 路径获取部分：先对调用方选择执行宿主 `stat`，再 canonicalize，防止 Darwin `realpath` 折叠被文件阻断的路径；保留有效符号链接遍历。不包含该提交的 ADB、LLDB 等其他提供方改动。
+- [`9222526`](https://github.com/morluto/rea/commit/9222526fe234526edc036459b9e8df922fb72863)：Evidence 保留所选参数、根目录省略事实及其场景摘要，单独记录 `resolved_paths`；同步历史/新版捕获的运行时关联消费者，校验实际应用/根目录及新版可执行文件绑定，保持部分覆盖。
+- [`97fe453`](https://github.com/morluto/rea/commit/97fe4535f6a23b2b8ae113de136c78a720b556f8)：在启动前拒绝普通文件形式的显式应用根目录，CLI/MCP 返回同一输入诊断。
+
+配套回归覆盖 CLI/MCP 拒绝、所选与执行路径、历史/新版 Evidence、有效符号链接、路径绑定矛盾及缺失历史根目录；测试提供方夹具不作为实际 Electron 启动证明。核心验收的 macOS arm64 作业新增这些路径准入及 CLI/MCP 测试，验证 Darwin 宿主语义后再运行真实 Electron 生命周期。结果、提交和合并记录继续维护在 [Issue #21](https://github.com/ForceMind/Tekvro/issues/21) 与实施 PR，不能继承下方历史资格。
+
+此组没有整体升级到未发布的上游主线，没有改变固定6.8.0内核来源、Tekvro身份、中文帮助、本地注册、许可证和发行保护。
+
 ## 2026-11-04：发布后上游核实与选择性修复
 
 上游最新正式 Release 仍是 `rea-agents-6.8.0`；本次核实的主线固定为 [`92f332652d352e60b550567adf2399d83d8ebe78`](https://github.com/morluto/rea/commit/92f332652d352e60b550567adf2399d83d8ebe78)，比已集成标签提交多 1,054 个提交。上游包版本仍为 6.8.0；这些主线变更不能被称为已发布的新版本，也没有整体集成到 Tekvro。GitHub compare 的文件列表有截断，不能用它代替完整文件审计。

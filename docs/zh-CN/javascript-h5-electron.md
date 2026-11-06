@@ -136,6 +136,8 @@ node scripts/rea.mjs inspect-electron-page http://127.0.0.1:9223 TARGET_ID \
 
 更详细的主动场景测试属于**另一条会启动应用的工作流**，应先阅读[Electron 观察边界（英文）](../electron-observation.md)并确认目标授权与环境隔离。
 
+主动场景在启动前按宿主文件系统语义检查所选路径：显式 `application_root` 必须是目录，`file/../app.js` 这类被普通文件阻断的路径会被拒绝，不通过字符串折叠绕过检查。有效的目录符号链接路径仍可使用。Evidence 的原始参数及 `scenario_sha256` 保留调用方选择（包括未提供根目录）；`parameters.resolved_paths` 单独记录实际执行的规范路径和有效根目录。运行时关联同时识别旧版规范路径记录与新版双重路径记录，校验结果与执行路径绑定；缺失的历史根目录不会被补造，主动捕获的代码覆盖仍保持部分、目标级观察。
+
 ## 五、已有 Evidence 的关联与版本比较
 
 只有实际获得了静态分析 Evidence、被动浏览器或 Electron 捕获 Evidence，才继续做跨层关联。例如：
