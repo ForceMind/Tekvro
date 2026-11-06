@@ -372,6 +372,8 @@ const createAnalysisViewEvidence = (
       result.parent_operation === "analyze_function")
       ? result
       : undefined;
+  const nativeInstructionView =
+    result.kind === "native-instruction-references" ? result : undefined;
   return createEvidence(
     target,
     ANALYSIS_VIEW_PROVIDER,
@@ -396,11 +398,21 @@ const createAnalysisViewEvidence = (
           : "derived",
       authority: parent.authority,
       limitations: result.limitations,
-      ...(nativeFunctionView !== undefined &&
+      ...((nativeFunctionView !== undefined ||
+        nativeInstructionView !== undefined) &&
       parent.relationship_coverage !== null
         ? { relationshipCoverage: parent.relationship_coverage }
         : {}),
       locations: [
+        ...(nativeInstructionView !== undefined &&
+        nativeInstructionView.instruction.address.length > 0
+          ? [
+              {
+                kind: "address" as const,
+                address: nativeInstructionView.instruction.address,
+              },
+            ]
+          : []),
         ...(result.artifact != null && result.artifact.path.length > 0
           ? [{ kind: "artifact-path" as const, path: result.artifact.path }]
           : []),

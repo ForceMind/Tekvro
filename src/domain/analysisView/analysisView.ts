@@ -1,4 +1,10 @@
 import {
+  nativeInstructionReferencesRequestSchema,
+  nativeInstructionReferenceItemsSchema,
+  nativeInstructionReferenceContextSchema,
+  projectNativeInstructionReferencesView,
+} from "./nativeInstructionReferencesView.js";
+import {
   devicetreeViewRequestSchema,
   devicetreeViewItemsSchema,
   devicetreeSummarySchema,
@@ -362,6 +368,7 @@ const nativeViewSchema = z.strictObject({
 
 /** Caller-selected projection of already completed analysis Evidence. */
 export const analysisViewRequestSchema = z.discriminatedUnion("kind", [
+  nativeInstructionReferencesRequestSchema,
   devicetreeViewRequestSchema,
   erlangBeamViewRequestSchema,
   pythonPycViewRequestSchema,
@@ -948,6 +955,18 @@ export const sourceToBundlePageViewResultSchema = z.strictObject({
 
 /** Projected facts for one selected view of retained analysis Evidence. */
 export const analysisViewResultSchema = z.discriminatedUnion("kind", [
+  z.strictObject({
+    ...viewResultBase,
+    ...nativeInventoryViewContext,
+    kind: z.literal("native-instruction-references"),
+    parent_operation: z.literal("inspect_native_instruction"),
+    artifact: artifactSchema.nullable(),
+    view: nativeInstructionReferencesRequestSchema,
+    instruction: nativeInstructionReferenceContextSchema,
+    items: nativeInstructionReferenceItemsSchema,
+    coverage: coverageSchema.nullable(),
+    byte_limited: z.boolean(),
+  }),
   javaScriptRoutesViewResultSchema,
   sourceToBundlePageViewResultSchema,
   z.strictObject({
@@ -1311,6 +1330,7 @@ const parentArtifactPath = (parent: AnalysisViewParent): string => {
 
 /** Named source owners for views that need no extra decoder or accumulator. */
 const retainedViewProjectors = new Map<string, typeof projectWasmArtifactView>([
+  ["inspect_native_instruction", projectNativeInstructionReferencesView],
   ["inspect_erlang_beam", projectErlangBeamView],
   ["inspect_devicetree", projectDevicetreeView],
   ["inspect_native_exports", projectNativeExportsView],
