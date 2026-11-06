@@ -141,6 +141,16 @@ it.each<[string, JsonValue | undefined]>([
   ["/x~1y/m~0n", true],
   ["/", "blank"],
   ["/a/2/b", undefined],
+  ["/a/01/b", undefined],
+  ["/a/00/b", undefined],
+  ["/a//b", undefined],
+  ["/a/+1/b", undefined],
+  ["/a/1e0/b", undefined],
+  ["/a/0x1/b", undefined],
+  ["/a/ 1/b", undefined],
+  ["/a/-0/b", undefined],
+  ["/a/-/b", undefined],
+  ["/a/999999999999999999999999/b", undefined],
   ["/a/first", undefined],
   ["/a/0/b/c", undefined],
   ["/missing", undefined],
@@ -151,6 +161,12 @@ it.each<[string, JsonValue | undefined]>([
     "": "blank",
   };
   expect(valueAt(body, pointer)).toEqual(expected);
+});
+
+it("keeps numeric-looking object members distinct from array indexes", () => {
+  const body = { "01": { "1e0": ["first", { "": null }] } };
+  expect(valueAt(body, "/01/1e0/1/")).toBeNull();
+  expect(valueAt(body, "/1/1e0/1/")).toBeUndefined();
 });
 
 const CREATE_RULES: FieldRule[] = [
@@ -252,6 +268,25 @@ it.each<[string, Plan, WriteCall, string]>([
   expect(
     createdFields(plan, CREATE_OBSERVED, call, generator().generate),
   ).toEqual(err(message));
+});
+
+it("refuses a copied array value selected by a noncanonical pointer", () => {
+  const plan: Plan = {
+    ...CREATE_PLAN,
+    rules: [{ field: "summary", rule: "copy", from: "/meta/notes/01" }],
+  };
+  expect(
+    createdFields(
+      plan,
+      CREATE_OBSERVED,
+      callWith(NEW_ITEM),
+      generator().generate,
+    ),
+  ).toEqual(
+    err(
+      "The call has no value at /meta/notes/01 in its body, which summary copies.",
+    ),
+  );
 });
 
 const UPDATE_PLAN: Plan = {
