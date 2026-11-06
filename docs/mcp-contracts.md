@@ -242,6 +242,25 @@ to `/absolute/view-request.json`, then run
 `rea inspect-analysis-view /absolute/view-request.json --json`. This also reads
 pre-summary source records without changing their identity; no live provider is started.
 
+For retained `inspect_native_instruction` Evidence, select
+`view: {"kind":"native-instruction-references","collection":"incoming_references","offset":0,"limit":64}`
+to page typed references to the exact code or data address. Select `references`
+for outgoing references. Rows preserve source indices, duplicates and
+provider-reported provenance. `items.state` distinguishes available,
+unavailable, and not-recorded collections; coverage is null in the latter two
+cases. An empty available collection has known empty retained-row coverage.
+The fixed 1 MiB projection allowance reserves space for the view digest;
+complete Evidence and MCP encoding still undergo actual transport admission.
+An oversized single row stays in the complete parent, which can be exported.
+The same view reads historical Evidence files/bundles through CLI or MCP
+without reopening a target. Page exhaustion does not prove discovery
+completeness or runtime access.
+
+Native function Evidence already supports `facet: "value_flow_parameters"`
+with offset/limit when value flow was recorded. Its decompiler-observed type
+path can be passed to `inspect_native_data_type`; exact database lookup may be
+unavailable and does not by itself establish type identity.
+
 For oversized native function Evidence, `details.reported_limits.continuation`
 contains a ready-to-call `inspect_analysis_view` request for the retained
 pseudocode's first page. Use its `name` and `arguments` directly, then follow

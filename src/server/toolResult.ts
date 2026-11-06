@@ -22,9 +22,16 @@ const retainedEvidenceContinuation = (
   const view =
     evidence.operation === "analyze_function"
       ? { kind: "native", facet: "pseudocode", offset: 0 }
-      : isNativeInventoryOperation(evidence.operation)
-        ? { kind: "native-inventory", offset: 0, limit: 64 }
-        : undefined;
+      : evidence.operation === "inspect_native_instruction"
+        ? {
+            kind: "native-instruction-references",
+            collection: "incoming_references",
+            offset: 0,
+            limit: 64,
+          }
+        : isNativeInventoryOperation(evidence.operation)
+          ? { kind: "native-inventory", offset: 0, limit: 64 }
+          : undefined;
   if (view === undefined) return {};
   const input = inspectAnalysisViewInputSchema.safeParse({
     source: { kind: "retained-evidence", evidence_id: evidence.evidence_id },

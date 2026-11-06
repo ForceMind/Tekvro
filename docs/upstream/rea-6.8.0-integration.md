@@ -1,5 +1,13 @@
 # REA 6.8.0 内核集成记录
 
+## Retained MCP 指令引用分页修复组
+
+选择性集成上游 [`71f680d`](https://github.com/morluto/rea/commit/71f680d7c1aa7a45ba0325fe87b104744b0c105f) 的原生指令引用保留分页，以及 [`1951cdc`](https://github.com/morluto/rea/commit/1951cdc98038fe16cb6c1981c3a14bca936d13b8) 对已支持参数类型视图的发现说明。基于 Tekvro 现有单文件分析视图契约及其共享验证器适配，没有导入上游后续整体拆分或尚未支持的其他原生视图。
+
+新增 `native-instruction-references` 请求/结果、生产投影、MCP 超限后的可调用 continuation、来源上下文及关系覆盖传递。分页保留原始索引、重复行与类型来源；明确区分可用空集合、null 不可用和历史未记录，后两者的分页覆盖保持 null。固定 1 MiB 投影预算保留单行过大拒绝，完整父证据仍可恢复。参数上下文先做无克隆 JSON 验证及预算计量，再复制受限页面；不通过强制类型转换忽略容量边界。
+
+测试通过完整/紧凑输入 Schema 的 MCP SDK、超限 continuation、完整导出和两种语言的 CLI 离线文件查询进行验收；输出 Schema 仍使用本项目既有 full/off 策略，没有宣称上游新增 compact 输出配置已经接入。测试原生提供方是受控夹具，不能被报告为新商业引擎或硬件验收。构建生成的目录/Schema 元数据按当前源码生成而不提交；当前资格及合并记录继续维护在实施 PR 和 [Issue #21](https://github.com/ForceMind/Tekvro/issues/21)。固定内核来源、Tekvro 身份、中文化和发行保护保持。
+
 ## Electron 场景路径与证据修复组
 
 继首项监听参数修复 [PR #38](https://github.com/ForceMind/Tekvro/pull/38)，本组选择性移植固定上游的 Electron 变更：

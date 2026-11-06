@@ -104,6 +104,36 @@ node scripts/rea.mjs inspect-analysis-view query.json --evidence-bundle /output/
 
 模型分页行位于 `normalized_result.items`。CLI 从指定包查找精确父证据，不重新打开模型；原模型删除后仍可查询已保存的事实。不要把证据包 ID、派生摘要的 Evidence ID 或其他会话的 ID 替代父证据 ID。包被修改、来源缺失或不符合当前契约时，应读取真实错误并保留原文件，不能补造记录来使查询成功。
 
+## 本地指令引用的保留证据分页
+
+已有 `inspect_native_instruction` 完整 Evidence 时，使用 `native-instruction-references` 查询所保留的指令引用。`incoming_references` 是指向所选代码或数据地址的引用，`references` 是出向引用。以下请求保存为 `query.json`；将路径及 `<实际父证据ID>` 替换成已导出证据包中的真实值。
+
+```json
+{
+  "source": {
+    "kind": "evidence-file",
+    "path": "/absolute/native-evidence.json",
+    "evidence_id": "<实际父证据ID>"
+  },
+  "view": {
+    "kind": "native-instruction-references",
+    "collection": "incoming_references",
+    "offset": 0,
+    "limit": 64
+  }
+}
+```
+
+```bash
+TEKVRO_LANG=zh-CN node scripts/rea.mjs inspect-analysis-view query.json --json
+```
+
+MCP 的同会话请求可将 `source` 换成 `{"kind":"retained-evidence","evidence_id":"<实际父证据ID>"}`。分页不会重新打开目标或调用提供方。`source_index` 是父记录集合中的原始位置，重复行也分别保留；地址、读写/调用类别、操作数索引及来源信息按原始事实返回。
+
+`items.state` 为 `available` 时，`rows` 返回所选行，并沿 `coverage.next_offset` 翻页。`unavailable`（原记录为 null）与 `not-recorded`（历史记录没有该字段）均返回 `rows: null`、`coverage: null`，不能改写为空集合或零覆盖。可用空集合与分页耗尽只说明已保留行的范围，不证明提供方完整发现或实际运行时访问。
+
+每页投影固定为 1 MiB 以内，MCP 实际传输仍受自身预算约束；必要时减少 `limit`。单行过大时会明确拒绝，完整行仍留在父 Evidence，可导出完整证据包，不截断成成功结果。现有原生函数视图的 `value_flow_parameters` 可分页读取已记录的参数及反编译类型路径；类型路径能否由 `inspect_native_data_type` 精确查到、是否具备类型身份，仍以该工具实际结果为准。
+
 ## WASM 静态检查与接口比较
 
 ```bash
