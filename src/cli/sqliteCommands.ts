@@ -10,6 +10,7 @@ import { absoluteCallerPath } from "../filesystem/callerPath.js";
 import { finishAnalysisCommand } from "./finishAnalysisCommand.js";
 import { inspectSqliteDatabaseInputSchema } from "../domain/sqlite/sqliteDatabase.js";
 import { selectHumanText } from "./localization.js";
+import { cliDecimalField } from "./options.js";
 
 /** Resolve an operator-selected SQLite snapshot through the shared inspection workflow. */
 export const registerSqliteCommands = (
@@ -34,15 +35,16 @@ export const registerSqliteCommands = (
       ),
     }),
     options: z.object({
-      workerTimeoutMs:
-        inspectSqliteDatabaseInputSchema.shape.worker_timeout_ms.describe(
-          selectHumanText(
-            inspectSqliteDatabaseInputSchema.shape.worker_timeout_ms
-              .description ?? "SQLite worker deadline in milliseconds",
-            "工作进程启动、查询和写出回复的超时毫秒数（默认 30000），不含快照获取，也不是整次调用的总时限；客户端须为获取、读取回复、清理和交付预留时间。固定字节/堆限制不变。",
-            environment,
-          ),
+      workerTimeoutMs: cliDecimalField(
+        inspectSqliteDatabaseInputSchema.shape.worker_timeout_ms,
+      ).describe(
+        selectHumanText(
+          inspectSqliteDatabaseInputSchema.shape.worker_timeout_ms
+            .description ?? "SQLite worker deadline in milliseconds",
+          "工作进程启动、查询和写出回复的超时毫秒数（默认 30000），不含快照获取，也不是整次调用的总时限；客户端须为获取、读取回复、清理和交付预留时间。固定字节/堆限制不变。",
+          environment,
         ),
+      ),
       table: z
         .string()
         .optional()
@@ -73,18 +75,15 @@ export const registerSqliteCommands = (
             environment,
           ),
         ),
-      rowLimit: z
-        .number()
-        .int()
-        .min(1)
-        .optional()
-        .describe(
-          selectHumanText(
-            "Positive safe integer row count; default 20; requires table",
-            "行样本数量，须为正安全整数；默认 20，须提供 table，仍受字节及工作进程资源限制",
-            environment,
-          ),
+      rowLimit: cliDecimalField(
+        inspectSqliteDatabaseInputSchema.shape.row_limit,
+      ).describe(
+        selectHumanText(
+          "Positive safe integer row count; default 20; requires table",
+          "行样本数量，须为正安全整数；默认 20，须提供 table，仍受字节及工作进程资源限制",
+          environment,
         ),
+      ),
     }),
     run: ({ args, options }) =>
       withCommandCancellation((signal) =>

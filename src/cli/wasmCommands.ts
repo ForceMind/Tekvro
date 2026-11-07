@@ -1,4 +1,5 @@
 import { selectHumanText } from "./localization.js";
+import { cliDecimalField } from "./options.js";
 import { localPathStringSchema } from "../domain/localPath.js";
 import { compareWasmInterfaces } from "../application/wasm/WasmInterfaceComparisonService.js";
 import { parseCliJsonInput } from "../cliJsonInput.js";
@@ -67,15 +68,16 @@ export const registerWasmCommands = (
       ),
     }),
     options: z.object({
-      commandTimeoutMs:
-        inspectWasmArtifactInputSchema.shape.command_timeout_ms.describe(
-          selectHumanText(
-            inspectWasmArtifactInputSchema.shape.command_timeout_ms
-              .description ?? "WABT command deadline in milliseconds",
-            "每条 WABT 版本探测或分析命令的超时毫秒数（默认 30000），不是整次检查的总时限；客户端须为所有命令、文件检查和清理预留时间。固定输入/输出安全限制不变。",
-            environment,
-          ),
+      commandTimeoutMs: cliDecimalField(
+        inspectWasmArtifactInputSchema.shape.command_timeout_ms,
+      ).describe(
+        selectHumanText(
+          inspectWasmArtifactInputSchema.shape.command_timeout_ms.description ??
+            "WABT command deadline in milliseconds",
+          "每条 WABT 版本探测或分析命令的超时毫秒数（默认 30000），不是整次检查的总时限；客户端须为所有命令、文件检查和清理预留时间。固定输入/输出安全限制不变。",
+          environment,
         ),
+      ),
       glue_paths: wasmArtifactPathsSchema(localPathStringSchema)
         .optional()
         .describe(

@@ -1,5 +1,7 @@
 # Tekvro（探核）研发路线
 
+> 2026-11-07 接手基线：主线 `729766a`（PR #43）的 CI 已成功，33,675 通过、234 跳过、0 失败。最新工作顺序以 [Issue #21](https://github.com/ForceMind/Tekvro/issues/21) 顶部及[集成记录](upstream/rea-6.8.0-integration.md)为准。下一组选择性适配上游 `99db80a`，先完成通用十进制 CLI 适配器、全局 token 参数及 SQLite/WASM 参数，再逐组核实其他命令的依赖和行为；不整体覆盖未发布上游主线。其余中文化由 [#9](https://github.com/ForceMind/Tekvro/issues/9) 跟踪，独立发行由 [#8](https://github.com/ForceMind/Tekvro/issues/8) 跟踪。
+
 > 2026-10-27：固定 REA 6.8.0 已通过 [PR #28](https://github.com/ForceMind/Tekvro/pull/28) 合并至 main（4582d229）。完整资格及合并后主线 CI 均通过：33,591 通过、234 跳过、0 失败。当前范围、证据链接和下一阶段入口见[6.8 集成记录](upstream/rea-6.8.0-integration.md)。产品包兼容版本仍为 6.1.0，尚未正式发行。
 
 > 2026-10-19：基于既有 6.5.0 集成分支实施固定 REA 6.7.0 内核升级，PR #24 已在完整资格通过后合并至 main（0707367）。能力实现、运行记录和剩余限制见[集成记录](upstream/rea-6.7.0-integration.md)；生产代码集成不等于所有可选引擎实机验收。

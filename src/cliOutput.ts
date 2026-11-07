@@ -64,9 +64,7 @@ export const cliOutputValueRejection = (
       : `Invalid format: "${value}". Expected one of: ${[...INCUR_OUTPUT_FORMATS].join(", ")}`;
   if (
     (flag === "--token-limit" || flag === "--token-offset") &&
-    (!Number.isSafeInteger(Number(value)) ||
-      Number(value) < 0 ||
-      value.trim() === "")
+    (!/^[0-9]+$/u.test(value) || !Number.isSafeInteger(Number(value)))
   )
     return `Invalid value for ${flag}: "${value}". Expected a nonnegative safe integer.`;
   return undefined;
