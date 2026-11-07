@@ -1,5 +1,16 @@
 # REA 6.8.0 内核集成记录
 
+## 通用十进制 CLI 参数第一组（2026-11-07）
+
+从已通过主线 CI 的 `729766a` 接续 [Issue #21](https://github.com/ForceMind/Tekvro/issues/21)，选择性适配固定上游
+[`99db80a13e369885e7de99417475c25380446081`](https://github.com/morluto/rea/commit/99db80a13e369885e7de99417475c25380446081)。本组范围为共享 `cliDecimalField` / `cliDecimalShape`、全局 `--token-limit` / `--token-offset`、SQLite `workerTimeoutMs` / `rowLimit` 和 WASM `commandTimeoutMs`。其他提供方的数值选项仍须分组审查，不能把本组视为整个上游提交已集成。
+
+词法检查在 Incur 的有损数值转换前进行，拒绝十六进制、二进制、八进制、科学计数法、符号、空白和小数拼法。合法十进制文本（含前导零）转成数值后仍经过原领域范围及安全整数检查；原始 JSON 数字消费者保持可用。保留 optional / exactOptional / nullable / readonly、默认值和 prefault 的不同验证语义，以及动态默认工厂和中英文说明。输入 Schema 保留十进制字符串分支，现有省略默认值的呈现管线继续生效；机器协议及领域 Schema 不变。
+
+新增边界回归先在未接入适配器的三个 SQLite/WASM 字段上复现六项失败，随后验证真实 Incur 解析、两种语言的 `--schema`、合法/非法值、上下限、省略和实际 CLI 执行前拒绝。全局 token 回归覆盖等号/空格形式和前导零窗口结果；共享适配器另验证嵌套包装层及 default/prefault 工厂。当前提交的检查结果以本组 PR 为准，不继承下方主线或历史资格，也不据此增加 WABT、商用引擎或真实设备验收声明。
+
+回滚整体撤销本组共享适配器、三个命令字段接入、全局 token 词法检查与测试即可；历史输入和 Evidence 不变。固定 6.8.0 来源、产品兼容版本、Tekvro 身份/中文化、许可、private、源码更新拒绝和发行保护保持。
+
 ## CLI 写入前参数校验修复组（2026-11-07）
 
 在 `993c30d` 主线上选择性适配上游

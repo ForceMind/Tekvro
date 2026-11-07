@@ -96,6 +96,40 @@ describe("CLI output argument boundary", () => {
 });
 
 describe("CLI output value admission", () => {
+  workspaceCliTest(
+    "rejects nondecimal token windows in both value forms before dispatch",
+    async ({ cli }) => {
+      for (const flag of ["--token-limit", "--token-offset"]) {
+        for (const value of ["0x10", "1e3"]) {
+          for (const selection of [[flag, value], [`${flag}=${value}`]]) {
+            const result = await cli.run({
+              arguments: ["providers", ...selection, "--json"],
+            });
+            expect(result.exitCode).toBe(1);
+            expect(result.json).toMatchObject({
+              ok: false,
+              error: { code: "INVALID_OUTPUT_VALUE" },
+            });
+          }
+        }
+      }
+      const runWindow = (limit: string, offset: string) =>
+        cli.run({
+          arguments: [
+            "providers",
+            `--token-limit=${limit}`,
+            `--token-offset=${offset}`,
+          ],
+        });
+      const canonical = await runWindow("16", "1");
+      const leadingZeros = await runWindow("00016", "0001");
+      expect(canonical.exitCode).toBe(0);
+      expect(leadingZeros.exitCode).toBe(0);
+      expect(leadingZeros.stdout).toBe(canonical.stdout);
+    },
+    CLI_INTEGRATION_TIMEOUT_MS,
+  );
+
   it.each(["--token-limit", "--token-offset"])(
     "rejects invalid %s values before dispatch and preserves later JSON selection",
     (flag) => {
@@ -105,6 +139,15 @@ describe("CLI output value admission", () => {
         "NaN",
         "Infinity",
         "9007199254740992",
+        "0x10",
+        "0b10",
+        "0o10",
+        "1e3",
+        "+1",
+        "1.0",
+        " 1",
+        "1 ",
+        "1\n",
       ]) {
         const validation = parseCliOutputArguments([
           "providers",
@@ -125,7 +168,7 @@ describe("CLI output value admission", () => {
             error: { code: "INVALID_OUTPUT_VALUE" },
           });
       }
-      for (const value of ["0", "1", "9007199254740991"])
+      for (const value of ["0", "1", "00016", "9007199254740991"])
         expect(
           parseCliOutputArguments(["providers", flag, value]).validation,
         ).toEqual({ ok: true });
