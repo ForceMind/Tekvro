@@ -63,7 +63,8 @@ import {
 import { registerReverseEngineeringCommands } from "./cli/reverseEngineeringCommands.js";
 import { registerCutterCommands } from "./cli/cutterCommands.js";
 import { excludeDeclaredSensitiveArguments } from "./cli/explicitSensitiveArguments.js";
-import { rejectSurplusCliArguments } from "./cli/strictPositionals.js";
+import { validateCliArguments } from "./cli/strictPositionals.js";
+import { admitMcpRegistrationArguments } from "./cli/mcpRegistrationArguments.js";
 import { presentCliArgumentErrors } from "./cli/argumentErrors.js";
 import { createCliCompletions } from "./cli/completions.js";
 
@@ -171,18 +172,21 @@ export const createCli = (
   registerApplicationCommands(cli, logger);
   presentOmittableDefaults(cli);
   if (resultOutput !== undefined) streamCliCommandResults(cli, resultOutput);
-  const serveStrict = rejectSurplusCliArguments(cli);
+  const serveStrict = validateCliArguments(cli);
   presentCliArgumentErrors(cli);
   const serveDeclared = excludeDeclaredSensitiveArguments(cli);
   const serve = cli.serve.bind(cli);
   const complete = createCliCompletions(cli, environment);
-  cli.serve = (arguments_ = process.argv.slice(2), options) =>
-    complete(arguments_, options ?? {})
-      ? Promise.resolve()
-      : serveStrict(
-          normalizeCliArguments(arguments_),
-          options ?? {},
-          (tokens, selected) => serveDeclared(tokens, selected, serve),
-        );
+  cli.serve = (arguments_ = process.argv.slice(2), options = {}) => {
+    if (complete(arguments_, options)) return Promise.resolve();
+    const admitted = admitMcpRegistrationArguments(
+      normalizeCliArguments(arguments_),
+      options,
+    );
+    if (admitted === undefined) return Promise.resolve();
+    return serveStrict(admitted, options, (tokens, selected) =>
+      serveDeclared(tokens, selected, serve),
+    );
+  };
   return cli;
 };
