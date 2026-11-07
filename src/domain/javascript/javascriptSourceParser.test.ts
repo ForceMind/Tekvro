@@ -78,6 +78,50 @@ const analyze = (source: string, path: string) => {
       };
 };
 
+it("uses observed package type for plain sources while explicit and declaration suffixes keep their meaning", () => {
+  for (const [path, packageType, expected] of [
+    ["main.js", "module", "module"],
+    ["main.ts", "commonjs", "commonjs"],
+    ["main.js", "unspecified", "commonjs"],
+    ["main.js", "unknown", "unknown"],
+    ["main.mjs", "commonjs", "module"],
+    ["main.cjs", "module", "commonjs"],
+    ["main.d.ts", "module", "unknown"],
+  ] as const) {
+    const source = "const value = 1;";
+    const parsed = parseJavaScriptSource(source, path, packageType);
+    if (parsed === null) throw new Error(`Expected parsed ${path}`);
+    const recovered = parseRecoveredJavaScript(
+      source,
+      path,
+      {
+        plugins: parserPluginsForPath(path),
+      },
+      packageType,
+    ).file;
+    expect(javaScriptRuntimeContext(parsed.program), path).toBe(expected);
+    expect(javaScriptRuntimeContext(recovered.program), path).toBe(expected);
+  }
+});
+
+it("retains CommonJS wrapper grammar for a .js source in a CommonJS package", () => {
+  for (const source of ["return 7;", "console.log(new.target);"]) {
+    const parsed = parseJavaScriptSource(source, "entry.js", "commonjs");
+    expect(parsed?.errors, source).toEqual([]);
+    const recovered = parseRecoveredJavaScript(
+      source,
+      "entry.js",
+      {
+        plugins: parserPluginsForPath("entry.js"),
+      },
+      "commonjs",
+    ).file;
+    expect(recovered.errors, source).toEqual([]);
+    const module = parseJavaScriptSource(source, "entry.js", "module");
+    expect(module === null || module.errors.length > 0, source).toBe(true);
+  }
+});
+
 it("parses conditional arrow bodies in JavaScript sources with JavaScript grammar", () => {
   // Bundlers emit this shape; TypeScript reads `):H=>` as a return type.
   const source = `const {ipcMain}=require("electron");

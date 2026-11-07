@@ -1,5 +1,17 @@
 # REA 6.8.0 内核集成记录
 
+## JS 包作用域与 Electron preload 修复组
+
+在 `6522c1d` 主线上选择性适配上游
+[`55ee368`](https://github.com/morluto/rea/commit/55ee36809d2fc15c25fd25b342757348413206dd)，
+贯通包类型、解析器及受控 worker 协议。普通 `.js` / `.ts` 使用最近的同容器可读 `package.json`；更近的不可读清单阻断外层推断，`node_modules`、容器边界、显式扩展名和声明文件保持各自语义。额外补齐 CommonJS 包内 `.js` 顶层 `return` / `new.target` 的 wrapper 语法，与既有 recovered parser 一致。
+
+对包含 module 包 `.js` 的输入，先通过同一受控 worker 静态发现 BrowserWindow 的精确 preload 声明，再执行一次完整语义投影。仅已纳入分析、路径可解析且同容器的目标建立身份；仅有 renderer API 文本、动态路径、排除的声明或目标、跨容器引用均不能证明 preload。只含 helper `require` 的有效 `.js` preload 仍使用 Electron script loader；静态关联不代表实际加载或执行。
+
+发现阶段保留 heap、deadline、父进程 checkpoint、取消和资源归属检查，健康 worker 在 scope 内停放/复用并重置预算；最终关闭仍由 scope 管理。发现缺口写入 limitations。发现期间取消会沿既有完整性投影保留 canonical partial Evidence，保留已获得的文件清单、原取消原因和清理错误，不补造源码分析结果或完整 preload 覆盖。
+
+验证使用真实受控 worker、CLI 与 stdio MCP，以及 Node 实际加载规则对照；不沿用上游新测试的模块 mock。专项入口包括 `javascriptSourceParser.test.ts`、`JavaScriptArtifactAnalysis.packageType.test.ts`、`javascriptPreloadDiscovery.test.ts`、`javascriptPackageCancellation.test.ts`、`unboundRequires.test.ts` 和 `javascriptAnalysisLimits.test.ts`。当前提交的完整 CI、核心样本、合并与主线结果记录于实施 PR 和 [Issue #21](https://github.com/ForceMind/Tekvro/issues/21)，不继承下方历史资格。此组不整体同步上游后续 revocation/GraphQL 等开发改动，不改变固定内核来源、Tekvro 身份/中文帮助/许可/private 和发行保护；回滚整体撤销此组源码、内部协议与测试即可，原始输入和已保存 Evidence 保持。
+
 ## 环境状态数字边界修复组（2026-11-06）
 
 在已通过主线 CI 的 `9d3f48f` 基础上，选择性移植上游
