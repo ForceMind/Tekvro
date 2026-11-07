@@ -5,7 +5,7 @@ import { CLI_COMMANDS } from "../cliCommandNames.js";
 import { logCliCommand } from "../cliLogging.js";
 import type { Logger } from "pino";
 import type { CliInstance } from "./types.js";
-import { cliIntegerArgument } from "./options.js";
+import { cliDecimalField, cliIntegerArgument } from "./options.js";
 import { withCommandCancellation } from "./commandCancellation.js";
 import { finishAnalysisCommand } from "./finishAnalysisCommand.js";
 
@@ -36,7 +36,9 @@ export const registerWebSourceLocationCommands = (
       ),
     }),
     options: z.object({
-      decodeTimeoutMs: webSourceLocationInputSchema.shape.decode_timeout_ms,
+      decodeTimeoutMs: cliDecimalField(
+        webSourceLocationInputSchema.shape.decode_timeout_ms,
+      ),
     }),
     run: ({ args, options }) =>
       withCommandCancellation((signal) =>

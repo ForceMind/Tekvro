@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { crc32, deflateSync } from "node:zlib";
 
@@ -39,7 +39,66 @@ const noisePng = (width: number, height: number): Buffer => {
   ]);
 };
 
+const redPixelPng = (red: number): Buffer => {
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(1, 0);
+  header.writeUInt32BE(1, 4);
+  header.set([8, 2, 0, 0, 0], 8);
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    pngChunk("IHDR", header),
+    pngChunk("IDAT", deflateSync(Buffer.from([0, red, 0, 0]))),
+    pngChunk("IEND", Buffer.alloc(0)),
+  ]);
+};
+
 describe("browser comparison JSON file inputs", () => {
+  cliTest(
+    "applies decimal thresholds to real PNG pixels and preserves artifact files",
+    async ({ cli }) => {
+      const root = await createTestTempDirectory("rea-screenshot-threshold-");
+      const before = join(root, "before.json");
+      const after = join(root, "after.json");
+      const beforeJson = JSON.stringify(
+        createWebScreenshotArtifact(redPixelPng(0)),
+      );
+      const afterJson = JSON.stringify(
+        createWebScreenshotArtifact(redPixelPng(16)),
+      );
+      await writeFile(before, beforeJson);
+      await writeFile(after, afterJson);
+      for (const threshold of [undefined, "0", "00015", "00016", "255"]) {
+        const value = threshold === undefined ? 0 : Number(threshold);
+        const comparison = await cli.run({
+          arguments: [
+            "compare-web-screenshots",
+            before,
+            after,
+            ...(threshold === undefined
+              ? []
+              : [`--channel-threshold=${threshold}`]),
+            "--json",
+          ],
+        });
+        expect(comparison.exitCode, comparison.stdout + comparison.stderr).toBe(
+          0,
+        );
+        expect(comparison.json).toMatchObject({
+          operation: "compare_web_screenshots",
+          normalized_result: {
+            channel_threshold: value,
+            status: value < 16 ? "different" : "identical",
+            changed_pixels: value < 16 ? 1 : 0,
+            maximum_channel_delta: 16,
+          },
+        });
+      }
+      expect(await readFile(before, "utf8")).toBe(beforeJson);
+      expect(await readFile(after, "utf8")).toBe(afterJson);
+    },
+    INTEGRATION_TEST_TIMEOUT_MS,
+  );
+
   cliTest(
     "compares screenshot artifacts too large for a command-line argument",
     async ({ cli }) => {

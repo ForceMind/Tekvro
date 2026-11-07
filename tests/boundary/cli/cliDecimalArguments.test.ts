@@ -11,13 +11,61 @@ const CASES = [
     "workerTimeoutMs",
     "worker-timeout-ms",
     2_147_483_647,
+    ["/nonexistent/selected-artifact"],
+    1,
+    undefined,
   ],
-  ["inspect-sqlite-database", "rowLimit", "row-limit", Number.MAX_SAFE_INTEGER],
+  [
+    "inspect-sqlite-database",
+    "rowLimit",
+    "row-limit",
+    Number.MAX_SAFE_INTEGER,
+    ["/nonexistent/selected-artifact"],
+    1,
+    undefined,
+  ],
   [
     "inspect-wasm-artifact",
     "commandTimeoutMs",
     "command-timeout-ms",
     2_147_483_647,
+    ["/nonexistent/selected-artifact"],
+    1,
+    undefined,
+  ],
+  [
+    "inspect-evm-interface",
+    "timeoutMs",
+    "timeout-ms",
+    2_147_483_647,
+    ["/nonexistent/bytecode.hex", "hex"],
+    1,
+    undefined,
+  ],
+  [
+    "trace-web-source-location",
+    "decodeTimeoutMs",
+    "decode-timeout-ms",
+    2_147_483_647,
+    [
+      "/nonexistent/manifest.json",
+      "0",
+      "/nonexistent/app.js.map",
+      "https://example.test/app.js.map",
+      "1",
+      "0",
+    ],
+    1,
+    undefined,
+  ],
+  [
+    "compare-web-screenshots",
+    "channelThreshold",
+    "channel-threshold",
+    255,
+    ["/nonexistent/before.json", "/nonexistent/after.json"],
+    0,
+    0,
   ],
 ] as const;
 
@@ -56,27 +104,29 @@ const commandOptions = (
   return command.options;
 };
 
-describe("SQLite and WASM decimal CLI inputs", () => {
+describe("offline decimal CLI inputs", () => {
   it.each(CASES)(
     "validates %s %s before numeric coercion",
-    (name, field, flag, maximum) => {
+    (name, field, flag, maximum, _positionals, minimum, defaultValue) => {
       const options = commandOptions(createCli({}), name);
       for (const value of [
         ...NON_DECIMAL,
         "-1",
         "-0",
-        "0",
+        ...(minimum === 0 ? [] : ["0"]),
         String(maximum + 1),
       ])
         expect(
           () => Parser.parse([`--${flag}`, value], { options }),
           value,
         ).toThrow();
-      for (const value of ["1", "00016", String(maximum)])
+      for (const value of [String(minimum), "00016", String(maximum)])
         expect(
           Parser.parse([`--${flag}=${value}`], { options }).options[field],
         ).toBe(Number(value));
-      expect(options.parse({})).not.toHaveProperty(field);
+      if (defaultValue === undefined)
+        expect(options.parse({})).not.toHaveProperty(field);
+      else expect(options.parse({})).toMatchObject({ [field]: defaultValue });
       expect(options.parse({ [field]: 16 })).toMatchObject({ [field]: 16 });
     },
   );
@@ -109,43 +159,40 @@ describe("SQLite and WASM decimal CLI inputs", () => {
         const property = z
           .object({ description: z.string() })
           .parse(options.properties[field]);
-        expect(property.description).toMatch(
-          language === "zh-CN" ? /毫秒|行样本/ : /milliseconds|row count/,
+        expect(property.description).toBe(
+          commandOptions(cli, name).shape[field]?.description,
         );
+        if (["workerTimeoutMs", "rowLimit", "commandTimeoutMs"].includes(field))
+          expect(property.description).toMatch(
+            language === "zh-CN" ? /毫秒|行样本/ : /milliseconds|row count/,
+          );
       }
     },
   );
 
-  cliTest(
-    "rejects malformed numeric tokens before opening SQLite or WABT targets",
-    async ({ cli }) => {
-      for (const [name, field, flag] of CASES) {
-        for (const value of ["0x10", "1e3", "16 "]) {
-          for (const selection of [
-            [`--${flag}`, value],
-            [`--${flag}=${value}`],
-          ]) {
-            const result = await cli.run({
-              arguments: [
-                name,
-                "/nonexistent/selected-artifact",
-                ...selection,
-                "--json",
-              ],
-            });
-            expect(result.exitCode).toBe(1);
-            expect(result.json).toMatchObject({
-              code: "VALIDATION_ERROR",
-              fieldErrors: expect.arrayContaining([
-                expect.objectContaining({
-                  path: expect.stringContaining(field),
-                }),
-              ]),
-            });
-          }
+  cliTest.for(CASES)(
+    "rejects malformed numeric tokens before dispatch for %s %s",
+    { timeout: 60_000 },
+    async ([name, field, flag, _maximum, positionals], { cli }) => {
+      for (const value of ["0x10", "1e3", "16 "]) {
+        for (const selection of [
+          [`--${flag}`, value],
+          [`--${flag}=${value}`],
+        ]) {
+          const result = await cli.run({
+            arguments: [name, ...positionals, ...selection, "--json"],
+          });
+          expect(result.exitCode).toBe(1);
+          expect(result.json).toMatchObject({
+            code: "VALIDATION_ERROR",
+            fieldErrors: expect.arrayContaining([
+              expect.objectContaining({
+                path: expect.stringContaining(field),
+              }),
+            ]),
+          });
         }
       }
     },
-    60_000,
   );
 });
