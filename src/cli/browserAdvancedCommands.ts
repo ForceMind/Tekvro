@@ -36,6 +36,7 @@ import type { Logger } from "pino";
 import { CLI_COMMANDS } from "../cliCommandNames.js";
 import { withCommandCancellation } from "./commandCancellation.js";
 import { finishAnalysisCommand } from "./finishAnalysisCommand.js";
+import { cliDecimalField } from "./options.js";
 
 /** Register WebMCP, capture-diff, and screenshot CLI equivalents. */
 export const registerAdvancedBrowserCommands = (
@@ -228,13 +229,9 @@ const registerScreenshotDiff = (
         .describe("Later screenshot artifact JSON or JSON file path"),
     }),
     options: z.object({
-      channelThreshold: z
-        .number()
-        .int()
-        .min(0)
-        .max(255)
-        .default(0)
-        .describe("Per-channel difference threshold for changed pixels"),
+      channelThreshold: cliDecimalField(
+        compareWebScreenshotsInputSchema.shape.channel_threshold,
+      ).describe("Per-channel difference threshold for changed pixels"),
     }),
     run: ({ args, options }) =>
       logCliCommand(logger, "compare-web-screenshots", async () => {

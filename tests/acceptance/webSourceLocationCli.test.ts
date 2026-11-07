@@ -39,6 +39,8 @@ cliTest(
         fixture.sourceMap.url,
         "1",
         "0",
+        "--decode-timeout-ms",
+        "00020000",
         "--json",
       ],
       environment: {
@@ -100,6 +102,7 @@ cliTest(
         script_index: 0,
         source_map: { path: map, url: fixture.sourceMap.url },
         generated_position: { line: 1, column: 0 },
+        decode_timeout_ms: 20000,
       },
     });
     expect(mcpResponse.isError, JSON.stringify(mcpResponse)).not.toBe(true);

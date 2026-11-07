@@ -1,5 +1,17 @@
 # REA 6.8.0 内核集成记录
 
+## 离线十进制 CLI 参数第二组（2026-11-07）
+
+在第一组 [PR #44](https://github.com/ForceMind/Tekvro/pull/44) 已合并的 `eaff9718` 主线上，继续选择性适配固定上游 `99db80a13e369885e7de99417475c25380446081` 的三个字段：`inspect-evm-interface --timeout-ms`、`trace-web-source-location --decode-timeout-ms` 与 `compare-web-screenshots --channel-threshold`。仅把现有领域字段接入第一组的共享十进制适配器，保留本地 `finishAnalysisCommand` 流程，不导入上游尚未具备的其他结果投影前置层。
+
+EVM 和源码映射超时仍为可省略的 1–2147483647 毫秒，默认值由原服务持有；截图阈值保持 0–255、默认 0 且可省略。词法检查先于数值转换和目标读取，合法前导零按十进制解析，JSON/MCP 数值契约及原有帮助不变。原生十六进制地址、源码位置的已有十进制参数和 CDP 观察选项不属于本组。
+
+扩展第一组共享回归，先在旧命令上复现八项失败，再覆盖 Parser、双语输入 Schema、界限、默认值、省略、等号/空格形式及实际 CLI 执行前拒绝。实际离线 PNG 测试比较相差 16 的像素，验证默认 0、15、带前导零的 16 与上限 255，并检查原始 JSON 文件不变；源码映射 CLI 使用 `00020000` 与 MCP 数值 `20000` 对照运行实际受控解码工作进程，不启动浏览器。EVM 的独立实测入口为 `npm run verify:evm:interface`；当前提交的执行结果和资格链接以本组 PR 为准。
+
+本地 EVM 验证使用原样 solc 0.8.30 和 evmole 0.9.3，已执行 57 个公开用例；但跟踪阶段的 strace 因 Work 宿主禁止 `PTRACE_TRACEME` 返回 `Operation not permitted`，验证器整体仍为 failed，不计完整 EVM 验收通过。保留该限制及原验证断言，当前 PR 的独立 EVM CI 仍须完成。
+
+本组不表示整个上游提交或其他提供方已经集成。回滚整体撤销这三个字段的接入和配套测试即可；第一组共享适配器及历史 Evidence 保持。固定来源、产品身份、中文化、许可、private、源码更新拒绝和发行保护不变。
+
 ## 通用十进制 CLI 参数第一组（2026-11-07）
 
 从已通过主线 CI 的 `729766a` 接续 [Issue #21](https://github.com/ForceMind/Tekvro/issues/21)，选择性适配固定上游
