@@ -57,6 +57,8 @@ TEKVRO_LANG=zh-CN node scripts/rea.mjs setup --client codex
 
 **另一种注册方式：** 在源码根目录执行 `node scripts/rea.mjs mcp add` 时，也应注册当前工作副本的 Node.js 与 CLI 文件绝对路径，而不是 `npx rea-agents`。安装后请核对客户端实际启动命令，确保它与使用的仓库一致。
 
+`--dry-run` 可使用裸开关、`--no-dry-run`、`--dry-run=true` 或 `--dry-run=false`。其他文本（如 `--dry-run=abc`）会在执行前报错，即使后面又给出合法值也不能覆盖这个错误；`--dry-run=false` 则允许正常写入。`mcp add` 会在注册前拒绝多余参数、未知选项、缺失或空值，以及重复的同名 `--agent`。`--agent=amp`、`--command='node ./server.mjs'` 等等号形式可用；命令值必须包含可执行文件。查看注册帮助请用 `mcp add --help`，`mcp add --schema` / `--version` 会报错并保持配置不变。
+
 ## 5. 开发检查
 
 ```bash

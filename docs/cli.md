@@ -905,6 +905,23 @@ Commands reject surplus positional arguments before execution, including command
 that accept no positionals. Use `rea <command> --help` for the declared argument
 shape; a final variadic argument continues to accept multiple values.
 
+Commands declaring boolean `--dry-run` accept bare `--dry-run`,
+`--no-dry-run`, `--dry-run=true`, or `--dry-run=false`. Malformed literals,
+including an earlier value overridden by a later flag, fail before execution.
+For example, `setup --yes --dry-run=abc` cannot write client settings, and
+`environment-build capture.har ./bundle --dry-run=abc` cannot publish a bundle.
+Explicit `--dry-run=false` permits the command's normal write behavior.
+
+`rea mcp add` validates registration arguments before starting a package runner
+or writing client settings. `--agent`, `--command` and `-c` accept spaced and
+equals forms with nonempty values; list each agent once. A command must include
+its executable, such as `--command='node ./server.mjs'`, rather than a standalone
+flag. Unknown flags, stray positionals and missing values fail with
+`VALIDATION_ERROR`. `mcp add --schema` and `mcp add --version` also fail without
+registration; use `rea mcp add --help` for discovery. Help retains priority over
+malformed registration arguments. The default registered command launches this
+local Tekvro checkout.
+
 `rea mcp doctor --json` checks production MCP startup and reports child logs in
 `diagnostics`. It drains stderr while retaining at most its first 64 KiB of raw
 bytes as text, omitting a final UTF-8 code point if it crosses that byte limit.
