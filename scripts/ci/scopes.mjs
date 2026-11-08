@@ -97,6 +97,11 @@ export const SCOPES = {
   ],
   // Four-host installed-package matrix and the Windows curated lane.
   package: [
+    "release.json",
+    ".github/workflows/tekvro-release.yml",
+    "scripts/release/**",
+    "tests/boundary/filesystem/githubPublication.test.ts",
+    "tests/boundary/filesystem/githubReleaseArtifacts.test.ts",
     // Both host compilers must be exercised when their installation, options,
     // or entrypoints change; Linux's accelerated checker cannot stand in for Go.
     "scripts/run-typescript.*",

@@ -202,7 +202,7 @@ const runUpdateWorkflow = async (
       latestVersion: targetVersion,
       reason: "unknown-install-method",
       remediation:
-        "Update this installation from its reviewed Tekvro source checkout, then run npm ci and npm run build:cached. No independent public Tekvro update package is available.",
+        "No owned package-manager installation was identified. Select the Tekvro installation you intend to update. For a GitHub release installation, download its newer CLI archive and SHA256SUMS from https://github.com/ForceMind/Tekvro/releases, verify the archive checksum, and follow the release instructions using that installation's explicit prefix. For source development, review Git changes, then run npm ci and npm run build:cached in the checkout. No global installation was created.",
     };
   const installed = await host.installVersion(
     installation,

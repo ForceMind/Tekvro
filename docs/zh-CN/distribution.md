@@ -1,53 +1,102 @@
-# Tekvro（探核）独立发行身份与兼容策略
+# 发行、安装与更新
 
-> **开发中，尚未正式发布 npm / MCP Registry。** 当前公开的是 GitHub 源码；`package.json` 仍为 `"private": true`。本文描述源码工程中的分发元数据，不代表已注册或上架的包。
+Tekvro 1.0.0 通过 [GitHub Release](https://github.com/ForceMind/Tekvro/releases/tag/v1.0.0) 分发。发行版由明确的标签、构建资产、SHA-256 校验文件和发行清单组成。
 
-## 当前身份
+## 发行资产
 
-| 项目              | 当前源码值                                                       | 是否已公开发行                             |
-| ----------------- | ---------------------------------------------------------------- | ------------------------------------------ |
-| GitHub            | [ForceMind/Tekvro](https://github.com/ForceMind/Tekvro)          | 是，公开源码                               |
-| npm 包声明        | `tekvro`                                                         | **否**，不可按已发布包使用                 |
-| MCP Registry 草案 | `io.github.forcemind/tekvro`                                     | **否**，未登记                             |
-| CLI 首选入口      | `tekvro`                                                         | 源码构建／本地打包使用                     |
-| 兼容 CLI 入口     | `rea`、`rea-agents`                                              | 保留原命令                                 |
-| MCP 客户端注册键  | `rea`                                                            | 保留现有客户端配置                         |
-| 产品包兼容版本    | `6.1.0`                                                          | 保留的兼容标记，**不是 Tekvro 已发布版本** |
-| 当前内核来源      | REA `6.8.0`，固定提交 `160d821ac9a0310afcb8d1fc427862dd6508add5` | 已集成源码，**不是独立发行包**             |
-| 许可证            | 原 MIT 与其他第三方授权                                          | 必须保留版权与授权告知                     |
+| 文件                         | 用途                                                      |
+| ---------------------------- | --------------------------------------------------------- |
+| `tekvro-1.0.0.tgz`           | 可由 npm 安装的运行归档，包含已构建的 CLI 与 MCP 运行文件 |
+| `tekvro-1.0.0-source.tar.gz` | 完整源码归档，包含固定的子模块内容，适合审查与自行构建    |
+| `SHA256SUMS`                 | 发行资产的 SHA-256 校验值                                 |
+| `release-manifest.json`      | 记录版本、源码提交及发行资产信息                          |
 
-产品包版本与内核来源分别管理：`node scripts/rea.mjs --version --json` 报告产品包版本；仓库根目录的 `engine-metadata.json` 记录固定内核来源、已验收源提交和代码树。实际运行范围与复现方法见 [6.8 集成记录](../upstream/rea-6.8.0-integration.md)。该元数据不自动赋予后续修改完整资格，当前提交仍需通过相关 CI；不能从版本号推导所有平台或可选引擎均已验证。
+请使用发行页中列出的完整源码资产进行离线审查或构建；自动生成的仓库快照与包含子模块内容的完整源码资产有不同用途。
 
-## 如何运行
+## 校验下载内容
 
-请从 GitHub 获取代码，安装依赖并构建：
+从同一发行页下载所需归档、`SHA256SUMS` 和 `release-manifest.json`。计算归档的 SHA-256，并与 `SHA256SUMS` 中同名文件的值逐字比较。
+
+Linux：
 
 ```bash
-git clone https://github.com/ForceMind/Tekvro.git
-cd Tekvro
-git submodule update --init --recursive
+sha256sum tekvro-1.0.0.tgz
+```
+
+macOS：
+
+```bash
+shasum -a 256 tekvro-1.0.0.tgz
+```
+
+Windows PowerShell：
+
+```powershell
+Get-FileHash .\tekvro-1.0.0.tgz -Algorithm SHA256
+```
+
+检查源码归档时，将文件名换成 `tekvro-1.0.0-source.tar.gz`。发行清单用于核对版本与源码提交；SHA-256 校验用于核对下载文件内容。
+
+## 安装
+
+运行环境为 Node.js `^22.23.4 || ^24.22.1 || >=26.12.1` 和 npm，推荐 Node.js `24.22.1`。
+
+在 macOS / Linux 中，可使用版本固定的安装脚本：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ForceMind/Tekvro/v1.0.0/install.sh -o install-tekvro.sh
+bash install-tekvro.sh --version 1.0.0
+```
+
+也可以安装已校验的本地归档：
+
+```bash
+npm install --global ./tekvro-1.0.0.tgz
+tekvro --version
+tekvro doctor --json
+```
+
+Windows PowerShell 将安装路径写成 `.\tekvro-1.0.0.tgz`。运行依赖由 npm 按发行包声明安装；外部分析工具按任务单独配置。
+
+MCP 客户端配置通过独立步骤应用：
+
+```bash
+tekvro setup --dry-run
+tekvro setup
+```
+
+## 更新版本
+
+1. 在[发行页](https://github.com/ForceMind/Tekvro/releases)查看目标版本的说明、支持范围和变更。
+2. 下载并校验对应资产，使用该版本的安装脚本或本地归档安装。
+3. 执行 `tekvro --version`、`tekvro doctor --json`，按需重新检查客户端配置。
+
+保留分析目标和历史证据；软件安装目录与用户的分析数据应分开管理。需要复现既有结果时，记录使用的 Tekvro 版本、运行环境、所选工具和目标摘要。
+
+## 从源码构建
+
+完整源码归档解压后，在含 `package.json` 的根目录运行：
+
+```bash
 npm ci
 npm run build:cached
+node scripts/rea.mjs --version
 node scripts/rea.mjs doctor --json
 ```
 
-`scripts/rea.mjs` 的文件名目前仍沿用已有入口；从本地安装的发行包会保留 `tekvro` 命令与旧命令别名。**不要运行 `npx tekvro@latest` 来试图安装本项目，独立版本尚未发布。**
+从 Git 获取指定版本时使用：
 
-## 旧版注册如何处理
+```bash
+git clone --branch v1.0.0 --recurse-submodules https://github.com/ForceMind/Tekvro.git
+cd Tekvro
+npm ci
+npm run build:cached
+```
 
-- 对既有 `rea` MCP 配置键不强制重命名，以免丢失用户已有的 Codex、Claude、Cursor、OpenCode 等配置。
-- 旧的 `npx -y rea-agents@版本 mcp` 仅作为迁移时的**已有配置**识别；新安装写入本地 Tekvro CLI 绝对路径（Windows 使用 Node.js 启动脚本），不会自动调用原 npm 包。
-- 保留用户的第三方 Agent 配置及备份；先 dry-run 检查，然后再选择应用更改。
-- 私有源码模式的 `update` 禁止使用原项目 npm 自动更新路径。
+开发工具链以 `.nvmrc` 和 `package.json` 的 `packageManager` 为准。贡献流程和检查命令见[贡献指南](https://github.com/ForceMind/Tekvro/blob/main/CONTRIBUTING.md)。
 
-## 发布前必须完成
+## 分发范围与许可
 
-1. 通过当前提交的类型检查、文档、相关自动化测试、打包和 Linux/macOS/Windows 适用平台验证。真实引擎按[测试指南](../testing.md)的对应通道验收，包启动成功不能替代真实引擎验证。
-2. 确认 npm 名称所有权与 MCP Registry 命名规则及仓库归属；这两项**尚未验证**，不能提前声称已占用或已发布。
-3. `install.sh` 在 Tekvro 发布前**始终拒绝安装**，不会下载 npm 包、不会访问原项目；`scripts/verify-published-package.mjs` 也会在包声明 `private: true` 时提前停止。独立安装器与发布验证流程需在正式版本上线前完整重新验收。
-4. 创建独立的 Tekvro 发布版本体系及签名/Provenance 验证；当前 `6.1.0` 来源于引擎历史，不直接用作首个正式 Tekvro 版本声明。
-5. 在所有完成前保持 `"private": true` 及上游 Release 工作流保护，不修改旧仓库的发行权限。
+本次发布使用 GitHub Release，未向 npm 注册中心或 MCP 目录发布。`package.json` 的 `private: true` 用于防止误上传到注册中心，不影响安装 GitHub 下载的本地归档。
 
-## 来源与许可证
-
-Tekvro 使用原项目中依 MIT 授权的代码并继续维护；见 [LICENSE](https://github.com/ForceMind/Tekvro/blob/main/LICENSE) 和 [THIRD_PARTY_NOTICES.md](https://github.com/ForceMind/Tekvro/blob/main/THIRD_PARTY_NOTICES.md)。品牌独立并不意味着将原有源码重新声明为完全原创。
+代码协议见 [LICENSE](https://github.com/ForceMind/Tekvro/blob/main/LICENSE)，组件授权告知见 [THIRD_PARTY_NOTICES.md](https://github.com/ForceMind/Tekvro/blob/main/THIRD_PARTY_NOTICES.md)。

@@ -314,6 +314,14 @@ describe("update failures and version boundaries", () => {
       "remediation",
       expect.not.stringContaining("npm install --global"),
     );
+    expect(result).toHaveProperty(
+      "remediation",
+      expect.stringContaining("verify the archive checksum"),
+    );
+    expect(result).toHaveProperty(
+      "remediation",
+      expect.stringContaining("https://github.com/ForceMind/Tekvro/releases"),
+    );
     expect(host.installedVersions).toEqual([]);
   });
 

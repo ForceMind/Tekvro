@@ -1,5 +1,5 @@
 name: Documentation
-description: Report unclear, missing, or incorrect REA documentation
+description: Report unclear, missing, or incorrect Tekvro documentation
 title: "[Docs] "
 labels:
   - documentation
@@ -20,7 +20,7 @@ body:
     attributes:
       label: Documentation location
       description: Link the page, section, command, API, skill, or inline comment.
-      placeholder: README.md#quick-start or docs/mcp-contracts.md
+      placeholder: TekvroDME.md#quick-start or docs/mcp-contracts.md
     validations:
       required: true
 

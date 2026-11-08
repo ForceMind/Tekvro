@@ -1,3 +1,5 @@
-# 简体中文
+# Tekvro · 探核
 
-中文版文档现已统一到 [README.md](README.md)。
+简体中文说明已统一到 [README.md](README.md)，英文说明见 [README.en.md](README.en.md)。
+
+安装、使用与支持入口见[文档首页](docs/index.md)。

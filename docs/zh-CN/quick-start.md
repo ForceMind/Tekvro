@@ -1,84 +1,99 @@
-# Tekvro / 探核：中文快速开始
+# 快速开始
 
-[返回首页](https://github.com/ForceMind/Tekvro/blob/main/README.md) · [架构](architecture.md) · [安全](security.md) · [发行身份](distribution.md)
+本指南从安装 Tekvro 1.0.0 开始，完成环境检查、第一次静态分析和 MCP 客户端配置。
 
-## 1. 准备环境
+## 准备环境
 
-- Node.js：`^22.23.4 || ^24.22.1 || >=26.12.1`，检查 `node -v`。
-- npm：开发和 CI 固定 `11.16.0`；推荐使用 `.nvmrc` 的 Node.js `24.22.1`。
-- Git：用于拉取公开代码及子模块。
-- Ghidra、Hopper、IDA、JADX 等为**可选**，仅在你实际需要的分析任务中配置；静态 JavaScript 目录分析无需先安装反编译器。
+- Node.js `^22.23.4 || ^24.22.1 || >=26.12.1`，推荐 `24.22.1`。
+- npm，用于安装发行归档中的运行依赖。
+- macOS / Linux 的安装脚本还需要 Bash 和 curl。
 
-## 2. 克隆与构建
+专用分析工具按任务配置；第一次分析本地 JavaScript 构建目录可以直接从下列步骤开始。
 
-```bash
-git clone https://github.com/ForceMind/Tekvro.git
-cd Tekvro
-git submodule update --init --recursive
-npm ci
-npm run build:cached
-```
+## 安装发行版
 
-**重要：** 此命令从 ForceMind/Tekvro 公开 Git 仓库构建；npm 包仍配置 `private: true`，尚未发布独立的 `tekvro` 版本。此时运行仓库根目录的 `install.sh` 只会给出源码安装指引，**不会访问 npm 或安装任何包**。公开 npm 上 `rea-agents` 的 `npx` 命令会下载原项目，不能替代本源码构建。
-
-## 3. 尝试只读分析
+### macOS / Linux
 
 ```bash
-node scripts/rea.mjs --help
-node scripts/rea.mjs capabilities --json
-node scripts/rea.mjs analyze-javascript-application /absolute/path/to/js-app --json
+curl -fsSL https://raw.githubusercontent.com/ForceMind/Tekvro/v1.0.0/install.sh -o install-tekvro.sh
+bash install-tekvro.sh --version 1.0.0
+tekvro --version
 ```
 
-请将路径换成你拥有分析权限的本地目标，尽量用不含密钥与用户数据的样本。结果包含文件、结构、观察、推断与局限。关于本地 H5 游戏、浏览器与 Electron 的完整示例，见 [JavaScript / H5 / Electron 中文分析指南](javascript-h5-electron.md)。
+### 下载归档安装
 
-可显式切换 CLI 人类可读帮助的语言（**命令名、选项、JSON 字段及 MCP 协议不变**）：
+从 [1.0.0 发行页](https://github.com/ForceMind/Tekvro/releases/tag/v1.0.0)下载 `tekvro-1.0.0.tgz` 和校验文件，按[分发说明](distribution.md)核对 SHA-256 后安装：
 
 ```bash
-TEKVRO_LANG=zh-CN node scripts/rea.mjs --help
-TEKVRO_LANG=zh-CN node scripts/rea.mjs setup --help
-TEKVRO_LANG=zh-CN node scripts/rea.mjs doctor --help
+npm install --global ./tekvro-1.0.0.tgz
+tekvro --version
 ```
 
-Windows PowerShell 请先执行 `$env:TEKVRO_LANG="zh-CN"`，随后运行同样的 `node` 命令；设置 `TEKVRO_LANG=en` 可切回英文帮助。
+Windows PowerShell 使用相同归档：
 
-## 4. 配置 Codex MCP
+```powershell
+npm install --global .\tekvro-1.0.0.tgz
+tekvro --version
+```
+
+Linux 脚本默认将命令放在 `$HOME/.local/bin`。若当前终端找不到 `tekvro`，运行 `export PATH="$HOME/.local/bin:$PATH"`。指定 `--prefix DIR` 时使用 `DIR/bin`；macOS 或手动 npm 安装应检查其实际全局安装目录。安装器会打印所选路径，不会修改 shell 配置。
+
+1.0.0 通过 GitHub Release 分发。安装本地归档的命令使用 npm，但此版本未发布到 npm 注册中心或 MCP 目录。
+
+## 检查环境
 
 ```bash
-node scripts/rea.mjs doctor --client codex --json
-node scripts/rea.mjs setup --client codex --dry-run --json
-TEKVRO_LANG=zh-CN node scripts/rea.mjs setup --client codex
+tekvro doctor --json
+tekvro capabilities --json
+tekvro --help
 ```
 
-**更新限制：** 私有源码版本执行 `node scripts/rea.mjs update` 会安全地拒绝连接原项目 npm 更新渠道。需要更新时，请先审阅自己的 Git 提交，再在 Tekvro 目录运行 `git pull --ff-only`、`npm ci` 和 `npm run build:cached`；不要执行旧版自动更新命令。
+`doctor` 报告本机运行条件；`capabilities` 列出当前能力及其可用状态。可选工具缺失时，按计划使用的任务补齐对应依赖，具体配置见[安装与配置](../installation.md)。
 
-第三条命令会交互式请求你的许可，写入本机 Agent 配置，故不能把只读 doctor 的成功当成配置已完成。完成后重启 Agent 并检查 MCP 工具是否可用。
+## 完成第一次分析
 
-**本地源码安全规则：** Tekvro 当前是尚未独立发布的开发版本。安装向导默认写入 `本仓库 CLI 的绝对路径 + mcp（Windows 使用 Node.js 可执行文件启动该脚本）`，不会通过 `npx rea-agents` 下载原上游包。在 Codex 或其他客户端配置中，请检查该命令实际指向自己的 Tekvro 工作副本；如仍指向公开 npm 包，请重新执行当前仓库的安装向导并审阅变更计划。保留的 `rea` 注册键目前属于兼容设计，不等于使用原作者发行版本。
-
-**另一种注册方式：** 在源码根目录执行 `node scripts/rea.mjs mcp add` 时，也应注册当前工作副本的 Node.js 与 CLI 文件绝对路径，而不是 `npx rea-agents`。安装后请核对客户端实际启动命令，确保它与使用的仓库一致。
-
-`--dry-run` 可使用裸开关、`--no-dry-run`、`--dry-run=true` 或 `--dry-run=false`。其他文本（如 `--dry-run=abc`）会在执行前报错，即使后面又给出合法值也不能覆盖这个错误；`--dry-run=false` 则允许正常写入。`mcp add` 会在注册前拒绝多余参数、未知选项、缺失或空值，以及重复的同名 `--agent`。`--agent=amp`、`--command='node ./server.mjs'` 等等号形式可用；命令值必须包含可执行文件。查看注册帮助请用 `mcp add --help`，`mcp add --schema` / `--version` 会报错并保持配置不变。
-
-## 5. 开发检查
+准备一个有权检查、已经存在的本地构建目录，将示例路径替换为它的绝对路径：
 
 ```bash
-npm run metadata:check
-npm run check:fast
-npm run test:fast
-npm run docs:build
+tekvro analyze-javascript-application /absolute/path/to/app --json
+
+# 保存证据，目标目录应已存在
+tekvro analyze-javascript-application /absolute/path/to/app --json > evidence.json
 ```
 
-这些是建议执行的命令，不代表当前环境已通过它们。原生真实工具链、平台和浏览器测试分别有各自依赖要求。
+静态目录分析读取应用文件并生成结构化结果。报告中应分别查看观察、推断、未知和覆盖范围，再据此选择后续调查。应用分析的更多示例见[应用分析指南](javascript-h5-electron.md)。
 
-## 6. 已知兼容边界
+## 配置 MCP
 
-产品包保留 `6.1.0` 兼容标记，当前主线内核已集成为固定 REA `6.8.0`。在仓库根目录分别查看产品包和内核来源：
+先查看拟应用的配置，再运行设置向导：
 
 ```bash
-node scripts/rea.mjs --version --json
-node -p "JSON.stringify(require('./engine-metadata.json'), null, 2)"
+tekvro setup --dry-run
+tekvro setup
 ```
 
-具体资格提交、运行范围及后续提交的检查要求见[集成记录](../upstream/rea-6.8.0-integration.md)。
+向导会显示客户端、启动命令、计划变更和备份信息。审阅并应用后，重新连接客户端，确认工具可见。客户端需要启动当前安装的 Tekvro；安装目录发生变化后，可重新检查并应用配置。
 
-源码 npm 包名是 `tekvro`，MCP Registry 草案标识是 `io.github.forcemind/tekvro`，二者均**未正式发行**。旧 CLI `rea` / `rea-agents` 别名和 MCP 客户端键 `rea` 暂时保留；旧注册命令仍可识别，但新安装默认使用本地 Tekvro。详细说明见[发行身份与兼容策略](distribution.md)，高级英文技术资料可从[文档导航](../index.md)找到。
+## 使用中文帮助
+
+macOS / Linux：
+
+```bash
+TEKVRO_LANG=zh-CN tekvro --help
+TEKVRO_LANG=zh-CN tekvro doctor --help
+```
+
+Windows PowerShell：
+
+```powershell
+$env:TEKVRO_LANG="zh-CN"
+tekvro --help
+```
+
+设置 `TEKVRO_LANG=en` 可切换英文帮助。语言设置影响人类可读说明，命令名称、参数、JSON 字段和 MCP 协议保持稳定。
+
+## 更新与继续阅读
+
+更新时，从[发行页](https://github.com/ForceMind/Tekvro/releases)选择明确版本，校验归档后安装，并用 `tekvro --version` 和 `tekvro doctor --json` 检查结果。版本、资产和源码构建说明见[分发说明](distribution.md)。
+
+[常见问题](faq.md) · [静态格式](static-formats.md) · [离线录制数据](offline-captures.md) · [安全说明](security.md)

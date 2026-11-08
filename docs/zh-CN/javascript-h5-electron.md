@@ -6,35 +6,29 @@
 
 ## 一、先安装并确认本地运行环境
 
-Tekvro 的 **GitHub 源代码已公开，但 `tekvro` npm 包尚未正式发布**。本指南的命令都从自己的工作副本执行：
+按[快速开始](quick-start.md)或[安装与发行](distribution.md)安装 GitHub Release 中的 `tekvro-1.0.0.tgz`，校验后确认当前工具状态：
 
 ```bash
-git clone https://github.com/ForceMind/Tekvro.git
-cd Tekvro
-git submodule update --init --recursive
-npm ci
-npm run build:cached
-node scripts/rea.mjs doctor --json
-node scripts/rea.mjs capabilities --json
+tekvro --version --json
+tekvro doctor --json
+tekvro capabilities --json
 ```
 
-Node.js 版本应满足仓库 `package.json` 的 `engines` 约束。需要中文人类帮助时，可设置 `TEKVRO_LANG=zh-CN`；这不会改变命令名称、JSON 字段或 MCP 契约。
-
-不要使用 `npx rea-agents@latest` 代替本仓库；那是原项目的公开 npm 分发。详见[快速开始](quick-start.md)和[独立发行身份](distribution.md)。
+需要中文人类帮助时，可设置 `TEKVRO_LANG=zh-CN`；这不会改变命令名称、JSON 字段或 MCP 契约。以下示例使用已安装的 `tekvro` 命令。源码开发者也可以在构建后使用 `node scripts/rea.mjs`。
 
 ### 查看中文命令帮助
 
 现在可对 H5、JavaScript、浏览器和 Electron 调查命令直接查看**简体中文的人类可读帮助**，无需猜测英文选项的用途：
 
 ```bash
-TEKVRO_LANG=zh-CN node scripts/rea.mjs analyze-javascript-application --help
-TEKVRO_LANG=zh-CN node scripts/rea.mjs recover-javascript-sources --help
-TEKVRO_LANG=zh-CN node scripts/rea.mjs list-browser-targets --help
-TEKVRO_LANG=zh-CN node scripts/rea.mjs inspect-web-page --help
-TEKVRO_LANG=zh-CN node scripts/rea.mjs list-electron-targets --help
+TEKVRO_LANG=zh-CN tekvro analyze-javascript-application --help
+TEKVRO_LANG=zh-CN tekvro recover-javascript-sources --help
+TEKVRO_LANG=zh-CN tekvro list-browser-targets --help
+TEKVRO_LANG=zh-CN tekvro inspect-web-page --help
+TEKVRO_LANG=zh-CN tekvro list-electron-targets --help
 ```
 
-选择 `TEKVRO_LANG=en` 可查看英文原文。**只有命令解释、位置参数说明和部分选项帮助文本被翻译**；命令名、`--` 参数、JSON 字段、MCP 工具身份和原有分析契约均不变。Windows PowerShell 请先设置 `$env:TEKVRO_LANG="zh-CN"`，再执行相同的 `node` 命令。
+选择 `TEKVRO_LANG=en` 可查看英文原文。**只有命令解释、位置参数说明和部分选项帮助文本被翻译**；命令名、`--` 参数、JSON 字段、MCP 工具身份和原有分析契约均不变。Windows PowerShell 请先设置 `$env:TEKVRO_LANG="zh-CN"`，再执行相同的 `tekvro` 命令。
 
 ## 二、静态分析本地 H5 / JavaScript 目录
 
@@ -42,36 +36,36 @@ TEKVRO_LANG=zh-CN node scripts/rea.mjs list-electron-targets --help
 
 ```bash
 # 将路径替换为你拥有授权的绝对目录
-node scripts/rea.mjs analyze-javascript-application /absolute/path/to/game/dist --json
+tekvro analyze-javascript-application /absolute/path/to/game/dist --json
 
 # 同一类目录、Electron ASAR 还可以交给通用分析入口选择
-node scripts/rea.mjs analyze /absolute/path/to/game/dist --json
-node scripts/rea.mjs analyze-javascript-application /absolute/path/to/app.asar --json
+tekvro analyze /absolute/path/to/game/dist --json
+tekvro analyze-javascript-application /absolute/path/to/app.asar --json
 ```
 
-这项静态流程不执行目标应用，也不要求先启动 Ghidra、Hopper 或浏览器。它依据实际可用文件构建 JavaScript Application Graph 和 Evidence，可能包含模块、依赖关系、打包结构、静态语义、Electron 边界以及覆盖范围与局限。运行进度在标准错误输出中以 `rea_progress` JSON 行呈现，结果写到标准输出。
+这项静态流程不执行目标应用，也不要求启动外部分析引擎或浏览器。它依据实际可用文件构建 JavaScript Application Graph 和 Evidence，可能包含模块、依赖关系、打包结构、静态语义、Electron 边界以及覆盖范围与局限。运行进度在标准错误输出中以 `rea_progress` JSON 行呈现，结果写到标准输出。
 
 要保存结果以备后续比对，可以使用常规终端重定向（先确认报告的目标目录存在）：
 
 ```bash
-node scripts/rea.mjs analyze-javascript-application /absolute/path/to/game/dist --json > ./game-evidence.json
+tekvro analyze-javascript-application /absolute/path/to/game/dist --json > ./game-evidence.json
 ```
 
 **注意：** 写入本地报告与把结果发送给联网 AI 是两件事。报告中可能包含路径、脚本代码片段或其他需要审查的信息。
 
-### 6.7.0 精确选择与保留证据
+### 精确选择与保留证据
 
 大型包可重复传入 `--source-path`，路径必须精确匹配应用清单中的相对路径；不会自动加入依赖或动态 Chunk。未选择的文件与受预算限制的事实仍应在覆盖信息中保留为未检查或部分覆盖。
 
 ```bash
-node scripts/rea.mjs analyze-javascript-application /absolute/path/to/game/dist \
+tekvro analyze-javascript-application /absolute/path/to/game/dist \
   --source-path package.json --source-path assets/main.js \
   --max-heap-mb 1024 --analysis-timeout-ms 300000 --json
 ```
 
 通过 MCP 分析后，可将真实返回的 Evidence ID 传给 `inspect_analysis_view`，使用 `view.kind: "javascript-facts"`、`where.paths`、`property_keys`、`offset` 和 `limit` 查询保留的观察。CLI `inspect-analysis-view` 使用同一输入契约，也可读取完整 Evidence。沿 `coverage.next_offset` 翻页；空页、没有某属性或没有某条调用关系，均不能证明未检查范围不存在这些事实。详见[查询示例](../javascript-application-workflows.md)。
 
-6.7.0 的 Evidence/Snapshot 要求显式 `relationship_coverage`。旧格式缺少该字段时，应保留原始文件并用当前版本重新采集；不要自行补写 complete 或伪造历史覆盖。WASM 模块使用[独立静态检查和接口比较](../wasm-artifacts.md)，不会实例化或执行模块。完整 Electron 生命周期已在 macOS arm64 的固定样本上验证；Linux 仍存在进程归属校验导致的 `partial/cleanup_incomplete`，详见[实际运行记录](../upstream/rea-6.7.0-integration.md)。
+当前 Evidence/Snapshot 契约要求显式 `relationship_coverage`。缺少该字段的历史证据应保留原始文件，并用当前版本重新采集；不要自行补写 complete 或伪造覆盖。WASM 模块使用[独立静态检查和接口比较](../wasm-artifacts.md)，不会实例化或执行模块。完整 Electron 生命周期仅在 macOS arm64 的固定样本上有实际验证记录；Linux 仍存在进程归属校验导致的 `partial/cleanup_incomplete`，不能将跨平台启动或静态分析结果当作完整生命周期验收。
 
 ### 对 H5 小游戏重点看什么？
 
@@ -83,7 +77,7 @@ node scripts/rea.mjs analyze-javascript-application /absolute/path/to/game/dist 
 | 与服务端交互   | 请求构造、URL 候选、WebSocket 相关引用    | 已证明消息协议或服务端全部逻辑   |
 | 游戏经济与奖励 | 本地显示逻辑、结算 UI、资源命名和数值候选 | 客户端数据就是真实结算权威       |
 
-Canvas、PixiJS、Laya、Unity WebGL 或 WASM 项目都可能含有部分动态执行、压缩或混淆的内容。对不能静态确定的关系，应记录为**候选、未知或缺少证据**，而不是猜测成已恢复的设计文档。
+Canvas、WebGL 或 WebAssembly 内容可能包含动态执行、压缩或混淆。对不能静态确定的关系，应记录为**候选、未知或缺少证据**，而不是猜测成已恢复的设计文档。
 
 ## 三、授权浏览器中的 H5 游戏：被动观察
 
@@ -96,24 +90,24 @@ google-chrome \
   http://127.0.0.1:3000
 ```
 
-然后在 Tekvro 仓库目录中：
+然后在终端运行：
 
 ```bash
 # 先获取目标 ID。返回结果可能列出该端口下多个页面
-node scripts/rea.mjs list-browser-targets http://127.0.0.1:9222 --json
+tekvro list-browser-targets http://127.0.0.1:9222 --json
 
 # 用上一步真实返回的 ID 替换 TARGET_ID
-node scripts/rea.mjs inspect-web-page http://127.0.0.1:9222 TARGET_ID \
+tekvro inspect-web-page http://127.0.0.1:9222 TARGET_ID \
   --observation-ms 1000 --json
 
 # 已有页面的静态脚本 / bundle 分析
-node scripts/rea.mjs analyze-web-bundle http://127.0.0.1:9222 TARGET_ID --json
+tekvro analyze-web-bundle http://127.0.0.1:9222 TARGET_ID --json
 ```
 
 这是被动页面检查，**不是自动点按或操纵游戏的工具**。如果希望调查一次由自己触发的操作，可先启动观察窗口，再由用户操作页面：
 
 ```bash
-node scripts/rea.mjs observe-web-session http://127.0.0.1:9222 TARGET_ID \
+tekvro observe-web-session http://127.0.0.1:9222 TARGET_ID \
   --observation-ms 10000 --json
 ```
 
@@ -126,9 +120,9 @@ Tekvro 不负责启动或结束这个浏览器。不要将调试端口开放到�
 先对获准检查的解包目录或 `.asar` 进行静态分析（同第二节）。只有当你已经有一个**自己控制、已启动的 Electron CDP 调试端点**，才使用以下被动观察：
 
 ```bash
-node scripts/rea.mjs list-electron-targets http://127.0.0.1:9223 --json
+tekvro list-electron-targets http://127.0.0.1:9223 --json
 
-node scripts/rea.mjs inspect-electron-page http://127.0.0.1:9223 TARGET_ID \
+tekvro inspect-electron-page http://127.0.0.1:9223 TARGET_ID \
   --observation-ms 100 --json
 ```
 
@@ -143,14 +137,14 @@ node scripts/rea.mjs inspect-electron-page http://127.0.0.1:9223 TARGET_ID \
 只有实际获得了静态分析 Evidence、被动浏览器或 Electron 捕获 Evidence，才继续做跨层关联。例如：
 
 ```bash
-node scripts/rea.mjs reconcile-javascript-runtime /absolute/path/to/reconciliation-input.json --json
+tekvro reconcile-javascript-runtime /absolute/path/to/reconciliation-input.json --json
 ```
 
 这个输入文件必须包含符合契约的**完整 Evidence 对象**，而不是只有 Evidence ID 或随意拼接的 JSON。浏览器 URL 通常需要明确映射到本地制品目录。该步骤不重新执行应用、不访问 CDP；它把观察结果和推断保持为不同来源。
 
 对于同一应用两个实际采集的版本，也可以进一步使用 `compare-application-versions`、`trace-application-feature` 等工作流，但需要对应的完整、已验证输入。请参阅[JavaScript 应用追踪与版本比较（英文）](../javascript-application-workflows.md)和[静态/运行时协调（英文）](../javascript-runtime-reconciliation.md)。
 
-## 六、从捕获构建 Agent 环境（6.8.0）
+## 六、从捕获构建 Agent 环境
 
 环境命令面向已经录制的 HAR 或符合契约的捕获 Evidence。它们将可观察行为整理为可供 Agent 调用的环境；这不意味着恢复了原服务器源码、隐藏规则或未捕获的运行行为。
 
@@ -164,19 +158,19 @@ node scripts/rea.mjs reconcile-javascript-runtime /absolute/path/to/reconciliati
 先查看当前构建的中文帮助，核对参数和影响：
 
 ```bash
-TEKVRO_LANG=zh-CN node scripts/rea.mjs environment-build --help
-TEKVRO_LANG=zh-CN node scripts/rea.mjs environment-export --help
-TEKVRO_LANG=zh-CN node scripts/rea.mjs environment-compare --help
-TEKVRO_LANG=zh-CN node scripts/rea.mjs environment-serve --help
+TEKVRO_LANG=zh-CN tekvro environment-build --help
+TEKVRO_LANG=zh-CN tekvro environment-export --help
+TEKVRO_LANG=zh-CN tekvro environment-compare --help
+TEKVRO_LANG=zh-CN tekvro environment-serve --help
 ```
 
 使用已有捕获进行离线预检时，省略输出目录并显式选择 dry-run：
 
 ```bash
-node scripts/rea.mjs environment-build /absolute/path/to/capture.har --dry-run --json
+tekvro environment-build /absolute/path/to/capture.har --dry-run --json
 ```
 
-输入路径应替换成你有权使用的真实捕获。默认模板规则及推导状态有覆盖局限，应检查报告中的回放、状态响应和写入拒绝原因。需要导出可运行环境包时，通过 `--package-tarball` 指定当前 Tekvro 源码实际打出的本地包；不要使用上游公开包替代未发行的 Tekvro。导出不自动构建 Docker 镜像或启动服务。
+输入路径应替换成你有权使用的真实捕获。默认模板规则及推导状态有覆盖局限，应检查报告中的回放、状态响应和写入拒绝原因。需要导出可运行环境包时，通过 `--package-tarball` 指定已校验的 Tekvro 发行 `.tgz`，或由选定源码提交实际构建的本地包。导出不自动构建 Docker 镜像或启动服务。
 
 `environment-serve` 默认监听 `MCP_HOST` 或 `127.0.0.1`，端口取 `MCP_PORT` 或临时端口。`--port` 与 `MCP_PORT` 使用十进制整数文本（0–65535，0 为临时端口），不接受空值、十六进制或科学计数法；`--host` 与 `MCP_HOST` 去除首尾空白后不能为空。显式选择远程监听地址前，应评估它暴露的捕获内容与写工具。详细格式和操作顺序见[Agent 环境（英文）](../agent-environments.md)。
 
@@ -194,6 +188,5 @@ node scripts/rea.mjs environment-build /absolute/path/to/capture.har --dry-run -
 - **为什么工具返回 unknown/unavailable？** 这是明确的覆盖或授权边界，不是可以自行补写的运行事实。
 - **能直接分析远程 URL 吗？** 静态应用目录命令需要本地绝对路径；网页观察是独立的 CDP 工作流，且仅接受符合约束的本地调试端点。
 - **可以检查第三方商业游戏吗？** 仅在你拥有相应授权和合法目的、遵守许可及保密条件时进行；不要公开私有文件、密钥或用户数据。
-- **为什么注册中还有 `rea`？** 这是兼容旧客户端配置的键名，不代表正在使用原作者公开 npm 包。
 
 继续阅读：[安全与授权](security.md) · [CLI 与 Evidence（英文）](../cli.md) · [项目架构](architecture.md)。

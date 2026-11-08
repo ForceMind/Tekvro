@@ -20,6 +20,7 @@ const seedReadmeFactFixture = async () => {
     "README.en.md",
     "README_zh.md",
     "CONTRIBUTING.md",
+    "SECURITY.md",
     "LICENSE",
     "THIRD_PARTY_NOTICES.md",
     "AGENTS.md",

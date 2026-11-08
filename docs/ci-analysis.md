@@ -1,90 +1,72 @@
-# Static analysis in GitHub Actions
+# Tekvro CI verification
 
-The [minimal workflow](https://github.com/morluto/rea/blob/main/examples/github-actions/rea-analysis.yml) builds a small
-JavaScript application, analyzes its files without executing them, and uploads
-machine-readable results. It uses the existing CLI, not a separate GitHub Action
-or an MCP client. It does not promise support for every REA provider.
+Tekvro's [`CI` workflow](https://github.com/ForceMind/Tekvro/actions/workflows/ci.yml) checks pull requests and pushes to `main`, and can run manually. Its source is `.github/workflows/ci.yml`; lane ownership is declared in `scripts/ci/scopes.mjs`, with selection in `scripts/ci/plan.mjs`. No scheduled run is required for this release process.
 
-## Run the example
+## Toolchain and runtime scope
 
-1. Copy the example to `.github/workflows/rea-analysis.yml` in your repository and
-   commit it to the default branch. No existing application or package manifest is
-   needed for the self-contained demonstration.
-2. Enable GitHub Actions if necessary. Select **REA static analysis example** in
-   the Actions tab and choose **Run workflow**.
-3. Download the `rea-analysis` artifact after the run. Its files are:
+The principal CI jobs select Node.js `24.22.1` from `.nvmrc` and run `npm ci` with the committed lockfile. Development declares npm `11.16.0` in `package.json`; the workflows use the npm supplied by the selected runtime rather than installing that npm version explicitly. The release manifest records the actual build Node.js/npm versions. Package runtime support is `^22.23.4 || ^24.22.1 || >=26.12.1`.
 
-   | File              | Meaning                                                                                            |
-   | ----------------- | -------------------------------------------------------------------------------------------------- |
-   | `analysis.json`   | Original CLI JSON, including complete Evidence on success or the error report when one is emitted. |
-   | `analysis.stderr` | Original diagnostics/progress; an empty file is normal when there are none.                        |
-   | `exit-code.txt`   | Original analysis process exit code.                                                               |
+The Windows capability lane also runs selected native-path boundary tests on Node.js `22.23.4`. The complete portable suite is not run on a Node.js 22/24/26 matrix. Runtime compatibility declarations, deterministic suite results and real host/tool verification answer different questions.
 
-The example pins Node.js 24.22.1, REA 6.7.0, and action commit revisions. It installs
-REA into the runner's temporary directory rather than changing the application's
-dependencies. This pins the tool version, not every transitive npm dependency;
-use a reviewed, committed package lock and `npm ci` if your integration requires
-that stronger dependency-reproducibility guarantee.
+## Feedback and full qualification
 
-## Prerequisites and trust
+| Mode                              | Trigger and work                                                                                                                                                                                                         |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Fast feedback                     | Ordinary pull requests and pushes classify changed paths, run relevant static checks and select host/tool lanes. Code changes run the complete portable inventory as source tests plus sharded compiled-dependent tests. |
+| Full qualification                | A manual CI run, an explicit exact-revision workflow call, or a `ci:full` pull-request label requests deep static checks, complete portable coverage and the full hosted lane set.                                       |
+| Documentation or workflow changes | Run the matching formatting, documentation, workflow validation and policy checks; they do not claim fresh runtime/provider observations when those lanes were not selected.                                             |
 
-The runner is GitHub-hosted Ubuntu 24.04 with Bash, npm, and `ps` from `procps`.
-Other Linux images must supply `procps`; REA's supervised process controls use it.
-This static JavaScript operation needs no Hopper, Ghidra, IDA, Java, browser,
-Docker, GPU, external API key, or user-supplied GitHub secret. The workflow only
-requests `contents: read`; artifact upload uses the runner's normal Actions
-credentials.
+Test-selection ownership reports are observational. They compare candidate ownership with the full executed inventory; they do not silently drop unrelated tests from the portable suite. Deleted, duplicate, missing or undiscovered test files must not produce a passing inventory report.
 
-Replace **Build a known artifact** with your reviewed build, and set
-`ARTIFACT_PATH` to its application directory (relative to the checkout) or an ASAR.
-The demonstration creates its own tiny application; it deliberately throws if
-executed. REA reads it statically. Your replacement build itself can execute code:
-review it separately and do not add untrusted pull-request builds to a privileged
-`pull_request_target` workflow. The example is manually triggered, not an
-untrusted-PR execution policy.
+The `Portable tests` job merges shard results, emits JUnit/JSON and timing reports, and verifies discovery against the complete inventory. `CI required` checks the outcomes of every selected lane. A skipped optional lane does not establish a successful verification of that capability.
 
-Reports can contain paths, URLs, source-derived facts, and caller-selected data.
-Only analyze artifacts and publish reports you are authorized to share. Do not
-rely on REA inferring secrets from their names. Review artifact access and
-retention for your repository; the example retains reports for seven days.
+## Checks and artifacts
 
-## Failure, partial results, and unsupported capabilities
+| Area                      | Evidence produced                                                                                                                                      |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Static and build          | Typecheck, lint, formatting, package metadata and module/architecture checks; full qualification adds deeper dependency, duplication and typed checks. |
+| Portable tests            | Source and compiled boundary results, file-inventory validation, timing reports and full-mode coverage.                                                |
+| Host runtime and packages | Selected Linux, macOS and Windows native package checks, real runtime observation, source-built fixtures and host-specific artifact checks.            |
+| Real-tool lanes           | Explicit hosted or separately dispatched checks for their named target formats, host and installed tool versions.                                      |
+| Documentation             | Generated documentation consistency and the documentation-site build.                                                                                  |
 
-The analysis step captures stdout and stderr separately, records `$?`, and exits
-with that same status. There is no `continue-on-error`, `|| true`, output filter,
-or pipeline that could turn a failed analysis green. Before checkout or other
-fallible steps, the workflow creates a fresh report directory under `RUNNER_TEMP`.
-Analysis and upload both use that directory, never a checked-in `reports/rea` or
-other workspace files. The upload step uses `always()` when that directory was
-prepared, so available diagnostics survive an analysis failure. If installation
-or the build failed before analysis began, it is empty and upload warns rather
-than publishing stale results or inventing a successful result. Runner loss or
-cancellation can still prevent upload.
+The package matrix is a native-host baseline, not an emulation claim. Tests that require a device, an interactive application, a separately installed analysis engine or another unavailable dependency remain separate. See [testing](testing.md) and the relevant operation's installation requirements before running a real-tool lane.
 
-`--json --full-output` selects a machine-readable envelope; it does **not** mean
-that analysis was complete. A successful operation can retain partial analysis,
-unknowns, and limitations. Exit zero is not a security verdict, proof of complete
-coverage, or a policy gate for those findings. Inspect the saved Evidence and
-coverage before making such a decision. See [output and exit status](cli.md#output-and-exit-status).
+Read the run's retained artifacts and job logs for exact counts, skipped cases, host identities and failures. Counts from a prior commit are historical evidence. A test double or portable fixture does not establish that an optional external tool worked on the release host.
 
-A nonzero exit can represent invalid input, unavailable tooling, an unsupported
-host/capability, or another operation failure. Keep the original JSON error (when
-emitted), stderr, and exit code, and use their category/message to diagnose it.
-An early startup failure may leave `analysis.json` empty; do not parse that as
-successful analysis. Select a supported operation or explicitly provision its
-[documented prerequisites](installation.md); do not silently switch providers,
-execute the artifact, or ignore the failure to obtain a green job.
+## Local checks
 
-To exercise the failure path, temporarily set `ARTIFACT_PATH` to
-`build/missing-artifact` without changing the demo build. Analysis must fail,
-`exit-code.txt` must be nonzero, and the available reports must still upload.
-To exercise unsupported input, set `ARTIFACT_PATH` to `build/rea-ci-demo/index.js`:
-this operation accepts an application directory or ASAR, not a single source file.
-The retained JSON error has category `unsupported_target`; the step exits nonzero.
-Restore the correct path before using the example normally.
+Use the pinned runtime and install dependencies once:
 
-To exercise partial analysis, append `export const broken = ;` to the demo's
-JavaScript. REA 6.7.0 retains `data.normalized_result.statistics.parse_failures`
-and an incomplete-coverage limitation while the operation can still exit zero.
-Inspect those facts instead of treating process success as full coverage. The
-report JSON and diagnostics remain unfiltered in all three cases.
+```bash
+npm ci
+npm run build:cached
+```
+
+For a focused documentation-policy change:
+
+```bash
+npm run test:local -- tests/conformance/readmeConsistency.test.ts tests/conformance/releaseConfiguration.test.ts
+```
+
+For changed source, use `npm run check:changed`. Use `npm run test:focused -- PATH...` when the selected test requires compiled boundaries. `npm run check:pr` is the complete local deterministic gate; optional real-tool verification remains explicit. See [CONTRIBUTING.md](https://github.com/ForceMind/Tekvro/blob/main/CONTRIBUTING.md) for required checks and [testing](testing.md) for test groups.
+
+Local success gives feedback on the checkout. CI still validates the merged revision and retains the reviewable records used by publication.
+
+## Analyze an application in your own CI
+
+The [minimal workflow](https://github.com/ForceMind/Tekvro/blob/main/examples/github-actions/tekvro-analysis.yml) is a self-contained example for an Ubuntu 24.04 runner. Copy it to `.github/workflows/tekvro-analysis.yml` on your default branch and select **Tekvro static analysis example** in Actions to run it manually. It requests only `contents: read` and pins its actions to full commit revisions.
+
+The example selects Node.js `24.22.1`, downloads the versioned Tekvro `1.0.0` installer over HTTPS, and runs it with an isolated prefix under `RUNNER_TEMP`. The installer verifies the GitHub release archive before installation. Client setup is not requested. npm obtains the package's runtime dependencies; this example does not create a committed dependency lock for that installation.
+
+Replace **Build a known artifact** with your reviewed build and keep `ARTIFACT_PATH` aligned. The demonstration creates `build/tekvro-ci-demo`, whose script throws if executed; Tekvro reads it statically. A replacement build can execute code and needs its own review. Supervised operations on Linux require a procps-compatible `ps`. Optional analysis tools are not prerequisites for this JavaScript directory example.
+
+Download the `tekvro-analysis` artifact to inspect `analysis.json`, `analysis.stderr` and `exit-code.txt`. Each run uses a fresh report directory under `RUNNER_TEMP`; upload uses `always()` after that directory exists. The analysis step retains its original exit code, so a failed analysis still fails the job while available reports upload. A failure before analysis can leave an empty directory; stale workspace reports are not substituted.
+
+Exit zero can still accompany partial analysis, unknowns and limitations. Inspect Evidence and coverage before using results in a policy decision. Missing or unsupported input must retain its nonzero exit and original diagnostics. Report contents can include caller-selected paths, URLs and source-derived facts; review the artifact's sharing scope and seven-day retention for your repository.
+
+## Connection to publication
+
+A successful completed `CI` run can trigger `.github/workflows/tekvro-release.yml` through `workflow_run`. The release script admits only the reviewed GitHub release request and matching canonical `main` revision, builds the four release assets, runs an installation canary on the actual `.tgz`, and checks source identity and checksums before publishing.
+
+`package.json` remains `private: true`; npm and MCP Registry publication stay disabled. The GitHub release record, manifest, tag and workflow run identify the public version. See [releasing](releasing.md) for exact assets, gates and failure handling.

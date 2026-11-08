@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a reproducible problem in REA
+description: Report a reproducible problem in Tekvro
 title: "[Bug] "
 labels:
   - bug
@@ -75,11 +75,11 @@ body:
       required: true
 
   - type: input
-    id: rea-version
+    id: tekvro-version
     attributes:
-      label: REA version
-      description: Use `rea --version` or provide the source revision.
-      placeholder: 3.1.0 or git revision
+      label: Tekvro version
+      description: Run `tekvro --version`; for source builds, also provide the Git revision and installation method.
+      placeholder: 1.0.0 or git revision
     validations:
       required: true
 
@@ -87,8 +87,8 @@ body:
     id: runtime
     attributes:
       label: Runtime and platform
-      description: Include Node.js, OS, architecture, and Hopper/Ghidra version when relevant.
-      placeholder: Node 24.18; macOS 15 arm64; Hopper 5.15
+      description: Include Node.js, OS, architecture, and optional analysis-provider version when relevant.
+      placeholder: Node.js 24; Linux x64; GitHub Release package
     validations:
       required: true
 

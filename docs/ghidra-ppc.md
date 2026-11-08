@@ -1,8 +1,7 @@
 # PowerPC ELF analysis through Ghidra
 
 This lane extends native ELF analysis to 32-bit big-endian PowerPC; it does
-not execute PowerPC code. It is the first milestone of
-[#1741](https://github.com/morluto/rea/issues/1741). GameCube/Wii DOL
+not execute PowerPC code. GameCube/Wii DOL
 executables are covered by [GameCube DOL analysis](ghidra-dol.md). PPC64 and other
 PowerPC variants remain separate follow-ups.
 
@@ -61,7 +60,7 @@ target, LLD, GNU `readelf`, Ghidra and its compatible JDK; ordinary host-native
 checks do not acquire these tools. `REA_PPC_CLANG` selects Clang and
 `REA_PPC_READELF` selects GNU readelf (for example
 `/opt/homebrew/opt/binutils/bin/readelf` on macOS). These are test-time
-prerequisites, not REA runtime providers.
+prerequisites, not Tekvro runtime providers.
 
 ```bash
 GHIDRA_INSTALL_DIR=/absolute/path/to/ghidra npm run verify:ghidra:ppc
@@ -69,7 +68,7 @@ GHIDRA_INSTALL_DIR=/absolute/path/to/ghidra npm run verify:ghidra:ppc
 
 The lane compiles the fixture for a 750-family core (`-mcpu=750`) and never
 executes it. GNU readelf independently supplies header facts and symbol
-addresses, compared with the production REA target resolver before provider
+addresses, compared with the production Tekvro target resolver before provider
 startup. Its version, bounded command output and selected tool path are
 retained in the verification report. The parser deliberately recognizes only
 this fixture's GNU output, rejecting missing, ambiguous or unexpected fields

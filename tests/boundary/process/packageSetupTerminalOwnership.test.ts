@@ -217,7 +217,7 @@ process.stdin.on("data", (data) => {
   process.stdout.write("\\u001b[?25hNo changes were made.\\n", () => process.exit(0));
 });
 process.stdin.resume();
-process.stdout.write("Which agents should use REA?");
+process.stdout.write("Which agents should use Tekvro?");
 `;
 
 const redirectedStandinSource = `
@@ -316,6 +316,42 @@ processTest
     expect(receipt).toMatchObject({ mode });
     expect(configurationAtRemoval).toBe(unchangedConfiguration);
     expect(liveAtRemoval).toEqual([]);
+    await expect(readFile(config)).rejects.toMatchObject({ code: "ENOENT" });
+  },
+);
+
+processTest.skipIf(process.platform === "win32")(
+  "rejects the current Tekvro selection prompt when stdout is redirected",
+  async () => {
+    const root = await createTestTempDirectory("tekvro-redirected-prompt-");
+    const scratch = join(root, "scratch");
+    await mkdir(scratch);
+    const config = join(scratch, "selected-config.json");
+    await writeFile(config, unchangedConfiguration);
+    const entry = join(root, "unexpected prompt.mjs");
+    await writeFile(
+      entry,
+      `#!${process.execPath}\nimport assert from "node:assert/strict";\nassert.deepEqual(process.argv.slice(2), ["setup"]);\nprocess.stdout.write("Which agents should use Tekvro?");\n`,
+    );
+    await chmod(entry, 0o755);
+    const workspace = {
+      path: scratch,
+      close: () => rm(scratch, { recursive: true, force: true }),
+    };
+    let commands: PackageVerifierCommands | undefined;
+    await withVerifierCleanup(async () => {
+      commands = await createPackageVerifierCommands({ workspace });
+      await expect(
+        verifyRedirectedStdoutSetup({
+          commands,
+          command: entry,
+          environment: { ...process.env, HOME: scratch },
+          root: process.cwd(),
+          unchangedPaths: [config],
+        }),
+      ).rejects.toThrow("did not remain plain and non-interactive");
+      expect(await readFile(config, "utf8")).toBe(unchangedConfiguration);
+    }, [() => (commands === undefined ? workspace.close() : commands.close())]);
     await expect(readFile(config)).rejects.toMatchObject({ code: "ENOENT" });
   },
 );

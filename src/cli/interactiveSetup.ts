@@ -16,8 +16,7 @@ import type {
   SetupResult,
 } from "../application/SetupTypes.js";
 import { SUPPORTED_CLIENT_DEFINITIONS } from "../application/SupportedClients.js";
-import { PRODUCT_IDENTITY } from "../identity.js";
-import { invokingPackageRunner } from "../application/ClientRegistrationIdentity.js";
+import { CURRENT_ENTRYPOINT_PATH } from "../process/CurrentEntrypointPath.js";
 
 const clientDisplayNames: ReadonlyMap<string, string> = new Map(
   SUPPORTED_CLIENT_DEFINITIONS.map(({ name, displayName }) => [
@@ -39,7 +38,7 @@ export const confirmInteractiveSetup = async (
   context?: SetupConfirmationContext,
 ): Promise<SetupConfirmationDecision> => {
   if (context?.stage === "select" || context === undefined) {
-    intro("REA setup", promptStreams);
+    intro("Tekvro setup", promptStreams);
     writeLine(
       "│  Understand local apps and binaries from your terminal or agent.",
     );
@@ -85,7 +84,7 @@ export const renderSetupProgress = (event: SetupProgressEvent): void => {
 
 /** Show the resolved dry-run plan to a human at an interactive terminal. */
 export const renderSetupDryRun = (actions: readonly SetupAction[]): void => {
-  intro("REA setup plan", promptStreams);
+  intro("Tekvro setup plan", promptStreams);
   renderPreflight(actions);
   outro("Dry run complete. No changes were made.", promptStreams);
 };
@@ -93,20 +92,20 @@ export const renderSetupDryRun = (actions: readonly SetupAction[]): void => {
 /** Finish an interactive setup journey without exposing the full doctor catalog. */
 export const renderInteractiveSetupResult = (
   result: SetupResult,
-  environment: Readonly<NodeJS.ProcessEnv> = process.env,
+  _environment: Readonly<NodeJS.ProcessEnv> = process.env,
 ): void => {
   if (result.status === "ready") {
     const changedClients = Object.entries(result.clients)
       .filter(([, client]) => client.status === "configured")
       .map(([client]) => clientDisplayNames.get(client) ?? client);
     const readyClients = readyAgentClients(result, changedClients);
-    renderReadyCapabilities(result, readyClients, environment);
+    renderReadyCapabilities(result, readyClients);
     if (result.prewarm?.status === "failed")
       writeLine(`!  ${result.prewarm.reason}`);
     outro(
       changedClients.length === 0
-        ? "REA is ready for local app analysis."
-        : `Restart ${changedClients.join(", ")} to load REA.`,
+        ? "Tekvro is ready for local app analysis."
+        : `Restart ${changedClients.join(", ")} to load Tekvro.`,
       promptStreams,
     );
     return;
@@ -115,8 +114,11 @@ export const renderInteractiveSetupResult = (
   writeLine(`!  ${result.remediation ?? "Setup needs attention."}`);
   for (const resource of result.cleanup?.resources ?? [])
     writeLine(`   Pending cleanup: ${resource}`);
+  const invocation = cliInvocation();
   outro(
-    `Run \`${cliInvocation(environment)} doctor\` for the remaining checks.`,
+    invocation === undefined
+      ? "Run doctor through the current Tekvro launcher for the remaining checks."
+      : `Run${process.platform === "win32" ? " in PowerShell" : ""} \`${invocation} doctor\` for the remaining checks.`,
     promptStreams,
   );
 };
@@ -143,7 +145,7 @@ const selectSetupActions = async (
     else {
       const included = await confirm({
         ...promptStreams,
-        message: "Install the guided REA skill for CLI use?",
+        message: "Install the guided Tekvro skill for CLI use?",
         initialValue: false,
         vertical: accessible,
       });
@@ -167,7 +169,7 @@ const selectSetupActions = async (
 
 const clientHint = (state: SetupClientState): string =>
   state.configured
-    ? "REA already configured · selected from existing configuration"
+    ? "Tekvro already configured · selected from existing configuration"
     : state.status === "invalid"
       ? "Existing configuration needs repair before setup"
       : state.detected
@@ -181,7 +183,7 @@ const selectClients = async (
   if (states.length === 0) return [];
   const selection = await multiselect({
     ...promptStreams,
-    message: "Which agents should use REA?",
+    message: "Which agents should use Tekvro?",
     options: states.map((state) => ({
       value: state.client.name,
       label: clientDisplayNames.get(state.client.name) ?? state.client.name,
@@ -237,22 +239,21 @@ const renderKeyboardHelp = (accessible: boolean): void => {
   );
 };
 
-const cliInvocation = (environment: Readonly<NodeJS.ProcessEnv>): string => {
-  if (PRODUCT_IDENTITY.privateSourceBuild) return "node scripts/rea.mjs";
-  const runner = invokingPackageRunner(environment);
-  return runner === undefined
-    ? PRODUCT_IDENTITY.cliBinary
-    : `${runner} ${PRODUCT_IDENTITY.registrationPackageSpecifier}`;
+const cliInvocation = (): string | undefined => {
+  if (CURRENT_ENTRYPOINT_PATH === undefined) return undefined;
+  const arguments_ = [process.execPath, CURRENT_ENTRYPOINT_PATH];
+  // These strings are examples for the user's shell, never process argv.
+  // PowerShell needs its call operator for a quoted executable path.
+  return process.platform === "win32"
+    ? `& ${arguments_.map((part) => `'${part.replaceAll("'", "''")}'`).join(" ")}`
+    : arguments_.map((part) => `'${part.replaceAll("'", `'"'"'`)}'`).join(" ");
 };
 
 const renderReadyCapabilities = (
   result: SetupResult,
   readyClients: readonly string[],
-  environment: Readonly<NodeJS.ProcessEnv>,
 ): void => {
   writeLine("◆  What you can do now");
-  if (PRODUCT_IDENTITY.privateSourceBuild)
-    writeLine("│  Run these commands from your Tekvro source checkout.");
   const providers = readyProviders(result);
   if (providers.length > 0)
     writeLine(`│  Deep analysis: ${humanList(providers)}`);
@@ -260,8 +261,11 @@ const renderReadyCapabilities = (
     writeLine(`│  Agent access: ${humanList(readyClients)}`);
   if (result.doctor.identity?.skill.state === "aligned")
     writeLine("│  Guided reverse-engineering workflows: installed");
+  const invocation = cliInvocation();
   writeLine(
-    `│  CLI: ${cliInvocation(environment)} ${providers.length > 0 ? "analyze /path/to/app" : "capabilities"}`,
+    invocation === undefined
+      ? "│  CLI: Run capabilities through the current Tekvro launcher."
+      : `│  CLI${process.platform === "win32" ? " (PowerShell)" : ""}: ${invocation} ${providers.length > 0 ? "analyze /path/to/app" : "capabilities"}`,
   );
   const firstClient = readyClients[0];
   if (firstClient !== undefined)
@@ -312,7 +316,7 @@ const renderPreflight = (actions: readonly SetupAction[]): void => {
   }
   writeLine("│");
   writeLine(
-    "│  REA will preserve unrelated configuration and will not install or upgrade Node.js, npm, Homebrew, Java, or Ghidra.",
+    "│  Tekvro will preserve unrelated configuration and will not install or upgrade Node.js, npm, Homebrew, Java, or Ghidra.",
   );
 };
 

@@ -5,9 +5,19 @@ export default defineConfig({
   description: "用证据看懂软件 — AI 辅助的本地软件分析工具",
   lang: "zh-CN",
   base: "/Tekvro/",
+  srcExclude: [
+    "internal/**",
+    "upstream/**",
+    "verification/**",
+    "specs/**",
+    "migration-*.md",
+    "capability-migration.md",
+    "zh-CN/rea-*.md",
+  ],
   themeConfig: {
     nav: [
       { text: "开始使用", link: "/zh-CN/quick-start" },
+      { text: "安装与发行", link: "/zh-CN/distribution" },
       { text: "H5 / JS 分析", link: "/zh-CN/javascript-h5-electron" },
       { text: "项目架构", link: "/zh-CN/architecture" },
       { text: "技术参考", link: "/mcp-contracts" },
@@ -18,6 +28,7 @@ export default defineConfig({
         text: "中文入门",
         items: [
           { text: "快速上手", link: "/zh-CN/quick-start" },
+          { text: "安装与发行", link: "/zh-CN/distribution" },
           {
             text: "H5 / JavaScript / Electron",
             link: "/zh-CN/javascript-h5-electron",
@@ -62,8 +73,8 @@ export default defineConfig({
     },
     footer: {
       message:
-        "Tekvro 是 REA 的独立衍生研发项目；原作者 MIT 许可证及版权说明予以保留。",
-      copyright: "© 2026 ForceMind · Original REA © 2026 morluto",
+        'Tekvro · 探核 · <a href="https://github.com/ForceMind/Tekvro/blob/main/LICENSE">MIT License</a> · <a href="https://github.com/ForceMind/Tekvro/blob/main/THIRD_PARTY_NOTICES.md">Third-party notices</a>',
+      copyright: "© 2026 Tekvro contributors",
     },
   },
 });

@@ -11,7 +11,7 @@ observation complement that analysis when they answer a specific question.
 `LC_VERSION_MIN_WATCHOS` commands are interpreted with the Mach-O CPU type, so
 Intel slices report simulator platforms while device CPU slices keep the
 device platform. A chained-import row ending in `+0x...` is ambiguous in
-dyld's text output: it may be an addend or part of a literal symbol name. REA
+dyld's text output: it may be an addend or part of a literal symbol name. Tekvro
 keeps the full expression in `raw_name`, sets `name` and `addend` to null, and
 marks `name_status: "ambiguous"`; it does not synthesize a symbol identity.
 
@@ -80,11 +80,11 @@ The reference collector's semantics participate in the analysis profile, so
 older snapshots cannot replay the former incomplete results under this profile.
 
 Ghidra regex searches use Java Pattern semantics. If compiling or matching a
-pattern exhausts the engine's stack, REA returns a resource constraint and
+pattern exhausts the engine's stack, Tekvro returns a resource constraint and
 preserves the active database and annotations. Retry in literal mode or simplify
 the regex; successful literal searches retain complete matching strings.
 Cancelling an active request terminates the ephemeral database and discards its
-annotations. REA retains the selected target and imports the original artifact
+annotations. Tekvro retains the selected target and imports the original artifact
 again on the next Ghidra query.
 
 Opening the same target and profile again retains the live database, including
@@ -258,7 +258,7 @@ requires exact final readback. New bookmarks must point into mapped memory;
 existing legacy bookmarks outside it can still be removed.
 String results read each native typed object's complete bytes, retain the original
 provider display in `provider_value`, and report its encoding, byte length, and
-termination. `encoding_status: inferred` distinguishes REA's decoding from an
+termination. `encoding_status: inferred` distinguishes Tekvro's decoding from an
 observed source encoding. Hopper can split long literals into adjacent
 unterminated objects; search matches each object's decoded bytes independently.
 Undecodable objects retain native display text with `decoding.available: false`
@@ -272,7 +272,7 @@ the call. Reference rows are emitted once per target address, preserving any
 duplicates in the provider's observation. Native call edges retain
 Hopper's partial `CallReference` classification and exact endpoints; detailed
 reference flags remain unavailable rather than being invented. Caller and callee
-procedure inventories come from independent Hopper APIs; REA retains observed
+procedure inventories come from independent Hopper APIs; Tekvro retains observed
 relationships but reports their completeness as unknown. In particular, a resolved
 tail call observed in one direction does not prove that the reverse inventory is
 complete. An empty Hopper inventory cannot establish that no such call exists.
@@ -284,9 +284,9 @@ stops matching while leaving the Hopper API available. The deadline is
 2147483647 ms. Unset uses 5000 ms. A larger value is refused because Node
 schedules a delay past that signed 32-bit bound as 1 ms. Invalid values are
 configuration errors and do not fall back to the default. The setting is read
-from the environment that starts REA; changing that environment needs a restart.
+from the environment that starts Tekvro; changing that environment needs a restart.
 In MCP, `regex.matching_deadline_ms` overrides the deadline for newly accepted
-searches without restarting REA. A deadline failure names the effective
+searches without restarting Tekvro. A deadline failure names the effective
 milliseconds, known source, default, and maximum. The worker old-generation heap
 does not raise it. IDA and Kuna use these same regex controls; Ghidra's Java
 matcher does not. The worker
@@ -294,16 +294,16 @@ heap request is `REA_REGEX_WORKER_HEAP_REQUEST_MIB`, a decimal integer from
 7 to 16384 MiB. Unset uses 128 MiB. A request below 7 MiB aborts the worker
 during startup, and a larger value is refused. Invalid values are
 configuration errors and do not fall back to 128. The setting is read from
-the environment that starts REA, while MCP `regex.worker_heap_request_mib`
+the environment that starts Tekvro, while MCP `regex.worker_heap_request_mib`
 can override it for workers belonging to newly accepted searches. Use
 `update_analysis_settings` for either runtime control; accepted work keeps its
 budget. See the [settings design](design/limits-and-recovery.md).
 A heap failure names the effective request, known source, default, floor, and
 maximum. A positive Node.js
 `--max-old-space-size` on the process that starts
-REA, including `NODE_OPTIONS`, overrides that request and sets the effective
+Tekvro, including `NODE_OPTIONS`, overrides that request and sets the effective
 heap. `--max-old-space-size-percentage` takes precedence over that flag in
-either order. REA does not turn the percentage into a MiB, so the effective
+either order. Tekvro does not turn the percentage into a MiB, so the effective
 heap stays unestablished instead of the worker heap request or the absolute flag.
 The reported `NODE_OPTIONS` value is the process initial environment when that
 block can be read. A later edit to the environment is not the value Node
@@ -624,7 +624,7 @@ complete observation.
   failures; explicit `<data></data>` represents empty data.
   Each XML dictionary key must have a following value element; a final key
   without one is malformed. An explicit empty string remains a value.
-  Binary UID payloads may use nonminimal byte widths. REA normalizes them only
+  Binary UID payloads may use nonminimal byte widths. Tekvro normalizes them only
   in a private decoder copy; archive digests still identify the original bytes.
   Positive binary-plist offset and object-reference table widths are read from
   the source; nonstandard widths are normalized only in that private copy for
@@ -638,7 +638,7 @@ complete observation.
   UID 0 cannot distinguish conditional nil from ordinary nil. Limits are
   64 MiB of input, 200,000 objects/references and 128 nesting levels.
   XML dictionary entries decoded as `__proto__` are omitted with an explicit
-  count because REA results cannot represent that key. XML tag whitespace and
+  count because Tekvro results cannot represent that key. XML tag whitespace and
   comments do not change that handling. XML key names combine their text and
   CDATA segments without trimming or expanding literal CDATA entities. Other
   values and the original archive digest are preserved.
@@ -879,7 +879,7 @@ Permission and other helper failures retain their specific remediation text.
 decrement scrolling and text-value entry, or bounded waits. No global event
 injection is used. Unsupported AX actions fail explicitly. The result preserves
 ordered before/after captures and gaps; an action may have occurred before a
-post-action capture fails. Application state is left as-is; REA does not attempt
+post-action capture fails. Application state is left as-is; Tekvro does not attempt
 to restore it. Failed or cancelled scenarios return a typed error with the
 collected report in `partial_observation`, including ordered step outcomes.
 Cancellation preserves the caller's reason and remains observable through helper
@@ -891,7 +891,7 @@ One wait step stays capped at 180000 ms. That cap has no runtime override.
 The operation deadline is `native_ui_deadline_ms` (omitted means 180000 ms)
 and does not raise the wait-step cap. The complete scenario result has a
 64 MiB output budget. Screenshots are scaled to
-at most 2,048 pixels and captured only for the selected window. REA compiles one
+at most 2,048 pixels and captured only for the selected window. Tekvro compiles one
 owned helper per scenario, removes its temporary compiler cache and stops its
 helper on cancellation. It does not launch or own the selected application. UI
 actions may change application data or trigger network activity.
@@ -917,7 +917,7 @@ rea observe-native-calls /Applications/Example.app '{"breakpoints":[{"kind":"obj
 ```
 
 Function names select LLDB runtime symbols. On Darwin, a C function reported as
-`_main` by `inspect_macho` or `nm` can resolve as `main` in LLDB. REA preserves the
+`_main` by `inspect_macho` or `nm` can resolve as `main` in LLDB. Tekvro preserves the
 exact selected name; it does not remove underscores or translate static names.
 Use `{"kind":"function","name":"main","module":"Example"}` to limit that
 runtime symbol to the executable image named `Example`, then inspect the reported
@@ -931,12 +931,12 @@ the raw integer argument registers, optional caller frames and, for an
 Objective-C method, the selector read from `_cmd` and the receiver's dynamic
 class. Breakpoints stop at the symbol itself, so the registers hold the ABI
 arguments. The receiver class comes from LLDB's Objective-C runtime reader
-without running target code; no expression is evaluated, and REA never
+without running target code; no expression is evaluated, and Tekvro never
 attaches to a process it did not launch.
 
 The run ends when the process exits, `max_events` entries are recorded,
 `duration_ms` elapses, or the aggregate trace resource budget is exhausted.
-Bounded termination reports partial coverage. REA checks process termination
+Bounded termination reports partial coverage. Tekvro checks process termination
 using a launch-time OS start identity; if ownership or cleanup cannot be
 verified, the result or error preserves that uncertainty. The result reports:
 Launch errors keep the fact that LLDB created a process separate from whether
@@ -944,7 +944,7 @@ it remains alive. An exited `SBProcess` is reported as exited only after LLDB
 confirms that state; unresolved ownership remains retained for cleanup retry.
 An invalid process returned by `Launch`, including a rejected working directory,
 reports explicit no-process creation. With no target PID or other retained
-resource, REA releases that runtime and admits the next observation.
+resource, Tekvro releases that runtime and admits the next observation.
 Cancellation observed while output and Evidence are finalized returns partial
 cancellation Evidence, even if the target has already exited.
 
@@ -995,22 +995,21 @@ is present. A denied trace reports the `debugger-attach-denied` reason.
 
 ## Provider and verification boundaries
 
-Install a Ghidra 12.1.x release and the 64-bit full JDK it declares, then configure REA to
+Install a Ghidra 12.1.x release and the 64-bit full JDK it declares, then configure Tekvro to
 use them. Ghidra analysis supports Linux x64/arm64 and macOS x64/arm64; each installation requires
 the matching native decompiler. Experimental Windows x64 P0 admits native
 x86, x86-64, ARMNT (Thumb-2) and ARM64 PE applications and DLLs, plus explicitly selected
 [raw NMOS 6502 images](raw-binary.md#nmos-6502) with a caller-supplied load address,
 on fixed local NTFS volumes. Other raw CPU families remain unsupported on Windows.
 The boundary uses bundled Job Object ownership, protected runtime DACLs, and
-handle-based path admission. See [Windows Ghidra P0](windows-ghidra-p0.md) and
-[issue #527](https://github.com/morluto/rea/issues/527).
+handle-based path admission. See [Windows Ghidra P0](windows-ghidra-p0.md).
 On Linux and macOS, `annotate_native_function` atomically edits a function name
 and entry comments in the ephemeral database, returning refreshed analysis
 without changing executable bytes. Annotation text must contain no NUL or
 unpaired Unicode surrogate; a rejection identifies the field and UTF-16 index
 and leaves every annotation unchanged. CRLF, supplementary Unicode characters,
 and combining characters are preserved. Windows P0 remains read-only. Ghidra has no
-GUI authority, and REA never falls back automatically to Hopper.
+GUI authority, and Tekvro never falls back automatically to Hopper.
 `set_address_name` and `set_addresses_names` give Ghidra sessions the same
 compact naming results as Hopper: a local function entry renames that function,
 and any other mapped address, such as a global, receives a new or renamed primary
@@ -1145,7 +1144,7 @@ Dates are reported as `{ "$plist_type": "date", "iso8601": "<timestamp>" }`.
 XML dates require a complete UTC spelling with fixed two-digit month, day and
 time fields; short, negative and extended years are interpreted as UTC year
 fields within JavaScript's date range. Unsupported calendar fields (including
-leap seconds) and out-of-range dates remain explicit unknowns. REA does not
+leap seconds) and out-of-range dates remain explicit unknowns. Tekvro does not
 emulate CoreFoundation's normalization of overflowing calendar fields. Invalid
 dates returned by other decoders retain `{ "$plist_type": "date", "iso8601": null }`
 with a counted limitation. `inspect_plist` and Interface Builder decoding use
@@ -1180,7 +1179,7 @@ still pass strict well-formedness checks. Empty integer, real and date elements
 are unknown scalars; boolean elements must be empty. Complete decimal/exponent
 reals and signed decimal/hexadecimal integers accept their respective native
 leading whitespace but reject trailing text. Arbitrary-precision integers
-remain an intentional REA extension beyond CoreFoundation's integer range.
+remain an intentional Tekvro extension beyond CoreFoundation's integer range.
 Finite real spellings that overflow the numeric representation remain unknown,
 rather than becoming observed infinities. Known non-finite and unresolved scalar
 values have separate counts. This replaces the former prefix-number and

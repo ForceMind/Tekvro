@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "product": "tekvro",
+  "version": "1.0.0",
+  "tag": "v1.0.0",
+  "channel": "github",
+  "publish": true,
+  "notes": "docs/releases/v1.0.0.md"
+}

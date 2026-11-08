@@ -4,6 +4,8 @@ import {
   assertVerifierFilesUnchanged,
 } from "./verifier-file-snapshots.mjs";
 
+const setupClientPrompt = "Which agents should use Tekvro?";
+
 export const terminalModesRestored = (termios) => {
   if (typeof termios !== "string") return false;
   const modes = new Set(termios.trim().split(/\s+/u));
@@ -38,7 +40,7 @@ export async function verifyInteractiveSetup({
       environment: { ...environment, NO_COLOR: "1", TERM: "xterm-256color" },
       timeoutMs: 20_000,
       onData(output, write) {
-        if (!cancelled && output.includes("Which agents should use REA?")) {
+        if (!cancelled && output.includes(setupClientPrompt)) {
           cancelled = true;
           write("\u0003");
         }
@@ -70,7 +72,7 @@ export async function verifyInteractiveSetup({
     !output.includes("No changes were made.")
   )
     throw new Error(
-      `packaged rea-agents setup did not cancel with a restored terminal and exit 0: ${output}`,
+      `packaged Tekvro setup did not cancel with a restored terminal and exit 0: ${output}`,
     );
   await assertVerifierFilesUnchanged(
     commands,
@@ -127,8 +129,8 @@ export async function verifyRedirectedStdoutSetup({
     childResult?.stdinTTY !== true ||
     childResult?.stderrTTY !== true ||
     childResult?.stdoutRedirected !== true ||
-    childResult?.stdout?.includes("Which agents should use REA?") ||
-    allOutput.includes("Which agents should use REA?") ||
+    childResult?.stdout?.includes(setupClientPrompt) ||
+    allOutput.includes(setupClientPrompt) ||
     /\u001b\[[0-9;?]*[ -/]*[@-~]/u.test(allOutput)
   )
     throw new Error(

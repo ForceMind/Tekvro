@@ -2,7 +2,7 @@
 
 `inspect_wasm_artifact` / `inspect-wasm-artifact` inspects explicitly selected
 local WASM bytes using caller-supplied WABT 1.0.42. No active binary target is
-required. REA does not install tools or fetch artifacts and does not execute WASM.
+required. Tekvro does not install tools or fetch artifacts and does not execute WASM.
 
 `open_binary` is not the WASM inspection route. A recognized WASM v1 header
 returns `target_unavailable` with category `unsupported_target` and constraint
@@ -35,7 +35,7 @@ or repeating an unchanged call. All three tools must report 1.0.42 on stdout wit
 empty stderr. For CLI calls, set the environment before the next invocation. For
 MCP, change the server's launch environment and restart/reconnect that server;
 exporting a variable in a different shell does not update a running server.
-REA never installs tools or relaxes version admission to recover.
+Tekvro never installs tools or relaxes version admission to recover.
 
 ```bash
 REA_WABT_BIN_DIRECTORY=/absolute/wabt/bin rea inspect-wasm-artifact \
@@ -139,7 +139,7 @@ each stream's retained byte count, and the exit code and signal. Retained text
 can end in U+FFFD where the budget cut a multi-byte character.
 
 These excerpts bound the returned diagnostic text.
-[PR #2117](https://github.com/morluto/rea/pull/2117) reports elapsed time, CPU
+Historical measurements cover elapsed time, CPU
 time, and peak process-family memory, including WABT children, for warm Linux
 x64 WABT 1.0.42 CLI workflows; those costs did not change outside measurement
 noise. Agent token usage and truly cold workflows remain
@@ -166,7 +166,7 @@ Candidates are caller-selected files; their identity does not imply validation.
 
 Both CLI and MCP use the same typed port and application service. MCP publishes
 SDK-compatible schemas and records Evidence for `get_evidence_bundle` readback.
-See [WABT provenance](https://github.com/morluto/rea/blob/main/third_party/wabt/README.md) and
+See [WABT provenance](https://github.com/ForceMind/Tekvro/blob/main/third_party/wabt/README.md) and
 [testing](testing.md#offline-wasm-artifacts) for real-tool verification.
 
 ## Compare core-module interfaces

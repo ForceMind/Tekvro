@@ -14,7 +14,7 @@
 
 ## Context
 
-Before this decision, REA composed the artifact, native macOS, and Hopper
+Before this decision, Tekvro composed the artifact, native macOS, and Hopper
 providers with `CompositeProvider`. That class intentionally requires every
 operation to have one route. Hopper and Ghidra will both implement the deep
 static-analysis operation family, so putting both into that composite would
@@ -29,12 +29,12 @@ same bytes could therefore disagree because of language, compiler, loader,
 analyzer, or provider-version differences while appearing target-compatible.
 
 The decision addressed the earlier representations of
-[`CompositeProvider`](https://github.com/morluto/rea/blob/main/src/application/binary/CompositeProvider.ts),
-[runtime composition](https://github.com/morluto/rea/blob/main/src/composition/binary.ts),
-[`BinarySession`](https://github.com/morluto/rea/blob/main/src/application/binary/BinarySession.ts),
-[`BinaryTarget`](https://github.com/morluto/rea/blob/main/src/domain/binaryTarget.ts),
-[analysis snapshot](https://github.com/morluto/rea/blob/main/src/domain/analysisSnapshot.ts), and
-[session lifecycle inputs](https://github.com/morluto/rea/blob/main/src/contracts/sessionLifecycleInputs.ts).
+[`CompositeProvider`](https://github.com/ForceMind/Tekvro/blob/main/src/application/binary/CompositeProvider.ts),
+[runtime composition](https://github.com/ForceMind/Tekvro/blob/main/src/composition/binary.ts),
+[`BinarySession`](https://github.com/ForceMind/Tekvro/blob/main/src/application/binary/BinarySession.ts),
+[`BinaryTarget`](https://github.com/ForceMind/Tekvro/blob/main/src/domain/binaryTarget.ts),
+[analysis snapshot](https://github.com/ForceMind/Tekvro/blob/main/src/domain/analysisSnapshot.ts), and
+[session lifecycle inputs](https://github.com/ForceMind/Tekvro/blob/main/src/contracts/sessionLifecycleInputs.ts).
 
 The next deep provider must not weaken the existing product invariants:
 
@@ -129,7 +129,7 @@ Operation ownership is fixed by family:
 | Session lifecycle, Evidence, comparisons, and reconstruction | The application/session layer using the exact provider provenance recorded by their source operations |
 
 Selecting a deep provider selects the whole deep family. If that provider marks
-an operation unavailable, REA returns the unavailability; it does not borrow
+an operation unavailable, Tekvro returns the unavailability; it does not borrow
 that one operation from another deep provider. Application-enhanced workflows
 run only when the bound provider supplies their declared dependencies.
 
@@ -195,7 +195,7 @@ is created:
    `auto-single-candidate`.
 4. More than one usable candidate is an `ambiguous` selection error. The
    diagnostic lists the candidates and asks for `provider_id`, `--provider`, or
-   `REA_ANALYSIS_PROVIDER`. REA does not prefer Hopper, Ghidra, registration
+   `REA_ANALYSIS_PROVIDER`. Tekvro does not prefer Hopper, Ghidra, registration
    order, the fastest startup, or the first health response.
 5. When no deep candidate is usable, an automatic open may still establish an
    unbound target so disjoint artifact or native operations remain available.
@@ -295,7 +295,7 @@ parameters as opaque data.
 
 A selected deep binding requires a concrete provider version. If the adapter
 cannot determine it, the candidate is unavailable with `version_unresolved`;
-REA does not persist a cache that merely commits `null` or "whatever is
+Tekvro does not persist a cache that merely commits `null` or "whatever is
 installed". Provider identity, normalized parameters, or provider version
 changes produce a different digest.
 
@@ -345,7 +345,7 @@ Evidence semantic ID.
 
 Existing Evidence records without `analysis_profile` remain valid and keep
 their existing IDs. Absence on a legacy deep record means the analysis profile
-is unknown; REA does not infer or enrich it during import. Such evidence can be
+is unknown; Tekvro does not infer or enrich it during import. Such evidence can be
 displayed and cited but cannot establish profile compatibility, seed snapshot
 replay, or support an "unchanged" conclusion that depends on identical analysis
 semantics.
@@ -445,7 +445,7 @@ snapshot's provider.
   same candidate snapshot and reason codes.
 - Guided prompt `provider_id` context is a preference to forward into the open
   operation; it does not create a hidden routing channel.
-- Tool names and normalized output contracts remain provider-neutral. REA does
+- Tool names and normalized output contracts remain provider-neutral. Tekvro does
   not add `ghidra_decompile` or `hopper_decompile` tools.
 
 ## Compatibility and migration

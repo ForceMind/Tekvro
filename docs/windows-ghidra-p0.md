@@ -1,13 +1,14 @@
 # Windows Ghidra P0
 
-This guide describes repository main. npm 4.1.0 includes the Windows
-native bundle; check the [release boundary](installation.md#released-package-and-main)
-before applying these instructions to an older published package.
-Native x86 (32-bit) PE support is available on repository main; npm releases
-through 5.0.0 admit x86-64 PE targets on Windows.
+This guide describes the Windows adapter on repository main. Tekvro is
+distributed through GitHub release archives; check the
+[release boundary](installation.md#released-package-and-main) and the selected
+version's verification before applying these instructions to an installation.
+A package startup check does not establish every target format or real-engine
+workflow described here.
 
 Status: experimental Windows x64 support for the read-only P0 boundary. Windows
-package builds bundle native process, filesystem, and DACL controls. REA
+package builds bundle native process, filesystem, and DACL controls. Tekvro
 uses them automatically when the analyst selects a Ghidra operation; no
 additional permission flag or degraded mode is required.
 
@@ -45,16 +46,16 @@ console-specific cartridge loader, CPU variant, or bank-switching model is
 implied. Run `npm run verify:ghidra:6502` with caller-installed `ca65`/`ld65`
 to check the source-built fixture through real CLI and MCP workflows.
 
-REA does not install or upgrade Ghidra, Java, Python, npm, Node.js, Hopper, or a
+Tekvro does not install or upgrade Ghidra, Java, Python, npm, Node.js, Hopper, or a
 compiler. The adapter uses the packaged Java `HeadlessScript`; Python and
 PyGhidra are not prerequisites. Users do not build the native addon.
 
-REA selects its packaged bridge scripts by explicit path. Same-named files or
+Tekvro selects its packaged bridge scripts by explicit path. Same-named files or
 directories in the caller's working directory do not select a different
 script or require users to clean that directory before analysis.
 
 Native DLL analysis preserves the PE shared-library role in the analysis profile.
-REA imports an immutable copy for static analysis; it does not load the library
+Tekvro imports an immutable copy for static analysis; it does not load the library
 into the analyst process or execute its entry routine. The source-owned DLL
 fixtures have no entry routine or imports and expose two exported functions.
 The same native snapshot, path-admission and cleanup requirements apply to EXEs
@@ -133,7 +134,7 @@ short default request timeout; the real verification lane allows the existing
 ## Native authority and target identity
 
 The verified boundary excludes SUBST aliases and changing drive-letter/DOS-device
-namespaces. REA does not claim a separate SUBST detector. Mounted-folder entries
+namespaces. Tekvro does not claim a separate SUBST detector. Mounted-folder entries
 that expose reparse tags fail component admission; broader namespace variants
 have not been established by this lane. Requested paths, final handle paths,
 volume serials, and file IDs remain separate observations.
@@ -243,7 +244,7 @@ private runtime files; crash-time transactional deletion is not claimed.
 
 ## Verification
 
-See [native controls](https://github.com/morluto/rea/blob/main/native/windows/README.md) for the separate artifact
+See [native controls](https://github.com/ForceMind/Tekvro/blob/main/native/windows/README.md) for the separate artifact
 build lane and native boundary checks. Development tarballs without the built
 artifact report native controls unavailable; publishing requires the verified
 artifact and manifest.

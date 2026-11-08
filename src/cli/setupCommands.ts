@@ -259,8 +259,8 @@ const registerMaintenanceCommands = (
   });
   cli.command(CLI_COMMANDS.update, {
     description: selectHumanText(
-      "Update a published Tekvro installation (unavailable for source builds)",
-      "更新已发布的 Tekvro 安装（源码开发版暂不可用）",
+      "Show manual GitHub release update steps (automatic registry updates are disabled)",
+      "显示 GitHub 发行包手动更新步骤（此安装已关闭从软件包注册中心自动更新）",
       environment,
     ),
     run: ({ formatExplicit }) =>
@@ -275,7 +275,7 @@ const registerMaintenanceCommands = (
               latestVersion: null,
               reason: "unknown-install-method" as const,
               remediation:
-                "Tekvro is a source checkout and has no published npm update. Pull the reviewed Git changes and rebuild locally.",
+                "Automatic registry updates are disabled for this Tekvro installation. Download a newer CLI archive and SHA256SUMS from https://github.com/ForceMind/Tekvro/releases, verify the archive checksum, then reinstall the local file with npm install --global ./tekvro-VERSION.tgz (replace VERSION with the selected release). For source development, review Git changes, then run npm ci and npm run build:cached in the checkout.",
             };
           const [{ runUpdate }, { systemUpdateHost }] = await Promise.all([
             import("../application/Update.js"),

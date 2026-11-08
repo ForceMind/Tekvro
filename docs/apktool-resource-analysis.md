@@ -1,9 +1,9 @@
 # Apktool resource decoding
 
-REA decodes Android resource tables and the binary manifest through the
+Tekvro decodes Android resource tables and the binary manifest through the
 caller's Apktool launcher. This completes the static triad for Android
 targets: Java/Kotlin sources through the JADX family, engine-grade
-decompilation through JEB, and resources through this family. REA never
+decompilation through JEB, and resources through this family. Tekvro never
 installs Apktool or a Java runtime.
 
 ## Supply tools
@@ -46,13 +46,13 @@ downstream backports, or overall safety. Windows applicability uses the selected
 local host; an opaque wrapper may run another engine. A missing warning means
 only that none of these version/host windows matched. Verify the selected
 decoder's patches before decoding untrusted APKs; the compatibility floor above
-is not a security recommendation. REA does not fetch advisories at runtime.
+is not a security recommendation. Tekvro does not fetch advisories at runtime.
 
 On Windows, a `.bat` or `.cmd` launcher (such as Chocolatey's `apktool.bat`)
 runs through an explicit `cmd.exe /d /s /c` call. That call has no AutoRun,
 no delayed expansion, and quotes every argument. A launcher path that
 contains `"`, `%`, `^`, `!`, `&`, `|`, `<` or `>` is reported as
-`not_configured` instead of being passed to `cmd.exe`. If REA's temporary
+`not_configured` instead of being passed to `cmd.exe`. If Tekvro's temporary
 decode paths contain those characters, decoding through a batch launcher
 reports `capability_unavailable`.
 
@@ -125,7 +125,7 @@ still suppresses all string projection, including in this mode.
   Other table directories, including combined qualifiers such as
   `values-en-rUS-v21` and `values-mcc310-fr`, are named in limitations with
   their source spelling. They are not advertised as selectable locales;
-  REA does not infer Android's runtime resource matching. Non-regular
+  Tekvro does not infer Android's runtime resource matching. Non-regular
   strings-table paths are disclosed with partial coverage. Discovery uses
   the same bounded traversal as the file count; filesystem failures remain
   failures rather than being interpreted as missing tables.
@@ -178,8 +178,9 @@ decode. See `docs/testing.md` for the lane summary.
 Multi-locale and table-only projection were also verified through real CLI and
 stdio MCP workflows on Linux with Apktool 3.0.3/JDK 21 against NewPipe 0.29.1,
 ApiDemos 6.0.18 and Appium Settings 8.2.1. Independent XML projection checks,
-exact facts/Evidence parity and bounded task costs are recorded in the
-[shared-decode and table-only checkpoint](https://github.com/morluto/rea/blob/42e1a17d6e6c0487f17be0bae248553c4caba7f7/experiments/analysis-efficiency/apktool-string-tables.md).
+exact facts/Evidence parity and bounded task costs form the historical
+shared-decode and table-only checkpoint. See the
+[verification guide](testing.md#apktool-resource-decoding) for current prerequisites.
 This qualifies selected resource facts, not application execution or independent
 binary resource-decoder completeness.
 

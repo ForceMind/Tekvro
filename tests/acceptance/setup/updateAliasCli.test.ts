@@ -74,7 +74,14 @@ cliTest(
       currentVersion: PRODUCT_IDENTITY.packageVersion,
       latestVersion: null,
       reason: "unknown-install-method",
-      remediation: expect.stringContaining("Tekvro is a source checkout"),
+      remediation: expect.stringContaining(
+        "Automatic registry updates are disabled",
+      ),
+    });
+    expect(canonical.json).toMatchObject({
+      remediation: expect.stringContaining(
+        "npm install --global ./tekvro-VERSION.tgz",
+      ),
     });
     const alias = await run(["--json", "--update"]);
     expect(alias.exitCode, alias.stderr).toBe(1);

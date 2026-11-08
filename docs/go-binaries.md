@@ -67,7 +67,7 @@ rea inspect-go-binary ./application --detail summary --evidence_output ./go-evid
 `--evidence_output` is required for CLI summary delivery and never overwrites an
 existing file. The default CLI/MCP reply remains complete.
 
-[Measured workflows](https://github.com/morluto/rea/blob/42e1a17d6e6c0487f17be0bae248553c4caba7f7/experiments/analysis-efficiency/go-build-views.md) include
+Historical workflow measurements include
 catalog repetition and extra calls. Identity/count questions benefit from a
 single summary. In the tested Codex full-catalog configuration, a compound
 question about identity and one dependency uses fewer tokens in captured request JSON with
@@ -134,7 +134,7 @@ headers. A descriptor or string may also cross adjacent loader mappings when
 their virtual ranges cover every requested byte and identify one contiguous
 file range. Gaps, conflicting file aliases and nonempty zero-fill overlap remain
 invalid. Discovery policy and the aggregate 1 MiB string-content limit are
-unchanged. These are static reads over REA's native mapping facts; they do not
+unchanged. These are static reads over Tekvro's native mapping facts; they do not
 establish Windows/Linux loading or parity with Go's standard reader, whose
 [Go 1.24.0 ELF/PE readers](https://github.com/golang/go/blob/go1.24.0/src/debug/buildinfo/buildinfo.go#L445)
 read within individual segments or sections. The historical two-word string
@@ -142,7 +142,7 @@ descriptor follows the
 [Go 1.17.13 reader](https://github.com/golang/go/blob/go1.17.13/src/cmd/go/internal/version/version.go#L212).
 
 A universal (FAT) Mach-O needs `architecture` (`x86`, `x86_64`, `arm`
-or `arm64`; CLI `--architecture`). REA reads its own FAT table, without `lipo`,
+or `arm64`; CLI `--architecture`). Tekvro reads its own FAT table, without `lipo`,
 and validates the selected slice's range, alignment and Mach-O header CPU
 against the table. The result keeps the universal file as `artifact` (its
 SHA-256 and size), adds `selected_slice` with the slice offset, length, raw CPU
