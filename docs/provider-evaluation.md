@@ -4,11 +4,11 @@ This guide describes repository main. Check the [released package boundary](inst
 
 Ghidra read-only analysis is available on Linux x64/arm64 and macOS x64/arm64.
 Install a Ghidra 12.1.x release and the 64-bit full JDK that release declares,
-then configure REA to use them. Current 12.1 releases require JDK 21 or newer
+then configure Tekvro to use them. Current 12.1 releases require JDK 21 or newer
 and set no maximum. The bridge is verified with Ghidra 12.1.4 and JDK 21.
 Each installation needs the matching native decompiler.
 
-REA imports one target into a temporary project and exposes 25 read-only
+Tekvro imports one target into a temporary project and exposes 25 read-only
 operations after analysis completes. They cover inventories, search,
 decompilation, assembly, function metadata, resolved calls, references, control
 flow, instructions, and recovered types. Results identify the provider version,
@@ -22,8 +22,7 @@ Windows x64 P0 supports native x86 and x86-64 PE applications on local NTFS with
 bundled Job Object ownership, protected runtime DACLs, and handle-based path
 admission. Real ordinary-user verification covers all 25 read-only operations
 through the packaged CLI and MCP, target integrity, and cleanup. This remains
-an experimental boundary; see [Windows Ghidra P0](windows-ghidra-p0.md) and
-[issue #527](https://github.com/morluto/rea/issues/527).
+an experimental boundary; see [Windows Ghidra P0](windows-ghidra-p0.md).
 
 [ADR-0001](adr/0001-provider-selection-and-analysis-profiles.md) fixes the
 provider registry, deterministic selection, target binding, analysis profile,
@@ -140,7 +139,7 @@ host/provider acceptance run with only the host compiler.
 fixture, all 25 read-only operations, target/snapshot/import SHA-256 linkage,
 and project, endpoint, process, and runtime cleanup. The independent native
 lane checks DACLs, handle admission, cancellation, and Job Object lifecycle.
-`npm run verify:ghidra:windows:package` packs and installs REA into an isolated
+`npm run verify:ghidra:windows:package` packs and installs Tekvro into an isolated
 prefix, then checks ordinary-user CLI/MCP operations against canonical contracts.
 All lanes require matching native controls; package startup alone establishes
 only package compatibility.
@@ -165,7 +164,7 @@ only the generic process mechanisms.
 
 ## Shortlist
 
-| Provider                                                                                    | License / automation surface                                                                                                                                           | What it brings                                                                                                                                          | REA fit and blockers                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| Provider                                                                                    | License / automation surface                                                                                                                                           | What it brings                                                                                                                                          | Tekvro fit and blockers                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [Ghidra](https://github.com/NationalSecurityAgency/ghidra)                                  | Apache-2.0 source license; `analyzeHeadless`, Java APIs, and PyGhidra                                                                                                  | Static analysis, multiple processors and formats, scripting, and project/database workflows                                                             | 25 read-only operations shipped on Linux/macOS with installation checks, temporary projects, a serial API queue, and real ELF/PE/Mach-O conformance. Experimental Windows x64 P0 supports native x86 and x86-64 PE on local NTFS with bundled native controls and ordinary-user CLI/MCP verification; Linux/macOS additionally support atomic session function annotations; Windows mutation and all Ghidra GUI operations are unavailable. |
 | [Rizin](https://github.com/rizinorg/rizin) / [rz-pipe](https://github.com/rizinorg/rz-pipe) | Rizin repository contains LGPL-3.0 and GPL-3.0 components; `rizin`, `rz-bin`, and language bridges through `rzpipe`                                                    | Portable CLI analysis, disassembly/debugging, many architectures and file formats, JSON command output                                                  | Good candidate for a process-backed Linux provider and fast metadata fallback. License/component inventory must be preserved; command output needs version-pinned parsers and semantic conformance before evidence is trusted.                                                                                                                                                                                                              |

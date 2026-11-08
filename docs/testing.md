@@ -9,8 +9,8 @@ installed-client and agent runs.
 
 The current product/engine distinction, merged implementation, real execution
 links and platform limitations are maintained in the
-[6.8 integration record](upstream/rea-6.8.0-integration.md); the previous baseline
-remains in the [6.7 record](upstream/rea-6.7.0-integration.md). Upstream historical
+[6.8 integration record](https://github.com/ForceMind/Tekvro/blob/main/docs/upstream/rea-6.8.0-integration.md); the previous baseline
+remains in the [6.7 record](https://github.com/ForceMind/Tekvro/blob/main/docs/upstream/rea-6.7.0-integration.md). Upstream historical
 verification reports establish upstream observations only. A fake provider test
 or successful bridge compilation does not establish a real engine run.
 
@@ -186,7 +186,7 @@ without the artifacts lock, so it can record hashes while `check:pr` or
 `check:ci:fast` and `check:ci:deep` commands.
 Use `npm run lint:details` or `npm run jscpd:details` for all console diagnostics.
 Both duplicate commands scan production and test code using the limit in
-[`.jscpd.json`](https://github.com/morluto/rea/blob/main/.jscpd.json).
+[`.jscpd.json`](https://github.com/ForceMind/Tekvro/blob/main/.jscpd.json).
 The summary commands preserve checker failures and restore reports from cached
 static tasks. Both lint caches include the website, documentation configuration,
 and experiment code scanned by the checker; a regression compares the actual
@@ -310,7 +310,7 @@ coverage. Ordinary CI also exhausted the former 384 MiB budget after earlier
 files loaded the shared source/contract graph, while later command registration
 and schema/help rendering still needed transient allocation space. This is a
 measured capacity control, not a suite-wide speedup claim. The worker count
-remains bounded at two, and spawned REA processes retain their own heap settings.
+remains bounded at two, and spawned Tekvro processes retain their own heap settings.
 Coverage enablement still controls instrumentation, test deadlines and coverage
 thresholds; explicitly disabling it or selecting only a provider does not enable
 instrumentation.
@@ -477,7 +477,7 @@ For format compatibility, identify the producer revision that establishes each
 rule. Include an accepted boundary case beside the rejected case so a stricter
 parser cannot pass by refusing both. Keep source-derived behavior, synthetic
 fixtures, and executed producer or runtime oracles distinct in validation
-reports. A fixture accepted by REA proves its reader behavior; it does not prove
+reports. A fixture accepted by Tekvro proves its reader behavior; it does not prove
 that a real loader accepts the artifact. If multiple producer revisions share a
 format identifier but differ in behavior, record that ambiguity rather than
 using one installed version as an oracle for all of them.
@@ -544,7 +544,7 @@ Artifact verification uses `artifactMcpCall` for both lifecycle and analysis
 calls. A fresh SDK client has no held tool listing, so a bare `callTool` can
 skip output-schema validation. The helper discovers actual advertised
 definitions, rejects missing or ambiguous schemas, and validates the requested
-tool without compiling unrelated catalog schemas. REA registers process-static
+tool without compiling unrelated catalog schemas. Tekvro registers process-static
 tool contracts; bindings share one discovery per negotiated connection and are
 discarded on reconnect or failed discovery. Keep raw artifact calls on this
 shared path and retain explicit request options such as timeouts.
@@ -702,11 +702,11 @@ does not check those calls; run their orchestration tests against the built
 modules, including the verifier's failure and cleanup paths.
 
 Representative regressions include
-[process cleanup-time SIGINT](https://github.com/morluto/rea/blob/e78455338fe2d06c4cd03d59cbf33473d754998b/tests/boundary/process/processCaptureCancellationAdapters.test.ts),
-[late authenticated cleanup](https://github.com/morluto/rea/blob/e78455338fe2d06c4cd03d59cbf33473d754998b/tests/boundary/providers/hopper/hopperClient.handshakeRecovery.test.ts),
-[LLDB launch and finalization](https://github.com/morluto/rea/blob/e78455338fe2d06c4cd03d59cbf33473d754998b/tests/boundary/providers/native/lldbCallTracerFailures.test.ts),
-[composed child ownership](https://github.com/morluto/rea/blob/e78455338fe2d06c4cd03d59cbf33473d754998b/src/application/binary/CompositeProvider.test.ts),
-and [public CLI cleanup denial](https://github.com/morluto/rea/blob/e78455338fe2d06c4cd03d59cbf33473d754998b/tests/boundary/cli/wasmCleanupCli.test.ts).
+[process cleanup-time SIGINT](https://github.com/ForceMind/Tekvro/blob/main/tests/boundary/process/processCaptureCancellationAdapters.test.ts),
+[late authenticated cleanup](https://github.com/ForceMind/Tekvro/blob/main/tests/boundary/providers/hopper/hopperClient.handshakeRecovery.test.ts),
+[LLDB launch and finalization](https://github.com/ForceMind/Tekvro/blob/main/tests/boundary/providers/native/lldbCallTracerFailures.test.ts),
+[composed child ownership](https://github.com/ForceMind/Tekvro/blob/main/src/application/binary/CompositeProvider.test.ts),
+and [public CLI cleanup denial](https://github.com/ForceMind/Tekvro/blob/main/tests/boundary/cli/wasmCleanupCli.test.ts).
 These controlled probes do not replace the matching real-provider lane. Record
 the base failure, passing control, exact host/provider, verified cleanup, and
 unavailable coverage; a missing engine is not a pass.
@@ -749,7 +749,7 @@ exceptions.
 
 The shared temporary-directory and workspace helpers preserve caller labels
 under an owned `rea-` prefix when needed. Their
-[cleanup ownership differs](https://github.com/morluto/rea/blob/main/CONTRIBUTING.md#temporary-files-and-diagnostics):
+[cleanup ownership differs](https://github.com/ForceMind/Tekvro/blob/main/CONTRIBUTING.md):
 `createTestTempDirectory` registers `onTestFinished` deletion, while
 `createTestWorkspace` requires caller cleanup. Close resources before removing
 their directory. `npm run verify:test-temp-hygiene`
@@ -1068,7 +1068,7 @@ The host lane also verifies namespaced C++ ABI symbols and annotation identity.
 That facet requires Ghidra's matching `demangler_gnu_v2_41` native component in
 `GPL/DemanglerGnu/os/<platform>/` or `build/os/<platform>/`, in addition to the
 native decompiler. The namespace verifier reports missing or non-executable
-components before testing the fixture. REA does not build or install them.
+components before testing the fixture. Tekvro does not build or install them.
 
 Windows native conformance runs with `npm run verify:windows-native` and does
 not require Ghidra or Java. It includes Job Object commit-limit controls (a
@@ -1083,7 +1083,7 @@ rename, later-query handle-based recovery, successful-admission caching, and
 environment-teardown cleanup. It neither
 establishes the cause of the intermittent #1701 host failure nor replaces
 verification with the shipped production artifact.
-`npm run verify:ghidra:windows:package` additionally packs and installs REA into
+`npm run verify:ghidra:windows:package` additionally packs and installs Tekvro into
 an isolated prefix and runs ordinary-user CLI/MCP operations against their
 canonical schemas. Run the controlled fixture generator before that lane, or
 supply an installed package root and an explicit fixture as arguments.
@@ -1183,7 +1183,7 @@ requires unresolved table bounds or case mappings to remain visible as
 residual unknowns.
 
 `npm run verify:inspector` requires the supported Node.js runtime and installed
-REA dependencies. CI runs it on Linux and macOS x64/arm64 and Windows x64. It starts owned loopback
+Tekvro dependencies. CI runs it on Linux and macOS x64/arm64 and Windows x64. It starts owned loopback
 Node Inspector fixtures and verifies discovery and passive observation through
 the CLI and stdio MCP, including special filenames, unresolved discovery
 locations, and independently resolved loaded scripts. Double-quote filenames
@@ -1227,7 +1227,7 @@ already open, and exercises shared application/provider client inspection, unit 
 and method decompilation. The script records the engine's exact response to
 `open_jeb_project`; the earlier licensed 5.48.0 headless verification did not
 advertise that tool.
-REA does not install or launch JEB; see [JEB analysis](jeb-analysis.md) for
+Tekvro does not install or launch JEB; see [JEB analysis](jeb-analysis.md) for
 the bring-your-own boundary. The earlier licensed build was verified against JEB 5.48.0 serving
 `jeb-mcp-server` 1.3.0 at four scales: a compiled Java class fixture, a
 locally built signed probe APK with a launcher activity (manifest, v1/v2/v3
@@ -1240,7 +1240,7 @@ analyzed as native code (75k methods on arm64) and decompiled through both
 CLI and MCP with explicit unit selection, plus the thin Java wrapper and
 decoded manifest. The dedicated Dart snapshot processor and `run_script`
 remained GUI-only surfaces in that headless build.
-The separate [Linux CE native audit](https://github.com/morluto/rea/blob/42e1a17d6e6c0487f17be0bae248553c4caba7f7/experiments/analysis-efficiency/jeb-linux-native.md)
+The separate historical Linux CE native audit
 uses the official CE `5.48.0.202610071539` direct CLI launcher and real
 CLI/stdio MCP ELF workflows. That audit does not qualify CE Java/Android
 decompilation or GUI project opening, and it does not replace the licensed
@@ -1380,7 +1380,7 @@ with `REA_NATIVEAOT_PROOF_FIXTURE_ROOT`, and optional evidence capture directory
 with `REA_NATIVEAOT_PROOF_CAPTURE_DIR` (absolute paths).
 
 Keep builds/imports sequential on small hosts; scope `GHIDRA_HEADLESS_MAXMEM`
-(e.g. `768M`) to this command and use CPU affinity if needed. REA does not install
+(e.g. `768M`) to this command and use CPU affinity if needed. Tekvro does not install
 or upgrade Java, Ghidra, .NET or native toolchains. See
 [the supported layout and provenance](ghidra-nativeaot.md).
 
@@ -1397,7 +1397,7 @@ provides an optional small native fixture source with exported
 use `--second-procedure rea_fixture_subtract --second-marker='- 13'`.
 
 The lane invokes the production CLI dispatcher and connects the pinned MCP
-client SDK to the production REA server. It verifies function Evidence and
+client SDK to the production Tekvro server. It verifies function Evidence and
 CLI/MCP parity, inventory/search, pseudocode, instructions, xrefs, malformed
 input, original-input preservation, and lifecycle cleanup. The headless
 profile also checks containing procedures, the admitted program as the
@@ -1405,7 +1405,7 @@ document, address context, and feature tracing. For headless
 analysis it confirms that the owned database IDs disappear from upstream
 discovery and private workspaces are removed. For attached analysis it confirms
 the existing GUI target remains reachable with the same input identity.
-`--package-root` selects an installed/extracted REA artifact. `--report` writes
+`--package-root` selects an installed/extracted Tekvro artifact. `--report` writes
 private local observations with mode `0600`; the console summary contains no
 target paths or upstream output.
 
@@ -1426,7 +1426,7 @@ other engine versions and architectures remain unverified; see the
 
 Native IDA MCP verification uses `"protocol": "native"` with an already-running native plugin and requires `--second-procedure other_function --second-marker unique_second_body_text` to exercise GUI function switching and a return to the first function. These options remain optional for other profiles. The literal marker must appear in the second function's pseudocode and be absent from the first. Native cloud/widget failures are reported without hidden retries.
 
-The initial Linux x64 IDA Free 9.4 run used native MCP 1.1.2 with a local navigation correction. Windows x64 verification uses **IDA Pro 9.3**, the two-function public fixture, and the shipped Windows `whoami.exe` application. The native plugin was built from upstream `c9d15d98e8a143fc74f6e14037c48f63889b6d6c`, including the merged navigation fix, with a local loopback-listener change. Production CLI/MCP parity, switching, identity and cleanup passed. Correctness and performance measurements are recorded in the [Windows native verification notes](https://github.com/morluto/rea/blob/main/experiments/analysis-efficiency/ida-native-windows.md). Stock 1.1.2 switching, native macOS, and Windows IDA Free remain unverified. See the [native bridge prerequisites](ida-provider.md#optional-native-ida-mcp-bridge).
+The initial Linux x64 IDA Free 9.4 run used native MCP 1.1.2 with a local navigation correction. Windows x64 verification uses **IDA Pro 9.3**, the two-function public fixture, and the shipped Windows `whoami.exe` application. The native plugin was built from upstream `c9d15d98e8a143fc74f6e14037c48f63889b6d6c`, including the merged navigation fix, with a local loopback-listener change. Production CLI/MCP parity, switching, identity and cleanup passed. Correctness and performance measurements are recorded in the [Windows native verification notes](https://github.com/ForceMind/Tekvro/blob/main/experiments/analysis-efficiency/ida-native-windows.md). Stock 1.1.2 switching, native macOS, and Windows IDA Free remain unverified. See the [native bridge prerequisites](ida-provider.md#optional-native-ida-mcp-bridge).
 
 ## Kuna lane
 
@@ -1456,8 +1456,8 @@ arm64. It covered zlib 1.3.2 `minigzip`, coreutils 9.9 `sort` and the sqlite
 3.54.0 shell, built at `-O2` for ELF x86-64, ELF AArch64, Mach-O arm64 and
 Mach-O x86-64, each with symbols and stripped. A separate Linux x86-64 run verified
 the fixture and system zlib 1.2.13 / SQLite 3.40.1 libraries through MCP, including
-cached byte spans and a Ghidra comparison. See the [Linux report](https://github.com/morluto/rea/pull/3854#issuecomment-6185870391)
-for measured scope and limitations. Windows, PE and universal Mach-O remain
+cached byte spans and a Ghidra comparison. That historical run establishes only
+the stated scope. Windows, PE and universal Mach-O remain
 unverified by this lane.
 
 ## DOS Ghidra analysis
@@ -1970,7 +1970,7 @@ runs `observe-native-calls` through the CLI and stdio MCP. It checks:
 
 ### Firmware adapters
 
-Linux-owned provider launches require a procps-compatible `ps` on REA's `PATH`
+Linux-owned provider launches require a procps-compatible `ps` on Tekvro's `PATH`
 so ownership can be inspected before launching a child. A missing or incompatible
 command fails with an actionable capability error before the launch.
 
@@ -2034,7 +2034,7 @@ fixture compiler; static/unit checks do not acquire a browser. See
 the running Node engine's single-string limit. Shared input leaves keep the
 fixture's graph small; the verifier writes one temporary output file, checks its
 complete byte count and an independent digest, then removes it. It requires only
-Node and the built REA runtime, with space for the output plus a 1 GiB reserve.
+Node and the built Tekvro runtime, with space for the output plus a 1 GiB reserve.
 Run `npm run verify:javascript:output -- jsonl` for compact JSONL coverage. Its
 row collection must match independent row and final-metadata byte/digest goldens;
 its token count is checked against the actual file one line at a time, even when
@@ -2107,7 +2107,7 @@ missing/unsupported plugin errors. A historical-PID collision fixture references
 an owned live sentinel; inspection syscall traces reject process attach/memory
 access, provider lookups of that PID's `/proc` files and attempted Internet sockets. Traces admit
 the observed upstream startup helpers (`iconv -l`, the selected checkout's Git
-version lookup) and REA ownership inspection separately from target execution.
+version lookup) and Tekvro ownership inspection separately from target execution.
 This is fixture evidence, not a sandbox claim. Inputs remain unchanged and the
 sentinel must stay alive; owned cleanup and empty verifier descendants are required. Pass an
 installed package entrypoint as the script's first argument for package coverage.
@@ -2186,9 +2186,9 @@ uncertainty and a negative control rejecting claims of complete coverage.
 
 ## Frida instrumentation
 
-`npm run verify:frida` builds REA, spawns a short-lived local Node.js fixture,
+`npm run verify:frida` builds Tekvro, spawns a short-lived local Node.js fixture,
 loads a harmless marker script before resuming it, captures the message, and
-detaches. This lane requires Linux on the REA host and the optional Frida
+detaches. This lane requires Linux on the Tekvro host and the optional Frida
 binding; it does not need a Frida server or a caller-selected process. To run
 the separate remote attach lane, pass `-- --address HOST:PORT --pid PID` for an
 explicitly selected process. Optional remote flags are `--token`,
@@ -2218,7 +2218,7 @@ MCP connection after repeated runtime-removal denial. These are controlled
 faults, not naturally occurring permission failures; no WASM target is executed.
 Pass an installed package's
 `scripts/rea.mjs` as the first argument to run the same lane against the package.
-`npm run verify:wasm:package` packs and installs REA into an isolated temporary
+`npm run verify:wasm:package` packs and installs Tekvro into an isolated temporary
 prefix with lifecycle scripts disabled and runs the same required real-tool lane.
 It requires WABT configuration and makes no host tool installation.
 

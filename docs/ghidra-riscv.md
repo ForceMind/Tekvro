@@ -1,8 +1,7 @@
 # RISC-V ELF analysis through Ghidra
 
 This lane extends native ELF analysis for `EM_RISCV` targets. It does not
-execute RISC-V code, emulate a boot sequence, or rehost firmware. It addresses
-[#2063](https://github.com/morluto/rea/issues/2063) and follows the same
+execute RISC-V code, emulate a boot sequence, or rehost firmware. It follows the same
 lane shape as [generic MIPS support](ghidra-mips.md).
 
 ## Admission boundary
@@ -51,7 +50,7 @@ Ghidra's header-based selection is not reliable for RV32. The 12.1.4
 | RV32 ELF, `e_flags 0x5`, no Andes declaration   | `RISCV:LE:32:AndeStar_v5:gcc` |
 
 So an ordinary RV32 image lands on an Andes processor model unless the language
-is stated. REA therefore pins `RISCV:LE:32:default` or `RISCV:LE:64:default`
+is stated. Tekvro therefore pins `RISCV:LE:32:default` or `RISCV:LE:64:default`
 with the `gcc` compiler specification per class, records
 `language_selection: provider-pinned-v1`, and refuses a caller-selected
 `REA_GHIDRA_LANGUAGE_ID` or `REA_GHIDRA_COMPILER_SPEC_ID` that disagrees with the

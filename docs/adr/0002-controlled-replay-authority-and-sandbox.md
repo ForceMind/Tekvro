@@ -3,19 +3,19 @@
 - Status: Superseded; the controlled JavaScript replay tool was removed
 - Date: 2026-07-16
 - Implementation status: The implementation was removed. The design below is
-  retained as historical context and does not describe a supported REA tool.
+  retained as historical context and does not describe a supported Tekvro tool.
 
 > Historical design note: The tool, sandbox backend, and plan/execute workflow
-> described here are no longer part of REA. For runtime behavior, run probes
+> described here are no longer part of Tekvro. For runtime behavior, run probes
 > directly against the application and use the available browser, Electron, or
 > process capture workflows.
 
 ## Context
 
-REA can reconstruct JavaScript and Electron artifacts, observe an existing
+Tekvro can reconstruct JavaScript and Electron artifacts, observe an existing
 browser or Electron page through passive CDP, capture an explicitly approved
 process scenario, and correlate those observations without executing bundle
-code in the REA server. The next research workflow needs to execute selected,
+code in the Tekvro server. The next research workflow needs to execute selected,
 extracted JavaScript modules with controlled inputs and deterministic stubs so
 that parsers, sanitizers, serializers, and similar pure logic can be compared
 across versions.
@@ -43,7 +43,7 @@ Existing authorities cannot be widened to cover this behavior:
   from an approved process experiment. Reusing that epistemic authority is
   correct, but reusing the process permission capability is not.
 
-The implementation following this ADR must fail closed on hosts where REA
+The implementation following this ADR must fail closed on hosts where Tekvro
 cannot establish the promised operating-system boundary. It must not copy the
 research `vm.runInContext` scripts into the production server and call that
 isolation.
@@ -77,7 +77,7 @@ isolation.
   isolated environment with committed inputs and limits. This is an Evidence
   authority, not a claim that the real application behaved identically.
 - **Extracted-module replay**: the only admitted JavaScript replay mode in v1.
-  REA evaluates a finite manifest of module bytes and explicit stubs without
+  Tekvro evaluates a finite manifest of module bytes and explicit stubs without
   launching the application.
 - **Application interaction**: launching or driving the original application,
   browser, renderer, or Electron main process. This is not extracted-module
@@ -85,7 +85,7 @@ isolation.
 - **Replay plan**: the canonical, content-addressed description of one proposed
   run before execution.
 - **Replay worker**: the disposable Node.js process inside the OS sandbox. It
-  is never the REA server process.
+  is never the Tekvro server process.
 - **Sandbox backend**: the OS mechanisms and adapter that establish namespaces,
   resource controls, filesystem visibility, and owned cleanup.
 
@@ -95,7 +95,7 @@ isolation.
 
 The boundary protects:
 
-- the REA MCP/CLI process, its memory, credentials, sockets, and Evidence
+- the Tekvro MCP/CLI process, its memory, credentials, sockets, and Evidence
   ledger;
 - user files outside the approved source reads and all host files from writes;
 - other same-user processes and their control interfaces;
@@ -109,7 +109,7 @@ The boundary protects:
 
 ### Adversaries and failure sources
 
-REA treats all of the following as untrusted:
+Tekvro treats all of the following as untrusted:
 
 - recovered module source, including transitive modules and source maps;
 - caller-provided JavaScript stubs;
@@ -120,11 +120,11 @@ REA treats all of the following as untrusted:
 - a worker that crashes, hangs, forks, allocates aggressively, or exits while
   descendants remain alive.
 
-An operator-controlled sandbox executable, kernel, Node.js runtime, and REA
+An operator-controlled sandbox executable, kernel, Node.js runtime, and Tekvro
 installation are trusted computing base. A hostile host administrator, kernel
 or sandbox vulnerability, hardware side channel, and denial of service by an
 already-compromised same-user process are out of scope. These exclusions do not
-permit REA to omit the per-run resource controls in this decision.
+permit Tekvro to omit the per-run resource controls in this decision.
 
 ### Required mitigations
 
@@ -195,7 +195,7 @@ Source maps may supply locations, but source-map source code is not executed
 unless its bytes are separately present in the approved manifest. A source-map
 name or Webpack module ordinal is never execution authority.
 
-REA does not launch, attach to, navigate, click, type into, or terminate the
+Tekvro does not launch, attach to, navigate, click, type into, or terminate the
 user's application under this capability. A full application process remains
 an independently approved Process Capture experiment; browser and Electron
 targets remain passive. Any future mode that drives an application or permits
@@ -231,7 +231,7 @@ The plan must disclose at least:
   projection; and
 - expected Evidence and cleanup behavior.
 
-Execution requires the exact `plan_digest`. REA
+Execution requires the exact `plan_digest`. Tekvro
 rebuilds the plan immediately before admission. Any changed file, runtime,
 sandbox executable, policy, stub, input, limit, or environment commitment
 returns `plan_stale` before application code starts. Approval is not transferable
@@ -262,7 +262,7 @@ The first production backend is Linux-only. It must combine:
   the `TIOCSTI` terminal injection path;
 - cgroup v2 `memory.max`, `memory.swap.max=0`, `pids.max`, and bounded CPU
   controls owned for the one run; and
-- an outer REA supervisor that can kill the complete cgroup and verify it is
+- an outer Tekvro supervisor that can kill the complete cgroup and verify it is
   empty.
 
 The seccomp program is passed by descriptor, has a version and digest committed
@@ -272,11 +272,11 @@ kernel surface; it is not described as a complete sandbox by itself.
 
 The reference backend for the implementation PR is Bubblewrap for namespace,
 mount, and seccomp construction plus a delegated cgroup v2 manager for resource
-enforcement. REA must feature-probe the actual required operations; version
+enforcement. Tekvro must feature-probe the actual required operations; version
 text alone is insufficient. A setuid Bubblewrap installation, a backend that
 silently skips a requested namespace or filter, unavailable user namespaces,
 missing cgroup delegation, or inability to prove cleanup makes the capability
-unavailable. REA setup must not install or upgrade Bubblewrap, systemd, Node.js,
+unavailable. Tekvro setup must not install or upgrade Bubblewrap, systemd, Node.js,
 or kernel components.
 
 macOS, Windows, Linux hosts without every required feature, containers that
@@ -302,7 +302,7 @@ selected stubs. It does not expose `process`, `require`, host `console`, timers,
 `fetch`, sockets, filesystem APIs, `Buffer`, worker APIs, native bindings, or
 ambient environment variables. Date/time, randomness, locale, timezone, and
 platform values come only from committed deterministic providers. An
-unsupported global or import produces an observed exception; REA does not
+unsupported global or import produces an observed exception; Tekvro does not
 substitute a convenient host implementation.
 
 Caller-provided stubs are executable untrusted code and receive the same
@@ -344,7 +344,7 @@ A run that reaches worker admission produces Evidence with:
 - operation `run_controlled_replay`;
 - authority `controlled-replay`;
 - confidence `observed` for the exact returned value, thrown exception,
-  sandbox denial, limit termination, signal, exit, or crash that REA directly
+  sandbox denial, limit termination, signal, exit, or crash that Tekvro directly
   observed;
 - environment isolation `container`, the host platform/architecture, runtime
   identity, sandbox-backend identity, and sandbox-policy digest;
@@ -379,7 +379,7 @@ promoted into one another.
 ### 8. Treat post-admission failures as observations
 
 Pre-admission failures return a typed error and create no claim that module code
-ran. Once the worker is admitted, REA retains a bounded execution record even
+ran. Once the worker is admitted, Tekvro retains a bounded execution record even
 when the requested function does not return normally.
 
 | Condition                                        | Caller result and Evidence semantics                                                                       |
@@ -402,7 +402,7 @@ evidence that the module crashed. A timeout is not evidence that the function
 would never return. An output limit is not evidence that the truncated prefix
 equals the full result. These distinctions are part of the public contract.
 
-Cancellation and cleanup must be idempotent. REA first stops admission and
+Cancellation and cleanup must be idempotent. Tekvro first stops admission and
 input, kills the owned cgroup, waits for an empty-cgroup observation, removes
 the private runtime root, closes protocol descriptors, and releases timers.
 Failure at one cleanup step does not skip the remaining steps.
@@ -457,7 +457,7 @@ The implementation PR cannot merge until all of the following are true:
    plan-digest stale check.
 3. No replay-disabled static, browser, Electron, session, setup, doctor, or
    application workflow can reach module execution.
-4. The worker never imports into the REA server process and no adapter offers a
+4. The worker never imports into the Tekvro server process and no adapter offers a
    `vm`-only fallback.
 5. The Linux backend feature-probes namespaces, seccomp installation and
    denial, delegated cgroup v2 limits, and the exact admitted architecture.

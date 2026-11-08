@@ -1,17 +1,17 @@
 # Client configuration and troubleshooting
 
 Use this reference when a client's configuration paths, profiles, trust settings,
-or schema limits affect REA. Start with [installation and setup](installation.md)
+or schema limits affect Tekvro. Start with [installation and setup](installation.md)
 for the reviewed setup transaction and [client IDs](installation.md#supported-agents).
 The versioned verification notes below describe their stated runs; live service
 acceptance is verified only where explicitly recorded.
 
 ## Runtime settings and client deadlines
 
-`update_analysis_settings` changes curated defaults inside the running REA
+`update_analysis_settings` changes curated defaults inside the running Tekvro
 server. It does not edit the client registration, extend the client's tool-call
 deadline, or recompute timeout values previously derived by `rea setup`. When
-raising a REA startup or operation deadline, separately ensure the client allows
+raising a Tekvro startup or operation deadline, separately ensure the client allows
 enough time for the full request. Use `inspect_analysis_settings` for the running
 server's defaults; `rea doctor` checks launch configuration and cannot observe
 another process's runtime overrides. See the
@@ -19,38 +19,37 @@ another process's runtime overrides. See the
 
 ## Client tool names and discovery
 
-REA advertises canonical names such as `binary_session`. The MCP host decides
+Tekvro advertises canonical names such as `binary_session`. The MCP host decides
 how to expose them to its model: a name such as `mcp__rea__binary_session` is a
-client convention, not a prefix REA can enforce. Use the active client's tool
+client convention, not a prefix Tekvro can enforce. Use the active client's tool
 listing and server association to find the operation. A valid registration or
 installed skill does not prove that those tools reached the model. Doctor reports
 live-server identity as unknown; query `binary_session` through the active client
 to observe the running server's identity.
 
 If a client or fork exposes several servers under the same prefix, a wildcard
-for that prefix does not isolate REA permissions. Inspect that client's actual
-tool names and approval rules before selecting a permission scope. REA setup
+for that prefix does not isolate Tekvro permissions. Inspect that client's actual
+tool names and approval rules before selecting a permission scope. Tekvro setup
 does not repair a client's naming behavior or infer permission drift from an
-unfamiliar prefix. The unavailable fork reported in
-[#5512](https://github.com/morluto/rea/issues/5512) has not been reverified.
+unfamiliar prefix. Unverified client forks remain outside this configuration guarantee.
 
-## Fiddler Everywhere alongside REA
+## Fiddler Everywhere alongside Tekvro {#fiddler-everywhere-alongside-rea}
 
 Connect Fiddler Everywhere's MCP server separately for HTTP traffic debugging,
-preserving your REA client entry. See the
+preserving your Tekvro client entry. See the
 [setup instructions and public skills](web-network-captures.md#fiddler-everywhere-mcp-and-public-skills).
 
 ## GitHub Copilot CLI
 
-Setup preserves an existing `tools` selection in the REA registration, including
+Setup preserves an existing `tools` selection in the Tekvro registration, including
 an empty list. New registrations default to `["*"]`. A restricted selection is
-aligned configuration; doctor does not widen it to expose every REA tool. See
+aligned configuration; doctor does not widen it to expose every Tekvro tool. See
 [Copilot's MCP configuration](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-mcp-servers)
 for tool-selection settings.
 
 For GitHub Copilot CLI 1.0.95, `gpt-4.1` model metadata can block ordinary
-chat with REA's full input-schema profile before sending a model request
-(`compaction_static_context_blocked`; [#1554](https://github.com/morluto/rea/issues/1554)).
+chat with Tekvro's full input-schema profile before sending a model request
+(`compaction_static_context_blocked`).
 For the native offline OpenAI-compatible BYOK adapter, full-profile chat and
 analysis also passed with a distinct `COPILOT_PROVIDER_MODEL_ID` such as
 `rea-gpt-4.1`, `COPILOT_PROVIDER_WIRE_MODEL=gpt-4.1`, and that distinct ID selected
@@ -63,7 +62,7 @@ tool inventory on Linux using a loopback model fixture. After setup, add
 `"REA_MCP_INPUT_SCHEMA_PROFILE": "compact"` to the `env` object of the
 `mcpServers.rea` entry in Copilot's `mcp-config.json`, preserving its other
 settings, then restart the client. Compact advertisements can reduce nested
-schema constraints; REA still validates complete canonical inputs. Full-profile
+schema constraints; Tekvro still validates complete canonical inputs. Full-profile
 `gpt-5.4` metadata is also verified locally. Live model API acceptance and
 Windows remain unverified; see [native client verification](testing.md).
 
@@ -87,15 +86,15 @@ in the file the installed app reads:
   private copy.
 - If `%LOCALAPPDATA%\Packages` holds a `Claude_<publisher ID>` package from
   another publisher, an `AnthropicPBC.Claude_<publisher ID>` package, or cannot
-  be read, REA cannot establish which file Claude
+  be read, Tekvro cannot establish which file Claude
   Desktop reads. Setup, doctor and uninstall report that instead of falling
   back to `%APPDATA%`. Doctor then reports `claude_desktop` as invalid, and
   uninstall stops before removing anything for any client.
   The reported `AnthropicPBC.Claude_fnn82j28hfe8t` build can use the `Claude-3p`
-  deployment directory. REA recognizes that package as an unresolved location;
+  deployment directory. Tekvro recognizes that package as an unresolved location;
   it does not assume that it reads the legacy AppData file or automatically
-  register in `Claude-3p`. See [#4432](https://github.com/morluto/rea/issues/4432)
-  for the reported build and manual registration evidence.
+  register in `Claude-3p`. A manually verified registration is required for that
+  deployment layout.
 
 Quit Claude Desktop fully before approving setup; closing its window is not
 enough. A running Claude Desktop can rewrite its configuration from memory and
@@ -115,7 +114,7 @@ view, the app is running, so setup and uninstall refuse to change Claude
 Desktop's configuration; rerun them from a terminal that Claude Desktop did not
 start. If the package keeps no private roaming file at all, setup and
 uninstall cannot rule that out and also refuse. With Claude Desktop fully
-quit, add REA's entry by hand to the file setup names, which is the one the
+quit, add Tekvro's entry by hand to the file setup names, which is the one the
 app reads, or remove it from both the private copy and the `%APPDATA%` file.
 Doctor reads the same file from either kind of process.
 
@@ -126,12 +125,12 @@ clients' files there (VS Code, Trae, Devin and Hermes) and skill directories
 there. `npm install -g` run from such a process installs into the package's
 `LocalCache\Roaming\npm`, which other processes cannot see at the `%APPDATA%`
 path. Setup refuses to register a launcher stored in any MSIX package's
-private storage. Install REA from an ordinary terminal and rerun setup there.
+private storage. Install Tekvro from an ordinary terminal and rerun setup there.
 
-Uninstall removes REA's entry from both the private copy and the `%APPDATA%`
+Uninstall removes Tekvro's entry from both the private copy and the `%APPDATA%`
 file, including registrations that earlier releases wrote to `%APPDATA%`.
 
-REA recognizes only the MSIX package. A non-MSIX Claude Desktop installed
+Tekvro recognizes only the MSIX package. A non-MSIX Claude Desktop installed
 beside it, which would read the `%APPDATA%` file, is not detected.
 
 The package identity, both file locations, the redirected view, and these
@@ -140,7 +139,7 @@ setup and doctor results were observed on Windows 11 with the MSIX build
 and outside the app. On that host, setup run from an ordinary terminal with
 the app quit wrote the package-private copy; after the app restarted, the
 entry was still present, doctor reported it aligned, and Claude Desktop's MCP
-log showed REA starting and answering `tools/list`. Uninstall against the real
+log showed Tekvro starting and answering `tools/list`. Uninstall against the real
 app is unverified.
 
 ## Claude Code
@@ -148,10 +147,9 @@ app is unverified.
 Claude Code normally defers MCP tool definitions through tool search. It
 [turns tool search off](https://code.claude.com/docs/en/mcp#configure-tool-search)
 when `ANTHROPIC_BASE_URL` points to a non-first-party host, such as DeepSeek's
-Anthropic-compatible endpoint. It then sends every REA tool's name, description
-and input schema with every request
-([#2019](https://github.com/morluto/rea/issues/2019)). On main at 04089d5be,
-with 172 tools, that payload measured about 496 KB with the default profile and
+Anthropic-compatible endpoint. It then sends every Tekvro tool's name, description
+and input schema with every request. A historical 172-tool catalog measurement
+found a payload of about 496 KB with the default profile and
 about 290 KB with `compact`. By the o200k and cl100k tokenizers, that is roughly
 120k and 68k tokens. Compaction cannot remove tool definitions. If they nearly
 fill the window Claude Code assumes, the context refills after every compaction
@@ -171,12 +169,12 @@ and Claude Code reports that autocompact is thrashing. To avoid this:
   when that variable is set), then restart Claude Code. Setup keeps this
   override.
 
-The sizes above come from REA's own `tools/list`. A live Claude Code session
+The sizes above come from Tekvro's own `tools/list`. A live Claude Code session
 against DeepSeek's API is unverified.
 
 For a client whose stdio reader rejects the complete catalog frame, add
-`"REA_MCP_OUTPUT_SCHEMA_PROFILE": "off"` to REA's `env` object and restart the
-client. This omits only advertised output schemas; REA still validates complete
+`"REA_MCP_OUTPUT_SCHEMA_PROFILE": "off"` to Tekvro's `env` object and restart the
+client. This omits only advertised output schemas; Tekvro still validates complete
 structured results against its canonical contracts. See [MCP output schema
 profiles](mcp-contracts.md#output-schemas).
 
@@ -187,7 +185,7 @@ Setup registers `rea` in `~/.kimi-code/mcp.json`, or
 creating a `.rea.backup` before updating an existing file. Kimi Code infers
 stdio from the `command` entry, so setup does not add a `type` field. New
 registrations include `startupTimeoutMs = 30000` and a `toolTimeoutMs` derived
-from REA's known provider allowance plus 120 seconds of operation
+from Tekvro's known provider allowance plus 120 seconds of operation
 headroom. The default is 450000 ms, covering the default 330-second Ghidra
 startup; an explicit Ghidra startup timeout of 2700000 ms produces a 2820000 ms
 tool timeout. The startup allowance follows an explicitly selected Ghidra or
@@ -203,7 +201,7 @@ for the intended workload, split `batch_decompile`, use `decompile_all`
 limit/resume, or reduce `trace_native_values` `max_functions`. The trace can
 decompile several functions serially; its depth and graph budgets do not
 make the single-decompile allowance a whole-traversal deadline. Existing positive caller deadlines are preserved.
-Setup forwards these explicitly selected REA deadlines and the input schema
+Setup forwards these explicitly selected Tekvro deadlines and the input schema
 profile into the registration; unrelated process values are omitted. An
 explicit `REA_JADX_OPERATION_TIMEOUT_MS` is forwarded with the JADX
 registration but does not contribute to the derived tool timeout; raise
@@ -215,7 +213,7 @@ caller-selected values aligned and reports a non-blocking advisory when a tool
 timeout is shorter than the known provider allowance.
 Setup selects the compact input-schema advertisement for new or refreshed Kimi
 registrations unless their stored configuration or setup environment explicitly
-selects `REA_MCP_INPUT_SCHEMA_PROFILE=full` or `compact`. This keeps REA's
+selects `REA_MCP_INPUT_SCHEMA_PROFILE=full` or `compact`. This keeps Tekvro's
 canonical tool validation unchanged while avoiding a Moonshot Kimi Code 2.2.0
 failure observed with the full catalog: its request was rejected because a
 single tool schema exceeded the provider's size limit. The limit is
@@ -246,13 +244,13 @@ Setup follows Pi's `PI_CODING_AGENT_DIR`: unset or empty selects the default;
 `~` and `~/` expand to the home directory; absolute paths and file URLs select
 that directory; relative paths stay relative to the command's working directory.
 On Windows, native paths, `~\`, and Git Bash/MSYS, Cygwin, and WSL drive paths
-are normalized as Pi does. Run REA and Pi from the same working directory when
+are normalized as Pi does. Run Tekvro and Pi from the same working directory when
 using a relative override. Pi has no profiles: `OMP_PROFILE`, `PI_PROFILE`,
 `PI_CONFIG_DIR`, and OMP's `enabledServers`/`disabledServers` lists do not affect
 Pi registration. Doctor accepts an omitted `type` for stdio but reports a
 non-stdio type as invalid; `enabled: false` stays disabled.
 
-REA configures only the user scope. Pi also reads `.pi/mcp.json` in trusted
+Tekvro configures only the user scope. Pi also reads `.pi/mcp.json` in trusted
 projects; a same-name project entry can replace the user entry or override its
 enabled state and exposure. Check that file if the user registration is aligned
 but unavailable in a project. An extension that registers `/mcp` can replace
@@ -293,18 +291,18 @@ standalone CLI check.
 
 A model API's `400 INVALID_ARGUMENT` alone does not identify a rejected schema,
 tool-count limit or skill defect. Preserve the response's parameter path and
-diagnostic, the actual running REA version, Gemini CLI version and selected
+diagnostic, the actual running Tekvro version, Gemini CLI version and selected
 model. For schema rejection, review the [input presentation profiles](mcp-contracts.md#compact-input-schema-profile)
-and reconnect after changing REA's registration environment. Compact is the
+and reconnect after changing Tekvro's registration environment. Compact is the
 current default; an explicitly stored `full` choice is preserved. The generic
-error in [#4620](https://github.com/morluto/rea/issues/4620) does not establish
+error alone does not establish
 which constraint failed, and local schema checks do not prove live API acceptance.
 
 ## Codex and Devin
 
-REA manages its launcher and selected provider settings in the client
+Tekvro manages its launcher and selected provider settings in the client
 registration. Codex's server and per-tool approval policies are user choices.
-Setup patches REA's connection fields in the selected file and retains other
+Setup patches Tekvro's connection fields in the selected file and retains other
 server settings, including `default_tools_approval_mode`, nested
 `[mcp_servers.rea.tools.<name>]` tables, tool allow/deny lists, and unrecognized
 client settings. Doctor accepts Codex's per-tool policy tables. Known malformed
@@ -316,46 +314,46 @@ for the supported policy values.
 When direct launcher paths prove the same executable or Node entrypoint,
 setup retains the existing caller-selected spelling. An otherwise aligned
 registration therefore needs no rewrite or recovery backup merely because
-REA was invoked through another symlink. Setup also retains that spelling when
+Tekvro was invoked through another symlink. Setup also retains that spelling when
 another field, such as an invalid timeout, needs repair. Unresolved identity
 does not prove equivalence.
 
-| Settings                                    | Setup ownership                                                                         |
-| ------------------------------------------- | --------------------------------------------------------------------------------------- |
-| Launcher, transport and activation          | Refreshes the REA stdio connection and enables it.                                      |
-| Explicit server environment                 | Preserves configured overrides and merges selected provider settings.                   |
-| Codex timeouts                              | Retains positive values; repairs missing or invalid values to recommended REA defaults. |
-| Codex approval policies and tool selections | Retains caller choices; refuses known malformed values.                                 |
-| Unrelated or future server settings         | Retains their parsed values.                                                            |
+| Settings                                    | Setup ownership                                                                            |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Launcher, transport and activation          | Refreshes the Tekvro stdio connection and enables it.                                      |
+| Explicit server environment                 | Preserves configured overrides and merges selected provider settings.                      |
+| Codex timeouts                              | Retains positive values; repairs missing or invalid values to recommended Tekvro defaults. |
+| Codex approval policies and tool selections | Retains caller choices; refuses known malformed values.                                    |
+| Unrelated or future server settings         | Retains their parsed values.                                                               |
 
 Dry-run applies the same policy validation and writes no files. A successful
 refresh keeps an exact recovery snapshot of the original configuration;
 repeating setup with the same settings performs no write. Uninstall removes
-the owned REA entry, including its policy, while retaining other servers and
+the owned Tekvro entry, including its policy, while retaining other servers and
 the recovery snapshot. A green registration check establishes known
 configuration alignment; it does not prove that a particular client or fork
-successfully exposes every REA tool.
+successfully exposes every Tekvro tool.
 
 Codex treats an unset or empty `CODEX_HOME` as `~/.codex`. Its MCP server
 registration supports `startup_timeout_sec` for connection initialization and
-`tool_timeout_sec` for each tool call. New REA registrations use a 30-second
+`tool_timeout_sec` for each tool call. New Tekvro registrations use a 30-second
 startup timeout and a tool timeout derived from the known provider
 allowance plus 120 seconds of operation headroom. This yields 450 seconds for
 the default Ghidra allowance; an explicit Ghidra startup timeout of 2700
 seconds yields 2820 seconds. That 30-second Codex figure is client guidance.
-REA's own phase budgets are `REA_MCP_INITIALIZE_BUDGET_MS` (default 15000),
+Tekvro's own phase budgets are `REA_MCP_INITIALIZE_BUDGET_MS` (default 15000),
 `REA_MCP_TOOLS_LIST_BUDGET_MS` (default 5000),
 `REA_MCP_FIRST_CATALOG_BUDGET_MS` (default 20000), and
 `REA_MCP_DOCTOR_DEADLINE_MS` (default 30000). Each is a positive decimal
 integer of milliseconds from 1 to 2147483647. Unset keeps the default.
 Invalid values fail configuration and name the setting. Setup copies a
 caller-selected value into the registration, and a change is read from the
-environment that starts REA, so it needs a restart. Doctor and packaged
+environment that starts Tekvro, so it needs a restart. Doctor and packaged
 startup probes name the effective milliseconds, whether they came from the
-default or the setting, the default, the floor, and the maximum. REA does
+default or the setting, the default, the floor, and the maximum. Tekvro does
 not enforce Codex's 30 seconds as the doctor deadline. The 120000 ms
 tool-operation headroom and the 64 KiB doctor stderr cap stay fixed. Setup preserves positive caller-selected timeout
-values in the REA entry, and doctor reports a non-blocking advisory when a tool
+values in the Tekvro entry, and doctor reports a non-blocking advisory when a tool
 timeout is shorter than the known provider allowance. An explicitly selected
 JEB request budget also contributes to the allowance, and an explicit
 `REA_GHIDRA_DECOMPILE_TIMEOUT_SECONDS` is added to the Ghidra startup
@@ -370,18 +368,18 @@ workload needs more time. Devin honors `XDG_CONFIG_HOME` for its
 
 ### Codex with Moonshot or Kimi models
 
-An older REA input containing acyclic local references was rejected by a
+An older Tekvro input containing acyclic local references was rejected by a
 Responses-compatible Kimi gateway as “infinite recursion”; expanding those
 references succeeded. A separate full-profile input failed the provider's
 schema-size limit. These are distinct reported failures, not proof that the
-canonical schema is recursive. Current REA inputs are already self-contained;
+canonical schema is recursive. Current Tekvro inputs are already self-contained;
 see [schema advertisement](mcp-contracts.md#schema-advertisement).
 
-For this failure, inspect the active MCP launch command and refresh the REA
+For this failure, inspect the active MCP launch command and refresh the Tekvro
 installation that command actually runs. A configured package selector or the
 installed skill version alone does not identify a cached or still-running
 server. Follow [installation and update guidance](installation.md#diagnose-update-and-remove).
-Then merge this setting into the REA entry in `$CODEX_HOME/config.toml`
+Then merge this setting into the Tekvro entry in `$CODEX_HOME/config.toml`
 (`~/.codex/config.toml` by default), preserving its launcher and other settings:
 
 ```toml
@@ -390,10 +388,10 @@ REA_MCP_INPUT_SCHEMA_PROFILE = "compact"
 ```
 
 If that table already exists, add or update the key there. Restart/reconnect
-Codex so REA reads the new environment. Compact is now REA's default, but an
+Codex so Tekvro reads the new environment. Compact is now Tekvro's default, but an
 explicit `full` override remains effective until changed. It preserves the
 tool inventory and canonical server validation while reducing advertised input
-detail. The probes in [#5160](https://github.com/morluto/rea/issues/5160) covered
+detail. Earlier gateway probes covered
 individual tools through one gateway, not the entire current catalog or a
 model-driven analysis workflow.
 
@@ -409,7 +407,7 @@ uses `<configuration-root>/profiles/<name>/agent/mcp.json` and ignores
 `rea` from that file's `disabledServers` list, which would otherwise hide the
 registration. Doctor treats an `enabled: false` entry as active when
 `enabledServers` lists `rea`, as OMP does, unless `disabledServers` also lists
-it. Run setup under each profile that should load REA.
+it. Run setup under each profile that should load Tekvro.
 
 ## Hermes
 
@@ -429,7 +427,7 @@ successful empty installation. Overrides nested beneath the native Hermes home
 use that native home's sticky selection and profile root together, matching
 [Hermes's root rules](https://github.com/NousResearch/hermes-agent/blob/748c79a1c6873124d84071cdabb4062a75913e1f/hermes_constants.py#L83).
 Repair the profile or run `hermes profile use default` before retrying.
-REA follows `HERMES_HOME` whitespace trimming, environment-variable expansion,
+Tekvro follows `HERMES_HOME` whitespace trimming, environment-variable expansion,
 and home expansion before resolving that profile. Setup previews the resolved
 configuration and skill destinations; doctor and uninstall use those same paths.
 
@@ -477,7 +475,7 @@ setup installs its skill copy there.
 The global MCP path is a plain JSON file; setup preserves every other server
 and top-level key when it upserts `rea`. WorkBuddy also reads a project-level
 `<project>/.workbuddy/mcp.json`, which setup does not touch: it registers the
-user-level file only. Loading this registration and real REA tool calls
+user-level file only. Loading this registration and real Tekvro tool calls
 through WorkBuddy are verified.
 
 ## ZCode
@@ -492,10 +490,10 @@ ZCode reads the user-scope `~/.agents/mcp.json` fallback only while the native
 `.zcode` config defines no servers at all, with no merging. When setup writes
 the first native server into an empty table, it copies the fallback's
 `mcpServers` entries into the native table so they keep loading, and leaves
-the fallback file untouched. Existing REA environment overrides are preserved
+the fallback file untouched. Existing Tekvro environment overrides are preserved
 when refreshing its command. A malformed or unreadable fallback file fails setup instead of
 being silently suppressed; repair or remove it and rerun. Uninstall removes an
-REA-owned `rea` entry from both the native table and the fallback, backing up
+Tekvro-owned `rea` entry from both the native table and the fallback, backing up
 each changed file, so an emptied native table cannot load a leftover fallback
 registration; other fallback servers, settings and a foreign `rea` entry are
 kept. ZCode disables a
@@ -514,11 +512,11 @@ file doubles as ZCode's user-scope fallback (see above), a `freebuff`
 registration is also in the file ZCode uses until ZCode defines its own native server.
 Setup and doctor detect FreeBuff from its own profile directory
 (`~/.config/freebuff-desktop`), not from the shared `.agents` folder that
-REA's skill installs create for every client.
+Tekvro's skill installs create for every client.
 
 The configuration write and personal skill locations are proposed integration
 boundaries. FreeBuff MCP loading and skill discovery have not been verified
-with an installed native FreeBuff client/version; filesystem tests cover REA's
+with an installed native FreeBuff client/version; filesystem tests cover Tekvro's
 editing, discovery, and ownership behavior only. Automatic applicability
 requires the FreeBuff profile directory even when the shared MCP file exists.
 
@@ -530,7 +528,7 @@ client until a release containing it is published.
 
 DeepSeek Harness registers MCP clients through a Cordis YAML patch sequence
 rather than a `mcpServers` object. `rea setup --client dsh` appends (or
-replaces) the REA entry in the home patch `$DSH_HOME/cordis.patch.yml`
+replaces) the Tekvro entry in the home patch `$DSH_HOME/cordis.patch.yml`
 (`~/.dsh/cordis.patch.yml` when `DSH_HOME` is unset), preserving unrelated
 patches and comments. `rea doctor --client dsh` checks that same entry id.
 `rea uninstall` removes it by scanning supported clients; uninstall takes no
@@ -542,7 +540,7 @@ does: unset, empty or whitespace-only values use `~/.dsh` and `~/.agents`,
 respectively. Bare `~`, `~/` and `~\` expand to the user home; other relative
 values resolve against the command's working directory. Nonblank values retain
 their original spaces, and the agents root is independent of the Harness home.
-Run REA and Harness from the same working directory when using relative overrides.
+Run Tekvro and Harness from the same working directory when using relative overrides.
 The written entry is:
 
 ```yaml
@@ -558,7 +556,7 @@ The written entry is:
 
 Setup preserves caller-owned Cordis expressions and replaces launcher fields
 with literal values that doctor can verify. It refuses to edit an expression
-that produces the entire REA config, or a group-targeted REA insertion. Use a
+that produces the entire Tekvro config, or a group-targeted Tekvro insertion. Use a
 literal config and a root-level insertion as shown above.
 
 For a global npm installation, the launcher is under
@@ -569,7 +567,7 @@ in `~/.agents/skills` (`$DSH_AGENTS_HOME/skills` when configured); Harness
 discovers that directory, and its native `skill` tool can load
 `reverse-engineer-anything`.
 
-REA's optional [native client verification](testing.md#end-to-end-integration-and-golden-evidence)
+Tekvro's optional [native client verification](testing.md#end-to-end-integration-and-golden-evidence)
 checks headless chat, skill loading, all tool input schemas and actual analysis
 using the installed Harness and a local model fixture. This establishes the
 Harness integration, with live DeepSeek API compatibility remaining unverified.
@@ -580,12 +578,12 @@ for its native configuration contract.
 
 For OpenCode, setup writes the V1 `mcp.rea` entry, which OpenCode V1 and V2
 both load. If the configuration already uses OpenCode V2's native
-`mcp.servers` table, setup registers REA there instead and replaces any earlier
-`mcp.rea` entry from REA. Setup honors `OPENCODE_CONFIG_DIR` and
+`mcp.servers` table, setup registers Tekvro there instead and replaces any earlier
+`mcp.rea` entry from Tekvro. Setup honors `OPENCODE_CONFIG_DIR` and
 `OPENCODE_CONFIG`, preferring the later-loaded JSONC file when both JSON and
 JSONC exist. The ordinary XDG global configuration still participates when a
 custom directory is selected. Doctor checks the merged user registration; uninstall removes
-REA-owned entries from every applicable user file so an older entry cannot
+Tekvro-owned entries from every applicable user file so an older entry cannot
 become active again. Malformed applicable files block setup before changes.
 
 Grok Build loads `[mcp_servers.rea]` from `$GROK_HOME/config.toml`, or from
@@ -620,16 +618,16 @@ reports this manual step. `rea uninstall` does not remove the account connector.
 ## Skill selection and maintenance
 
 OpenCode's selected configuration layers determine the registration dialect.
-If any loaded layer uses native `mcp.servers`, setup writes a native REA entry
+If any loaded layer uses native `mcp.servers`, setup writes a native Tekvro entry
 in the selected upper file even when that file is absent or has no MCP table.
 Legacy activation is normalized before layer merging, so an explicit enable
 can override an inherited disable. Lower files and other server entries remain
 unchanged; a legacy server named `servers` that conflicts with the native table
 requires manual repair before setup can write.
 
-When Hermes aliases refer to an anchored REA entry, refreshing or removing REA
+When Hermes aliases refer to an anchored Tekvro entry, refreshing or removing Tekvro
 retains the aliases' original resolved values. Setup does not redirect another
-server's alias to REA's new launcher or policy.
+server's alias to Tekvro's new launcher or policy.
 
 With no client selected, the interactive skill choice targets the shared
 `~/.agents/skills` copy. Selecting a client targets its personal destination
@@ -640,7 +638,7 @@ Doctor retains each selected stale or missing path and names the matching
 repair command; a current copy elsewhere does not establish freshness.
 
 Unresolved profile or directory selections remain diagnostics and never become
-write targets. Update maintenance considers only known enabled, owned REA
+write targets. Update maintenance considers only known enabled, owned Tekvro
 registrations and owned skills. If identity or a selected skill root is
 unresolved, it reports maintenance as unavailable with the known scope and
 remaining diagnostics. An empty writable scope alone does not prove current.
@@ -654,7 +652,7 @@ membership before retrying.
 
 For an installed POSIX CLI, setup prefers an executable absolute `rea` alias
 from its selected `PATH` when filesystem identity proves that it names the
-running REA entrypoint. This keeps package-manager aliases intact instead of
+running Tekvro entrypoint. This keeps package-manager aliases intact instead of
 persisting an internal versioned script path. Unresolved aliases and wrappers
 that are different files do not establish that proof; setup retains its selected
 entrypoint. A manager-specific upgrade remains subject to that manager's alias

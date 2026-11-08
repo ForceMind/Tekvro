@@ -45,9 +45,11 @@ describe("release configuration", () => {
   });
 
   it.each(versionedDocumentation)(
-    "documents a local source MCP entrypoint without an upstream npm launcher in %s",
+    "documents installed and source MCP entrypoints without a registry launcher in %s",
     async (path) => {
       const content = await readFile(path, "utf8");
+      expect(content).toContain('"command": "/absolute/path/to/tekvro"');
+      expect(content).toContain('"args": ["mcp"]');
       expect(content).toContain('"command": "/absolute/path/to/node"');
       expect(content).toContain(
         '"/absolute/path/to/Tekvro/scripts/rea.mjs", "mcp"',
@@ -56,6 +58,39 @@ describe("release configuration", () => {
       expect(content).toContain("io.github.forcemind/tekvro");
     },
   );
+
+  it("uses an explicit GitHub-only request and documents the complete release set", async () => {
+    const packageJson = (await readJson("package.json")) as {
+      version: string;
+    };
+    const notes = `docs/releases/v${packageJson.version}.md`;
+    const release = (await readJson("release.json")) as { publish: boolean };
+    expect(release).toMatchObject({
+      schemaVersion: 1,
+      product: "tekvro",
+      version: packageJson.version,
+      tag: `v${packageJson.version}`,
+      channel: "github",
+      notes,
+    });
+    expect(typeof release.publish).toBe("boolean");
+    const documents = await Promise.all([
+      readFile("docs/zh-CN/distribution.md", "utf8"),
+      readFile("docs/releasing.md", "utf8"),
+      readFile(notes, "utf8"),
+    ]);
+    for (const content of documents) {
+      for (const name of [
+        `tekvro-${packageJson.version}.tgz`,
+        `tekvro-${packageJson.version}-source.tar.gz`,
+        "SHA256SUMS",
+        "release-manifest.json",
+      ]) {
+        expect(content).toContain(name);
+      }
+      expect(content).toContain("private: true");
+    }
+  });
 
   it("keeps the release baseline, lockfile, and changelog aligned with the package version", async () => {
     const packageJson = (await readJson("package.json")) as {
@@ -72,7 +107,7 @@ describe("release configuration", () => {
     expect(/^## \[([^\]]+)\]/mu.exec(changelog)?.[1]).toBe(packageJson.version);
   });
 
-  it("keeps the npm package and MCP Registry metadata aligned", async () => {
+  it("keeps inactive registry metadata aligned while the package stays private", async () => {
     const packageJson = (await readJson("package.json")) as {
       name: string;
       version: string;

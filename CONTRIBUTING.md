@@ -1,178 +1,67 @@
-# Contributing to REA
+# 参与 Tekvro 开发
 
-REA welcomes focused bug fixes, documentation improvements, tests, and reverse-engineering workflow enhancements. Open an issue before a large contract or architecture change so its scope can be agreed before implementation.
+欢迎修复可复现的问题、完善文档与测试，以及改进软件分析工作流。较大的契约或架构变更请先在 [Issues](https://github.com/ForceMind/Tekvro/issues) 说明问题、预期行为和范围，再开始实现。
 
-## Choosing a contribution
+参与本仓库即同意遵守[社区行为准则](CODE_OF_CONDUCT.md)。使用问题见[支持说明](SUPPORT.md)，漏洞报告按[安全政策](SECURITY.md)处理。
 
-Small contributions are welcome when they solve a concrete problem, including
-broken commands, misleading documentation, and missing regression coverage.
-Explain the problem, keep the diff focused, and share how you checked the change.
+## 准备开发环境
 
-Please avoid standalone cosmetic changes without a clear benefit, such as fixing
-a typo in an internal comment, changing capitalization or punctuation in
-already-clear prose, or reformatting unchanged code. Include related polish in a
-useful fix when practical. For cosmetic-only suggestions, please open an issue
-instead of a standalone PR so they can be collected and addressed together.
-Corrections to confusing explanations or incorrect instructions are welcome.
-
-Avoid speculative cleanup without a concrete problem to solve. Keep related
-corrections in one PR.
-
-Before requesting review, read the final diff and run the relevant checks. Be clear
-about anything you couldn't test. You should be able to explain the changes you
-submit.
-
-We may decline changes when the benefit doesn't justify the review or maintenance
-work.
-
-For capability organization and provider composition, follow the incremental
-[migration guide](docs/capability-migration.md). Run `npm run verify:test-discovery`
-after adding or moving tests.
-
-When adding or changing an MCP tool, follow the [tool design guide](docs/tool-design.md) and preserve the canonical contracts and generated catalog.
-
-## Development setup
-
-REA development requires Node.js 24.18.x and npm 11.16.x (pinned toolchain via `nvm use`; the supported runtime range is Node.js ^22.19 || ^24.11 || >=26, as the README badge states). Real-Hopper verification additionally requires either macOS 12+ or an officially supported Linux host (Ubuntu 24.04+, Fedora 41+, 64-bit Arch, or CachyOS) and an installed Hopper application. Linux demo verification uses its own private Xvfb display and does not require a desktop session. Run `nvm use` before installing dependencies.
+开发工具链固定为 Node.js **24.22.1**（见 `.nvmrc`）和 npm **11.16.0**（见 `package.json`）。运行时支持范围以 `package.json` 的 `engines.node` 为准；可选分析工具需要自行准备，不能通过包启动成功推断它们可用。
 
 ```bash
+git clone https://github.com/ForceMind/Tekvro.git
+cd Tekvro
+nvm use
 npm ci
+npm run build:cached
 npm run check:fast
 ```
 
-`npm ci` installs the exact dependencies and prepares the Husky hooks without
-building the project. Run `npm run build:cached` when you need the standalone
-CLI or MCP server; `npm run build` remains the uncached compiler leaf used by
-Turbo. Turbo caches deterministic builds and static checks across Git
-worktrees. After a package, lockfile, or managed-skill version change, run
-`npm run metadata:generate` before building.
+`nvm use` 适用于已使用 nvm 的环境，其他环境请直接选择 `.nvmrc` 指定的 Node.js。`npm ci` 使用锁定依赖并准备开发钩子；安装后仍需显式构建 CLI/MCP。包、锁文件或技能元数据变更后，先运行 `npm run metadata:generate`。
 
-Keep dependencies flowing inward through the existing domain, contracts, provider, application, server, and adapter layers. Parse unknown values at process and protocol boundaries, model expected failures with `Result`, and preserve the canonical tool inventory defined by `TOOL_CONTRACTS` unless a deliberate contract change updates every verifier, generated catalog artifact, and snapshot. Keep tool discovery complete and report capability- and session-scoped availability through `binary_session`.
+## 实现与验证
 
-## Documentation website
+保持每个 PR 聚焦于一个具体问题，说明触发条件、修复前后的行为，以及检查方法。不要将无关格式调整、推测性的重构或依赖升级混入修复。
 
-The VitePress site uses the Markdown files in `docs/`. Run `npm run docs:dev`
-for live editing, `npm run docs:build` to check the production build and
-links, and `npm run docs:preview` to preview that build at `/rea/`.
+遵循根目录 `AGENTS.md` 的分层和边界规则：领域层保持提供方无关，外部输入先验证，CLI 与 MCP 共用契约，失败诊断保留实际原因。保留现有命令和配置兼容性；机器输出变更须检查真实消费者与 JSON Schema。
 
-Site navigation lives in `docs/.vitepress/config.ts`. Keep links to guides
-relative so they work on GitHub and the website; link to repository files
-outside `docs/` using their full GitHub URLs. Generated reference documents
-use `npm run docs:generate`; `docs:build` generates them before building the website.
-
-Pull requests run `npm run docs:check`. `.github/workflows/pages.yml` is a
-manual VitePress build and does not publish. The public site at
-<https://rea.tools/> serves `website/public/` through Cloudflare Workers. See
-the [website README](website/README.md#cloudflare-workers) for previews and
-manual deployments.
-
-The separate GitHub Pages host uses only the manual
-`.github/workflows/website-pages.yml` workflow on `main`. The repository's
-**Settings → Pages → Build and deployment → Source** must be set to
-**GitHub Actions** before deploying there.
-
-## Development feedback and PR verification
-
-For an ordinary edit, run the relevant regression and cached static checks:
+日常修改运行相关测试和静态检查：
 
 ```bash
 npm run test:focused -- src/config.test.ts
 npm run check:fast
 ```
 
-`test:local` selects dirty source tests without building; explicit source test
-paths run even on a clean tree. `check:changed` adds source tests affected since
-the branch merge base with `origin/main`. Use `npm run test:changed -- --base
-REVISION` to choose another base. Changed-test selection follows the import
-graph and is feedback, not complete correctness evidence. Inspect relevant
-boundary and provider behavior explicitly; see [docs/testing.md](docs/testing.md).
+- 源码测试可用 `npm run test:local -- <路径>`；边界、验收及需要构建产物的测试先运行 `npm run build:cached`。
+- 新增或移动测试后运行 `npm run verify:test-discovery`，确保测试被实际发现。
+- 契约、生成元数据和文档变更运行 `npm run docs:check`；网站变更另运行 `npm run docs:build`。
+- 打包、安装、注册或分发变更运行 `npm run verify:package` 和 `npm pack --dry-run`。
+- 外部分析工具行为变更须运行对应的真实验证入口，并报告工具版本、主机平台及未完成的验证。入口和前置条件见[测试指南](docs/testing.md)。
 
-Before handing off a PR, run the relevant tests, `npm run check`, and
-`npm run docs:check` when contracts or generated metadata change. Record which
-checks ran. CI owns complete deterministic tests and aggregate coverage. Use
-`npm run check:pr` for a deliberate full local gate on broad changes or when
-investigating CI failures; it is not required after each edit, rebase, or push.
-Packaging, setup, installation, or distribution changes also require
-`npm run verify:package` and `npm pack --dry-run`. Provider behavior changes
-require the matching real-provider `verify:*` lane.
+`npm run check:pr` 是有意执行完整本地门禁的入口；CI 执行完整确定性测试与覆盖率检查。成功的模拟测试、包启动或工具探测，只能支持各自实际验证的范围。
 
-`check:fast` runs cached typecheck and lint, reporting diagnostics on failure.
-`check` adds formatting, dead-code, and package-metadata freshness checks.
-Formatting uses Oxfmt and the committed `.oxfmtrc.json`; generated sources use
-the same configuration. Pre-commit formats and lints staged files; pre-push runs
-`check:fast`.
-`docs:check` builds and validates generated metadata for the current checkout.
-The product catalog (`docs/public/product-catalog.json`), portable managed
-conformance projections (`docs/verification/managed-conformance-*.json`), and
-packaged skill (`skills/`) are ignored build outputs. Edit skill instructions
-and references in `skill-src/`; the build adds catalog-dependent metadata to
-the packaged copy without rewriting authored files. The generated manifest
-commits to that exact packaged skill bundle. It is a portable projection of
-the deterministic managed verifier, not a record of optional real-provider runs.
-CI validates these outputs and retains them as artifacts instead of pushing
-generated-only commits onto feature branches. Reviewed source metadata such as
-`src/generatedPackageMetadata.ts` and `docs/error-contract.schema.json` remains
-tracked and checked for freshness. Do not commit ignored generated outputs.
-The build-generated product catalog contains documented facts and their provider
-identity, rather than full runtime schema hashes. The managed skill contains
-instructions and inventory metadata; doctor compares its installed files with
-the canonical bundle. Schema-only fixes should not change these outputs or the
-skill commitment in the conformance manifest. Runtime schema identity remains
-available through doctor and `binary_session`.
-Real-provider execution remains uncached; deterministic builds use Turbo.
+测试临时目录使用 `tests/fixtures/temporaryDirectory.ts` 的 `createTestTempDirectory`，确保成功、失败和超时均清理归属明确的资源。不要清理共享临时目录中的通配路径。
 
-Local `npm test` runs every deterministic Vitest project without coverage or
-retries. CI runs four coverage shards and merges JUnit and timing reports.
-CI cancels superseded PR runs and skips package, Windows, and full test lanes
-for documentation-only PRs. Coverage thresholds remain in `vitest.config.ts`.
+## 生成文件与许可证
 
-Tests that need a temporary directory must use
-`createTestTempDirectory` from `tests/fixtures/temporaryDirectory.ts`. The
-helper binds exact-path, awaited cleanup to the current Vitest case, including
-failure and timeout completion. Run `npm run verify:test-temp-hygiene` to build
-REA, execute the complete suite under a fresh `TMPDIR`, and reject any remaining
-REA-owned temporary path. Never add a glob cleanup for shared `/tmp/rea-*`
-content.
+修改源契约和 `skill-src/` 中的指令，再通过现有脚本生成派生文件。不要提交 `dist/`、`node_modules/`、缓存、测试二进制、生成的产品目录或临时分析产物。需要跟踪的源元数据如 `src/generatedPackageMetadata.ts`，必须与生成脚本保持一致。
 
-Set `REA_LOG_LEVEL` to `trace`, `debug`, `info`, `warn`, `error`, `fatal`, or
-`silent` to control structured JSON diagnostics. MCP mode defaults to `info` and
-always writes logs to stderr so the stdio protocol remains intact. One-shot CLI
-logging is opt-in and writes to stdout when a level is configured, preserving
-machine-readable command output by default. Request arguments, bridge
-authentication tokens, and environment data are redacted.
+保留 [LICENSE](LICENSE)、[第三方告知](THIRD_PARTY_NOTICES.md) 及适用的原始版权文本。新增或更新依赖时检查实际分发内容及许可，刷新对应清单，并运行 `npm run licenses:check`。提交贡献时，请确认有权以本仓库的 MIT 许可提供相应代码；第三方材料应明确来源和许可。
 
-Changes that claim real Hopper behavior must also be tested against the
-source-owned, digest-bound conformance manifest. The verifier builds the
-platform-native fixtures before starting Hopper:
+## 文档与网站
 
-```bash
-npm run verify:hopper
-```
+技术文档在 `docs/`，导航在 `docs/.vitepress/config.ts`。运行 `npm run docs:dev` 预览，使用 `npm run docs:build` 检查构建；文档站点基础路径为 `/Tekvro/`。
 
-On a self-hosted Linux runner with the setup-installed Xvfb dependencies, use:
+保持仓库内链接可在 GitHub 和生成站点使用。文档事实应来自当前源码或明确记录的实际执行；不要把尚未运行的工具、平台或服务写成已验证能力。
 
-```bash
-npm run verify:hopper:linux
-```
+## 提交 PR
 
-Set `REA_HOPPER_CONFORMANCE_MANIFEST_PATH` only to verify another source-built
-manifest. The normal commands use `build/conformance/manifest.json`; generated
-fixtures and manifests remain ignored and must not be committed.
+使用能说明行为变化的标题，例如 `fix(cli): reject invalid timeout values`。PR 描述包含问题、最终行为、相关 Issue、实际执行的验证，以及仍未验证的范围。提交前检查最终 diff；不要上传凭据、私有目标、个人数据或无权分享的分析输出。
 
-The macOS and Linux real-Hopper workflows remain separate so a successful mock or package test cannot be reported as platform-runtime proof. Pull requests changing setup, launch, bridge, or Hopper behavior must state which real workflows ran and why either workflow was unavailable.
+维护者按问题价值、兼容性、验证证据和维护成本决定合并顺序。项目不承诺固定响应时间。
 
-Describe the behavior change and verification performed in the pull request. Never commit binaries, Hopper documents, credentials, `dist/`, `node_modules/`, or local planning artifacts.
+## 正式发行
 
-## Maintainer release checklist
+Tekvro 使用独立的 GitHub Release 流程；发行版本以仓库标签、Release 页面和对应构建资产为准。维护者按[发行指南](docs/releasing.md)选择精确提交，完成检查后发布资产与校验值。
 
-Use the [release guide](docs/releasing.md). Main pushes automatically refresh a
-Release Please PR with the next version and changelog. Review its migration
-notes, wait for the current CI checks to pass, and merge it into main to publish.
-The Release workflow validates and tags that merge; both publishers build its
-exact SHA. Ordinary main pushes cannot publish packages. An optional manual
-`release/VERSION` checkpoint retains explicit preparation and publication.
-
-Keep new implementation commits on main for the next release. The workflow
-owns packaged-artifact verification, npm publication, the published CLI/MCP
-canary, and MCP Registry publication. Sync manual checkpoint metadata back to
-main after publication; see the guide for recovery and verification.
+`private: true` 用于防止意外 npm 发布，不限制 GitHub 源码或 Release 资产分发。npm、MCP Registry 及其他分发渠道需要各自的身份验证和单独发布决定。不得将 GitHub Release 的成功视为这些渠道已经发布。

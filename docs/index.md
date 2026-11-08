@@ -4,41 +4,56 @@ layout: home
 hero:
   name: Tekvro · 探核
   text: 用证据看懂软件
-  tagline: 本地优先的 AI 软件分析工具，连接 MCP、CLI、专业逆向引擎和运行时证据。
+  tagline: 通过 CLI 与 MCP 检查软件结构、观察运行行为，并保留可复核的分析证据。
   actions:
     - theme: brand
       text: 开始使用
       link: /zh-CN/quick-start
     - theme: alt
-      text: 查看源码
-      link: https://github.com/ForceMind/Tekvro
+      text: 下载 1.0.0
+      link: https://github.com/ForceMind/Tekvro/releases/tag/v1.0.0
 
 features:
-  - title: AI 协作分析
-    details: 将二进制文件、打包应用和运行时的分析能力交给 Codex 等 Agent 调用。
-    link: /zh-CN/architecture
-  - title: 证据驱动
-    details: 区分已观察事实、由证据推断的解释与尚不确定的内容。
-    link: /mcp-contracts
-  - title: H5 / JavaScript / Electron
-    details: 从静态制品开始，按需结合本地浏览器与 Electron 被动观察，形成可复核分析证据。
-    link: /zh-CN/javascript-h5-electron
-  - title: 中文入门
-    details: 提供中文部署、CLI、MCP、安全和维护说明；高级技术资料逐步翻译。
+  - title: 本地分析
+    details: 从本地文件和应用制品开始，按任务选择静态检查或运行观察。
     link: /zh-CN/quick-start
+  - title: 证据可追溯
+    details: 报告包含来源、位置、覆盖范围和局限，区分观察、推断与未知。
+    link: /mcp-contracts
+  - title: CLI 与 MCP
+    details: 两种入口共用分析工作流，支持直接调用和兼容客户端集成。
+    link: /installation
+  - title: 逐步深入
+    details: 从应用目录分析开始，再按需配置专用工具与高级工作流。
+    link: /zh-CN/javascript-h5-electron
 ---
 
-## 本地构建
+## 安装与第一次分析
+
+准备 Node.js `24.22.1` 和 npm，在 macOS / Linux 中安装：
 
 ```bash
-git clone https://github.com/ForceMind/Tekvro.git
-cd Tekvro
-git submodule update --init --recursive
-npm ci
-npm run build:cached
-node scripts/rea.mjs --help
+curl -fsSL https://raw.githubusercontent.com/ForceMind/Tekvro/v1.0.0/install.sh -o install-tekvro.sh
+bash install-tekvro.sh --version 1.0.0
+tekvro doctor --json
 ```
 
-当前源码包名已更新为 `tekvro`，但**尚未发布 Tekvro npm/MCP Registry 包**。旧 REA 命令和 MCP 客户端注册键仍用于兼容；请从本仓库源码构建，不要误用公开 `rea-agents` 包。详见[发行身份与兼容策略](zh-CN/distribution.md)。
+Windows 和手动安装方式见[快速开始](zh-CN/quick-start.md)。版本 1.0.0 通过 GitHub Release 分发，下载、校验与更新方法见[分发说明](zh-CN/distribution.md)。
 
-继续阅读 [中文快速上手](./zh-CN/quick-start.md)、[H5/JavaScript/Electron 分析](./zh-CN/javascript-h5-electron.md)、[抓包与信号录制](./zh-CN/offline-captures.md)、[IL2CPP/GPU/模型/字节码](./zh-CN/static-formats.md)、[架构](./zh-CN/architecture.md)、[REA 6.4 → 6.5 内核升级方案](./zh-CN/rea-6.5.0-upgrade-addendum.md)与[安全](./zh-CN/security.md)。
+## 按任务选择指南
+
+| 任务                       | 入口                                        |
+| -------------------------- | ------------------------------------------- |
+| 安装、环境检查与首次分析   | [快速开始](zh-CN/quick-start.md)            |
+| 分析网页构建与桌面应用     | [应用分析](zh-CN/javascript-h5-electron.md) |
+| 检查录制的网络与信号数据   | [离线录制数据](zh-CN/offline-captures.md)   |
+| 检查数据库、模块和静态文件 | [静态格式](zh-CN/static-formats.md)         |
+| 查询工具、参数和证据契约   | [CLI](cli.md) · [MCP](mcp-contracts.md)     |
+| 配置客户端与可选分析工具   | [安装与配置](installation.md)               |
+| 排查能力不可用或报告未知   | [常见问题](zh-CN/faq.md)                    |
+
+## 开发与支持
+
+[项目架构](zh-CN/architecture.md) · [测试与验证](testing.md) · [贡献指南](https://github.com/ForceMind/Tekvro/blob/main/CONTRIBUTING.md) · [问题反馈](https://github.com/ForceMind/Tekvro/issues/new/choose) · [安全说明](zh-CN/security.md) · [维护路线](roadmap.md)
+
+代码许可与组件告知见 [LICENSE](https://github.com/ForceMind/Tekvro/blob/main/LICENSE) 和 [THIRD_PARTY_NOTICES.md](https://github.com/ForceMind/Tekvro/blob/main/THIRD_PARTY_NOTICES.md)。

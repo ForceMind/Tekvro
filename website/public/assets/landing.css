@@ -1,0 +1,144 @@
+/* Lightweight product entry pages; complete guides live in docs/. */
+.landing-page {
+  --accent: #176b69;
+}
+.landing-page .brand {
+  flex-wrap: wrap;
+  column-gap: 0.8rem;
+  row-gap: 0;
+}
+.landing-page .brand-caption {
+  font-size: 0.8rem;
+}
+.landing-main {
+  padding-bottom: 5rem;
+}
+.landing-hero {
+  padding-block: clamp(3rem, 7vw, 6rem) 4rem;
+}
+.landing-hero h1 {
+  max-width: 1000px;
+  font-size: clamp(2.8rem, 6vw, 5.3rem);
+}
+.landing-hero .lede,
+.landing-intro .lede {
+  max-width: 800px;
+}
+.landing-intro {
+  max-width: 880px;
+  padding-block: 4rem 2rem;
+}
+.landing-intro h1 {
+  font-size: clamp(2.5rem, 5vw, 4rem);
+}
+.landing-note {
+  margin-top: 1.3rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.landing-section {
+  border-top: 1px solid var(--line);
+  padding-block: 3rem;
+}
+.landing-section > p {
+  max-width: 850px;
+}
+.landing-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.5rem;
+  margin-top: 2rem;
+}
+.landing-cards article {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+.landing-cards article > p:last-child {
+  color: var(--muted);
+  margin-bottom: 0;
+}
+.landing-code {
+  max-width: 100%;
+  margin-block: 1.5rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--soft);
+}
+.landing-code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--line);
+  padding: 0.6rem 1rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.landing-code pre {
+  margin: 0;
+  padding: 1.25rem;
+  overflow: auto;
+  line-height: 1.8;
+}
+.landing-code code {
+  white-space: pre;
+  overflow-wrap: normal;
+}
+.landing-faq {
+  display: grid;
+  gap: 0.8rem;
+  max-width: 880px;
+}
+.landing-faq details {
+  padding: 1.2rem 1.4rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.landing-faq summary {
+  font-weight: 650;
+  cursor: pointer;
+}
+.landing-faq details > p {
+  margin: 1rem 0 0;
+  color: var(--muted);
+}
+.landing-next {
+  margin-top: 2rem;
+}
+@media (max-width: 1050px) {
+  .landing-page .header-inner {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 1rem;
+    padding-block: 1rem;
+  }
+  .landing-page .navigation {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 0.8rem 1.2rem;
+  }
+  .landing-page .nav-github {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .landing-cards {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 600px) {
+  .landing-page .container {
+    width: min(1080px, calc(100% - 2rem));
+  }
+  .landing-page .brand-caption {
+    display: none;
+  }
+  .landing-hero,
+  .landing-intro {
+    padding-top: 2.5rem;
+  }
+  .landing-section {
+    padding-block: 2rem;
+  }
+}

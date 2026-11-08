@@ -8,13 +8,13 @@
     "url": "https://github.com/ForceMind/Tekvro",
     "source": "github"
   },
-  "version": "6.1.0",
+  "version": "1.0.0",
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "tekvro",
-      "version": "6.1.0",
+      "version": "1.0.0",
       "runtimeHint": "npx",
       "transport": {
         "type": "stdio"

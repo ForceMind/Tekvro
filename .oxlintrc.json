@@ -181,6 +181,7 @@
     "es2023": true
   },
   "ignorePatterns": [
+    "website/archive/**",
     "dist",
     "build",
     "node_modules",

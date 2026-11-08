@@ -2,11 +2,11 @@
 
 ## Tekvro product constraints
 
-This repository is Tekvro (`tekvro`, MCP `io.github.forcemind/tekvro`). Keep `TEKVRO_LANG`, Chinese human CLI help, legacy command/configuration compatibility, MIT notices, `private: true`, source-update refusal, and repository guards on every publication entrypoint. New registrations must launch this local checkout; do not install public `rea-agents`. Product package version and inherited engine provenance are separate; see `engine-metadata.json` and `docs/upstream/rea-6.8.0-integration.md` for actual validation. Inherited provider descriptions below are upstream capability boundaries; only recorded Tekvro executions establish platform support. Do not add scheduled jobs or publish artifacts as part of engine integration.
+This repository is Tekvro (`tekvro`, MCP `io.github.forcemind/tekvro`). Keep `TEKVRO_LANG`, Chinese human CLI help, legacy command/configuration compatibility, MIT notices, `private: true`, source-update refusal, and repository guards on every publication entrypoint. New registrations must launch this installation; do not resolve a different product from a public registry. Product package version and engine provenance are separate; see `engine-metadata.json` and the internal integration records for actual validation. Provider descriptions below establish capability boundaries; only recorded Tekvro executions establish platform support. Do not add scheduled jobs. GitHub-only releases are explicitly authorized through reviewed `release.json`, after successful exact-revision main CI, package canary and checksum verification. Keep npm and MCP Registry publication disabled; do not enable legacy registry workflows for this channel. Never overwrite a public release or retarget an existing version tag.
 
 ## Product Direction
 
-REA exposes reverse-engineering tools through a CLI and MCP server. Hopper, the bring-your-own Ghidra adapter, and the bring-your-own IDA MCP adapter are operation-capable deep binary-analysis providers. Ghidra is supported on Linux x64/arm64 and macOS x64/arm64 with matching native decompiler tools, and has an experimental Windows x64 P0 boundary for approved native x86 and x86-64 PE applications; on Linux and macOS it supplies inventory, function analysis, and atomic function annotation edits in an ephemeral database, without modifying executable bytes or controlling a GUI. Windows P0 has no mutation authority. IDA adapts upstream legacy attached GUI and modern headless database-supervisor profiles for live read-only analysis; initial real verification covers Windows, and an attached GUI database is never saved or closed. Keep provider-specific code out of the domain and application layers.
+Tekvro exposes reverse-engineering tools through a CLI and MCP server. Hopper, the bring-your-own Ghidra adapter, and the bring-your-own IDA MCP adapter are operation-capable deep binary-analysis providers. Ghidra is supported on Linux x64/arm64 and macOS x64/arm64 with matching native decompiler tools, and has an experimental Windows x64 P0 boundary for approved native x86 and x86-64 PE applications; on Linux and macOS it supplies inventory, function analysis, and atomic function annotation edits in an ephemeral database, without modifying executable bytes or controlling a GUI. Windows P0 has no mutation authority. IDA adapts upstream legacy attached GUI and modern headless database-supervisor profiles for live read-only analysis; initial real verification covers Windows, and an attached GUI database is never saved or closed. Keep provider-specific code out of the domain and application layers.
 
 Prioritize:
 
@@ -17,11 +17,11 @@ Prioritize:
 
 Installers must not install or upgrade Homebrew, Node.js, npm, Java, Ghidra, or other unrelated software. Ghidra is bring-your-own. `rea setup` must print its planned changes and require approval before writing files or installing Hopper.
 
-REA is a local-only tool. Preserve caller-selected inputs, captured output, URLs, paths, digests, mismatch locations, and analysis metadata. Do not guess that local evidence is secret from environment-variable names, argument names, or text patterns. Redact transport authentication credentials and values the caller explicitly marks sensitive; do not persist the entire ambient environment merely because a child inherits it.
+Tekvro is a local-only tool. Preserve caller-selected inputs, captured output, URLs, paths, digests, mismatch locations, and analysis metadata. Do not guess that local evidence is secret from environment-variable names, argument names, or text patterns. Redact transport authentication credentials and values the caller explicitly marks sensitive; do not persist the entire ambient environment merely because a child inherits it.
 
 ## Project Structure & Module Organization
 
-REA is a layered ESM TypeScript application. Dependencies flow inward from pure domain logic through contracts, providers, application workflows, and CLI/MCP adapters. See [docs/architecture.mermaid](docs/architecture.mermaid) for the component map.
+Tekvro is a layered ESM TypeScript application. Dependencies flow inward from pure domain logic through contracts, providers, application workflows, and CLI/MCP adapters. See [docs/architecture.mermaid](docs/architecture.mermaid) for the component map.
 
 - `src/domain/` owns pure provider-neutral semantics; `src/contracts/` owns caller-visible schemas and the canonical tool inventory.
 - `src/hopper/`, `src/ghidra/`, `src/ida/`, `src/browser/`, `src/inspector/`, `src/native/`, `src/artifacts/`, and `src/dotnet/` own provider-specific boundaries. Keep provider protocols out of domain and application code.
@@ -78,7 +78,7 @@ Bind tool handlers to named contracts, preserving their exact input and output t
 
 Start from the analyst question and desired result, not a provider API. Before adding a tool, inspect the existing contract and its nearest alternative.
 
-Let agents compose experiments with ordinary commands, scripts, and local fixture servers. REA tools should perform the requested inspection or capture and return evidence. A custom orchestration language, replay engine, or separate prepare/execute plan needs an observed requirement that those primitives cannot satisfy. A plan-only tool without an executor does not establish runtime behavior; expose the useful inspection directly.
+Let agents compose experiments with ordinary commands, scripts, and local fixture servers. Tekvro tools should perform the requested inspection or capture and return evidence. A custom orchestration language, replay engine, or separate prepare/execute plan needs an observed requirement that those primitives cannot satisfy. A plan-only tool without an executor does not establish runtime behavior; expose the useful inspection directly.
 
 - Prefer reusable, composable primitives: inspect one explicit object or
   relationship and return evidence that can support different analyst
@@ -86,7 +86,7 @@ Let agents compose experiments with ordinary commands, scripts, and local fixtur
   that benefits from joining evidence sources; keep one-application or
   business-domain interpretations out of general tool contracts.
 - Use **inspect/search** tools for facts about a target or candidate set; use **trace** tools for relationships; use **compare** tools for explicitly paired inputs.
-- Add a **workflow** when observed agent use shows a repeated sequence that REA can compose without losing analyst control. Return useful results inline so callers can choose their next action.
+- Add a **workflow** when observed agent use shows a repeated sequence that Tekvro can compose without losing analyst control. Return useful results inline so callers can choose their next action.
 - Use **observe/capture** only when runtime activity is required, and declare authority and lifecycle effects in the contract.
 - Extend an existing tool when intent and result contract are unchanged. Add a tool for a distinct analyst outcome or materially different authority.
 - Keep caller-facing names and results provider-neutral. Put engine-specific behavior in provider adapters and report each provider's exact coverage.

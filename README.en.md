@@ -1,92 +1,76 @@
 # Tekvro
 
-Tekvro is a locally operated toolkit for investigating software structure and runtime behavior. It brings static analysis, runtime observations, and specialized reverse-engineering tools together through a command-line interface (CLI) and Model Context Protocol (MCP), with traceable evidence at each step.
+**Investigate software with evidence.**
 
-[简体中文](README.md) · [Documentation](docs/index.md) · [Quick start (Chinese)](docs/zh-CN/quick-start.md) · [Architecture](docs/zh-CN/architecture.md) · [Security](docs/zh-CN/security.md)
+Tekvro is a local software analysis toolkit for static inspection, runtime observation, and evidence queries through a CLI and MCP server. Inspect application structure, trace code relationships, compare artifacts, and bring reproducible findings into your workflow.
+
+[简体中文](README.md) · [Documentation](docs/index.md) · [Quick start](docs/zh-CN/quick-start.md) · [Download 1.0.0](https://github.com/ForceMind/Tekvro/releases/tag/v1.0.0) · [Report an issue](https://github.com/ForceMind/Tekvro/issues/new/choose)
 
 ## Capabilities
 
-- **JavaScript and Electron:** inspect packaged applications, module relationships, call paths, source maps, and observable application behavior.
-- **Browsers and networking:** use local Chrome DevTools Protocol (CDP) endpoints to inspect page scripts, network activity, and selected runtime state.
-- **Native binaries:** connect optional analysis engines such as Hopper, Ghidra, and IDA to inspect symbols, instructions, program structure, and decompiler output.
-- **Additional artifact types:** analyze supported Android, .NET, firmware, and archive formats, subject to target coverage and configured tools.
-- **Evidence and comparisons:** retain observations, inferences, unknowns, and limitations to support reproducible investigations and version comparisons.
+- **Application structure:** inspect JavaScript build directories and desktop application packages, including modules, dependencies, call paths, and source maps.
+- **Runtime observation:** use local debugging interfaces to inspect scripts, network activity, and selected runtime behavior.
+- **Programs and files:** inspect supported native programs, mobile applications, managed programs, databases, and other offline artifacts.
+- **Evidence and comparison:** retain provenance, locations, coverage, and limitations; distinguish observations, inferences, and unknowns for later queries and version comparisons.
+- **CLI and MCP:** use the same analysis workflows directly or through an MCP-compatible client.
 
-The CLI and MCP server expose the same underlying analysis workflows, for direct use or integration with MCP-compatible AI tools such as Codex and Claude Code.
+Availability depends on the target format, host system, and configured optional analysis tools. See the [guides](docs/index.md) and run `tekvro capabilities --json` for the relevant scope.
 
-## Quick start
+## Installation
 
-Requirements: Node.js `^22.23.4 || ^24.22.1 || >=26.12.1`, npm, and Git. Optional native analysis engines are configured separately as needed.
+Requires Node.js `^22.23.4 || ^24.22.1 || >=26.12.1` and npm. Node.js `24.22.1` is recommended.
 
-```bash
-git clone https://github.com/ForceMind/Tekvro.git
-cd Tekvro
-git submodule update --init --recursive
-npm ci
-npm run build:cached
-
-# Discover commands and capabilities
-node scripts/rea.mjs --help
-node scripts/rea.mjs capabilities --json
-
-# Check local readiness
-node scripts/rea.mjs doctor --json
-
-# Analyze a local JavaScript / Electron build directory
-node scripts/rea.mjs analyze-javascript-application /absolute/path/to/app --json
-```
-
-Replace the example path with a local target you are authorized to inspect. Static JavaScript analysis does not require Ghidra, Hopper, or IDA.
-
-See the [quick-start guide](docs/zh-CN/quick-start.md) and [JavaScript / H5 / Electron guide](docs/zh-CN/javascript-h5-electron.md) for additional workflows.
-
-## MCP integration
-
-Inspect the current client configuration and review changes before applying them:
+macOS / Linux:
 
 ```bash
-node scripts/rea.mjs doctor --client codex --json
-node scripts/rea.mjs setup --client codex --dry-run --json
-
-# Apply the reviewed setup
-node scripts/rea.mjs setup --client codex
+curl -fsSL https://raw.githubusercontent.com/ForceMind/Tekvro/v1.0.0/install.sh -o install-tekvro.sh
+bash install-tekvro.sh --version 1.0.0
 ```
 
-Setup may update local AI client configuration. Review the proposed changes and backups before proceeding. See the [configuration guide](docs/zh-CN/quick-start.md) for platform and client details.
+Alternatively, download `tekvro-1.0.0.tgz` from the [release page](https://github.com/ForceMind/Tekvro/releases/tag/v1.0.0), verify it using the [distribution guide](docs/zh-CN/distribution.md), and install the archive:
 
-## Evidence and limitations
+```bash
+npm install --global ./tekvro-1.0.0.tgz
+tekvro --version
+```
 
-Results distinguish **observations**, **inferences**, and **unknowns**, together with their provenance and coverage limitations. Static code evidence does not by itself establish runtime behavior; analyzing a client does not reveal unobserved server-side implementation.
+Use the downloaded-archive method on Windows. Version 1.0.0 is distributed through GitHub Release; publishing to the npm registry or an MCP directory is outside this release.
 
-Use the toolkit only with software and environments you are authorized to inspect. Runtime access, file operations, and external provider actions remain subject to their respective tool boundaries.
+## First analysis
 
-## Repository layout
+```bash
+# Check the local environment and available capabilities
+tekvro doctor --json
+tekvro capabilities --json
 
-- `src/`: domain models, analysis workflows, CLI/MCP interfaces, and providers.
-- `bridge/`: integration code for external analysis engines and system tools.
-- `tests/`: unit, integration, contract, and boundary tests.
-- `scripts/`: build, validation, and development tooling.
-- `docs/`: guides, architecture, protocols, and technical references.
-- `skill-src/`: AI agent workflow instructions.
-- `third_party/`: external dependencies and submodules.
+# Analyze a local application build and save structured evidence
+tekvro analyze-javascript-application /absolute/path/to/app --json > evidence.json
+```
 
-For development and testing, see [CONTRIBUTING.md](CONTRIBUTING.md) and the [testing guide](docs/testing.md).
+Replace the path with a local directory you are authorized to inspect. Continue with the [quick start](docs/zh-CN/quick-start.md) and [application analysis guide](docs/zh-CN/javascript-h5-electron.md).
 
-## Distribution status
+## MCP configuration
 
-Tekvro currently runs **from source**. An independent npm package and MCP Registry entry have not yet been published.
+Review the configuration plan, then apply the selected client settings:
 
-- The source package is named `tekvro`. Existing `rea` and `rea-agents` CLI aliases, as well as selected MCP registration keys, remain for compatibility.
-- `scripts/rea.mjs` is the current source entrypoint. The public `rea-agents` npm package is not a Tekvro build; `npx tekvro` is not a supported installation method until an independent release is available.
-- The package retains the `6.1.0` compatibility version while main integrates qualified REA `6.8.0` through [PR #28](https://github.com/ForceMind/Tekvro/pull/28). Full qualification and post-merge main CI passed. See `engine-metadata.json` and the [integration record](docs/upstream/rea-6.8.0-integration.md) for source provenance and validation. Neither version denotes an independent published release. See the [roadmap](docs/roadmap.md) and [distribution notes](docs/zh-CN/distribution.md).
-- `install.sh` does not perform an automatic download or installation before the independent release.
+```bash
+tekvro setup --dry-run
+tekvro setup
+```
+
+The separate `setup` step manages client configuration. Review its proposed changes and backup information, then reconnect the client. Set `TEKVRO_LANG=zh-CN` for Chinese help; command names, JSON fields, and the MCP protocol remain unchanged.
+
+[Configuration adapters](docs/installation.md#supported-agents) · [Distribution channel status](docs/installation.md#mcp-registry) · [Generated MCP catalog](docs/mcp-contracts.md#generated-catalog)
+
+## Support and contribution
+
+CLI and MCP entrypoints are available for Windows, macOS, and Linux. Individual capabilities have their own system dependencies and verification scope; see the [documentation](docs/index.md). Results report unsupported or unobserved facets. Inspecting a client artifact does not establish unobserved server-side behavior.
+
+- Usage and defects: [issue templates](https://github.com/ForceMind/Tekvro/issues/new/choose)
+- Development: [contributing](CONTRIBUTING.md) · [testing](docs/testing.md)
+- Security: [vulnerability reporting](SECURITY.md)
+- Versions: [releases](https://github.com/ForceMind/Tekvro/releases) · [updates](docs/zh-CN/distribution.md)
 
 ## License
 
-The project includes code from [REA](https://github.com/morluto/rea) under the MIT License alongside other third-party components. See [LICENSE](LICENSE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for applicable licenses and copyright notices.
-
-## Technical references
-
-- [Installation and supported clients](docs/installation.md#supported-agents)
-- [MCP Registry](docs/installation.md#mcp-registry)
-- [MCP tool catalog](docs/mcp-contracts.md#generated-catalog)
+Tekvro is licensed under [MIT](LICENSE). Component copyright and license notices are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

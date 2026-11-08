@@ -1,8 +1,11 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Tekvro 中文文档
-    url: https://github.com/ForceMind/Tekvro/blob/main/README.md
-    about: 请先查看中文快速开始、已知限制和开发说明
-  - name: 私有安全报告
-    url: https://github.com/ForceMind/Tekvro/security/advisories/new
-    about: 涉及敏感细节的漏洞请通过私有报告提交，不要创建公开 Issue
+  - name: Tekvro documentation
+    url: https://github.com/ForceMind/Tekvro/blob/main/docs/index.md
+    about: Read installation, configuration, supported workflows, and troubleshooting.
+  - name: Tekvro support
+    url: https://github.com/ForceMind/Tekvro/blob/main/SUPPORT.md
+    about: Find the right channel for usage questions and reproducible reports.
+  - name: Security policy
+    url: https://github.com/ForceMind/Tekvro/blob/main/SECURITY.md
+    about: Follow the security policy for sensitive reports; do not include them in public issues.

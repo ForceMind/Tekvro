@@ -49,18 +49,18 @@ those facts. That reconstruction is valuable, but it is not the original
 source and cannot replace the underlying metadata and CIL evidence. Obfuscation
 makes names especially weak while tokens remain coordinates in only one build.
 
-REA already separates one selected deep native provider from disjoint auxiliary
+Tekvro already separates one selected deep native provider from disjoint auxiliary
 providers under [ADR-0001](0001-provider-selection-and-analysis-profiles.md).
 It also separates static evidence, passive observation, process capture, and
 interactive observation authorities. Managed analysis must fit those boundaries
 without requiring a CLR to inspect an artifact, loading target code into the
-REA process, or treating a managed token as a native address.
+Tekvro process, or treating a managed token as a native address.
 
 The design is informed by exact-build, reflection-free metadata extraction,
 hash-locked method manifests, independent behavior models, and managed/native
 boundary analysis performed against a local C# application. The application,
 its decompiler output, and its runtime observations are research inputs only;
-they are not distributable REA fixtures.
+they are not distributable Tekvro fixtures.
 
 ## Decision drivers
 
@@ -73,7 +73,7 @@ they are not distributable REA fixtures.
    deep-provider candidate.
 5. Keep decompiled C# useful but epistemically subordinate to canonical bytes.
 6. Analyze Linux, macOS, and Windows managed artifacts through the same local
-   CLI/MCP contracts on REA's supported hosts.
+   CLI/MCP contracts on Tekvro's supported hosts.
 7. Keep setup additive and prevent managed analysis from installing .NET,
    ILSpy, an SDK, or another unrelated toolchain.
 8. Prove semantics with source-built conformance artifacts and compact,
@@ -125,7 +125,7 @@ Classification selects these routes:
 | Obfuscated CIL                    | Same canonical route; names receive no special trust                           | Optional for declared interop boundaries                                                                   |
 | Unity Mono assembly               | Same canonical route with Unity context retained                               | Optional for engine/native boundaries                                                                      |
 | ReadyToRun                        | Metadata/CIL where present; implementation availability is per method          | Selected Hopper/Ghidra analyzes native sections; CIL absence is reported per method                        |
-| C++/CLI mixed mode                | Metadata/CIL for managed members and explicit mixed-mode boundary observations | Selected Hopper/Ghidra analyzes native bodies; REA never converts tokens directly to native addresses      |
+| C++/CLI mixed mode                | Metadata/CIL for managed members and explicit mixed-mode boundary observations | Selected Hopper/Ghidra analyzes native bodies; Tekvro never converts tokens directly to native addresses   |
 | Single-file deployment            | Inventory the bundle, then analyze each authenticated managed component        | Selected Hopper/Ghidra analyzes the host/native components; unsupported compression remains explicit       |
 | Unity IL2CPP                      | Pair and authenticate available Unity metadata; do not claim canonical CIL     | Selected Hopper/Ghidra analyzes the generated native binary; semantic recovery is degraded until supported |
 | NativeAOT                         | Report any independently present managed metadata, otherwise no CIL claim      | Treat as a native target with NativeAOT provenance; managed source reconstruction is unavailable           |
@@ -136,7 +136,7 @@ process names, and an operator's description are hints only.
 
 ### 2. Implement managed static analysis as a disjoint auxiliary provider
 
-The initial producer is a REA-owned auxiliary provider with ID
+The initial producer is a Tekvro-owned auxiliary provider with ID
 `rea-dotnet-static`. It owns a disjoint managed-artifact operation family. It is
 not registered as a Hopper/Ghidra deep-provider candidate because it does not
 compete for the same operation names and must be able to coexist with the one
@@ -232,7 +232,7 @@ them to the exact file. A digest over the complete method body is not shipped.
 
 The caller-visible field remains named `normalized_il_sha256`, but its shipped
 v1 meaning is deliberately narrower than a canonical semantic CIL identity.
-For a completely decoded method, REA serializes the instruction-order array of
+For a completely decoded method, Tekvro serializes the instruction-order array of
 `[opcode, operand_kind, operand]` tuples with JavaScript `JSON.stringify`,
 encodes that text as UTF-8, and reports its lowercase SHA-256. The tuple
 projection is defined here; the member result carries only the described
@@ -290,7 +290,7 @@ no native, dynamically resolved, generated, server-side, or protected path.
 
 ### 6. Admit ILSpy only as an optional reconstruction and conformance tool
 
-REA's canonical static operations do not depend on ILSpy, a .NET SDK/runtime,
+Tekvro's canonical static operations do not depend on ILSpy, a .NET SDK/runtime,
 dnlib, or Mono.Cecil. The following review was current on the decision date:
 
 | Tool                         | Reviewed coordinate | License | Runtime/host observation                                                    | Decision                                                                                         |
@@ -306,9 +306,9 @@ source-owned lock manifest when that verifier is implemented. “Latest” is
 never a reproducibility coordinate. A version change requires conformance and
 an explicit profile/version change.
 
-Artifact platform and REA host support are separate. The byte-only parser must
-inspect PE/CLI artifacts produced for Windows on a supported Linux or macOS REA
-host; that is not a claim that REA itself currently runs on Windows. Managed
+Artifact platform and Tekvro host support are separate. The byte-only parser must
+inspect PE/CLI artifacts produced for Windows on a supported Linux or macOS Tekvro
+host; that is not a claim that Tekvro itself currently runs on Windows. Managed
 library/tool candidates above are cross-platform at their reviewed targets, but
 native composition remains limited by the selected Hopper/Ghidra host and
 format support. Real verification runs the canonical path on Linux and macOS
@@ -318,7 +318,7 @@ check into a public Windows-host claim.
 If a caller-visible C# reconstruction operation is admitted, it is a distinct
 optional capability. It accepts only an exact supported BYO `ilspycmd`, records
 the tool and decompiler version, runs in an owned bounded process without
-loading target code into REA, and links output to the canonical method
+loading target code into Tekvro, and links output to the canonical method
 observation. Setup and installers do not download or install ILSpy, .NET, an
 SDK, or a runtime. Doctor may inspect an explicitly configured executable and
 report exact actionable incompatibility. Missing reconstruction never removes
@@ -359,7 +359,7 @@ assembly identity before analysis; and emits only bounded identities, tokens,
 signatures, IL lengths/hashes, match states, and assertion results. It does not
 emit full IL, decompiled source, runtime logs, user data, credentials, or
 service/account material. No proprietary binary, hash-locked application
-manifest, or derived dump is committed to REA.
+manifest, or derived dump is committed to Tekvro.
 
 ### 8. Keep runtime behavior separate from static managed analysis
 
@@ -414,11 +414,11 @@ changes across tools and versions. They remain useful build-local coordinates
 or reconstruction labels but are insufficient for exact or structural
 cross-version identity.
 
-### Package a .NET runtime or mutable managed library in REA
+### Package a .NET runtime or mutable managed library in Tekvro {#package-a-net-runtime-or-mutable-managed-library-in-rea}
 
 This would expand installer effects, package size, patching obligations, and
 the target-parsing attack surface. The initial byte parser keeps canonical
-support within REA's existing Node runtime; external managed tools remain BYO
+support within Tekvro's existing Node runtime; external managed tools remain BYO
 or development-only oracles.
 
 ## Rollout gates

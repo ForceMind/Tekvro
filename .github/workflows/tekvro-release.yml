@@ -1,0 +1,137 @@
+name: Tekvro GitHub Release
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Exact main commit that passed push CI
+        required: true
+        type: string
+      ci_run_id:
+        description: Successful CI run for that exact main commit
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tekvro-github-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: >-
+      github.repository == 'ForceMind/Tekvro' &&
+      ((github.event_name == 'workflow_run' &&
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_repository.full_name == github.repository) ||
+       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      actions: read
+    env:
+      HUSKY: "0"
+    steps:
+      # The gate runs from trusted main, before checking out any input revision.
+      - name: Load trusted publication gate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify exact main CI and release intent
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha || inputs.source_sha }}
+          CI_RUN_ID: ${{ github.event.workflow_run.id || inputs.ci_run_id }}
+        run: >-
+          node scripts/release/github-publication.mjs preflight
+          --source-sha "${SOURCE_SHA}" --ci-run-id "${CI_RUN_ID}"
+      - name: Check out qualified immutable source
+        if: steps.gate.outputs.publish == 'true'
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ steps.gate.outputs.source }}
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+      - if: steps.gate.outputs.publish == 'true'
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+      - name: Install locked build dependencies
+        if: steps.gate.outputs.publish == 'true'
+        run: npm ci
+      - name: Restore runtime from the qualified CI run
+        if: steps.gate.outputs.publish == 'true'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: rea-test-runtime
+          path: .
+          run-id: ${{ steps.gate.outputs.run_id }}
+          repository: ForceMind/Tekvro
+          github-token: ${{ github.token }}
+      - name: Restore qualified Windows native controls
+        if: steps.gate.outputs.publish == 'true'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: windows-native-controls
+          path: native/windows/build/
+          run-id: ${{ steps.gate.outputs.run_id }}
+          repository: ForceMind/Tekvro
+          github-token: ${{ github.token }}
+      - name: Verify bundled native artifact identity
+        if: steps.gate.outputs.publish == 'true'
+        run: npm run verify:windows-native:artifact
+      - name: Build source and installable archives
+        if: steps.gate.outputs.publish == 'true'
+        env:
+          SOURCE_SHA: ${{ steps.gate.outputs.source }}
+        run: >-
+          node scripts/release/github-artifacts.mjs
+          --source-sha "${SOURCE_SHA}"
+          --output "${RUNNER_TEMP}/tekvro-release"
+      - name: Exercise the actual installable package
+        if: steps.gate.outputs.publish == 'true'
+        env:
+          RELEASE_VERSION: ${{ steps.gate.outputs.version }}
+        run: >-
+          node scripts/verify-release-artifact.mjs
+          "${RUNNER_TEMP}/tekvro-release/tekvro-${RELEASE_VERSION}.tgz"
+          "${RELEASE_VERSION}"
+      - name: Publish verified GitHub assets
+        if: steps.gate.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ steps.gate.outputs.source }}
+          CI_RUN_ID: ${{ steps.gate.outputs.run_id }}
+        run: >-
+          node scripts/release/github-publication.mjs publish
+          --source-sha "${SOURCE_SHA}" --ci-run-id "${CI_RUN_ID}"
+          --directory "${RUNNER_TEMP}/tekvro-release"
+      - name: Verify public download URLs without credentials
+        if: steps.gate.outputs.publish == 'true'
+        env:
+          RELEASE_VERSION: ${{ steps.gate.outputs.version }}
+          RELEASE_TAG: ${{ steps.gate.outputs.tag }}
+        run: |
+          public_dir="$(mktemp -d "${RUNNER_TEMP}/tekvro-public-XXXXXX")"
+          trap 'rm -rf "${public_dir}"' EXIT
+          for asset in "tekvro-${RELEASE_VERSION}.tgz" "tekvro-${RELEASE_VERSION}-source.tar.gz" SHA256SUMS release-manifest.json; do
+            curl --disable --fail --silent --show-error --location \
+              --proto '=https' --proto-redir '=https' \
+              --retry 3 --retry-all-errors --connect-timeout 15 --max-time 120 \
+              --output "${public_dir}/${asset}" \
+              "https://github.com/ForceMind/Tekvro/releases/download/${RELEASE_TAG}/${asset}"
+            cmp "${public_dir}/${asset}" "${RUNNER_TEMP}/tekvro-release/${asset}"
+          done
+          (cd "${public_dir}" && sha256sum --check SHA256SUMS)

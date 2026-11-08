@@ -1,51 +1,38 @@
-# Tekvro 安全说明 / Security
+# Tekvro 安全政策
 
-> 本仓库为 ForceMind 独立维护的私有开发版，**未正式公开发行**。下方技术安全边界最初来源于 REA 6.1.0；其中“最新已发布版本”描述不适用于 Tekvro。请参阅 [中文安全说明](docs/zh-CN/security.md)。
+## 维护范围
 
-## 技术安全边界（历史原文）
+当前维护 **1.0.x** 系列，安全修复随该系列最新版本发布。报告时请提供确切版本、Git 提交 SHA、操作系统与架构，以及相关分析工具的版本。开发分支不等同于已发布版本；已安装的外部工具仍由各自维护者提供安全更新。
 
-## Supported versions
+## 私密报告漏洞
 
-Tekvro 尚未正式发布；报告中请提供当前仓库提交 SHA，无法按上游已发布 npm 版本推断修复状态。
+请优先使用本仓库 [Security → Report a vulnerability](https://github.com/ForceMind/Tekvro/security/advisories/new) 私密报告。该入口取决于仓库是否启用私密漏洞报告；如无法使用，请在[现有 Issues](https://github.com/ForceMind/Tekvro/issues) 中仅提出“需要私密安全报告渠道”的联系请求，不附受影响接口、利用方法、样本、日志或其他漏洞细节。待维护者提供可核验的私密渠道后，再发送完整报告。
 
-## Reporting a vulnerability
+不要在公开 Issue、PR、评论或附件中提交未修复漏洞的细节、利用代码、凭据、个人数据或无权分享的目标文件。请勿使用未经证实的邮箱或把敏感报告发送给无关第三方。
 
-Do not disclose vulnerabilities, proof-of-concept exploits, credentials,
-private binaries, Hopper documents, or private Ghidra projects in a public
-issue.
+私密报告建议包含：
 
-Use **Report a vulnerability** in the repository's **Security** tab to submit the report privately. Do not open a public issue to request a private contact channel.
+- 受影响的 Tekvro 版本或提交，以及主机和外部工具版本。
+- 问题影响、前置条件、最小复现步骤及预期行为。
+- 可自行生成或合法分享的最小样本，以及必要的已脱敏日志。
+- 已知缓解方式；如已公开披露，请附公开链接与时间。
 
-Include the affected REA version, operating system/distribution, selected
-provider and version, impact, reproduction conditions, and any suggested
-mitigation in the private report. Remove credentials, proprietary binaries,
-Hopper documents, Ghidra project contents, socket capability tokens, and
-unrelated local paths from logs or examples.
+维护者会评估报告并与报告者协调修复和披露。项目由社区维护，不承诺固定响应或修复时限。未经明确授权，不要对他人的系统、设备或服务进行验证。
 
-The maintainer will acknowledge the report, assess its scope, and coordinate
-remediation and disclosure timing with the reporter. Please allow time for
-provider-dependent behavior to be reproduced safely.
+## 本地执行边界
 
-## Security boundary
+Tekvro 在当前用户权限下读取和分析调用者指定的内容。它不是隔离沙箱；恶意文件可能触发解析器、调试器、浏览器或其他外部工具的漏洞。对不可信输入，请使用隔离的测试环境、最少权限和可替换的工作副本，避免暴露无关凭据与目录。
 
-REA authenticates each local provider bridge session with a random capability
-token and a current-user Unix socket. Tokens are transferred through private
-session descriptors rather than process arguments or environment variables.
-This is not a sandbox and does not protect against malicious processes already
-running as the same operating-system user. Opening an untrusted binary
-delegates parsing and analysis to the selected local provider with that user's
-permissions.
+本地桥接协议在适用的提供方中使用会话令牌、私有描述文件和受限套接字。这些措施不防御已经以同一操作系统用户身份运行的恶意进程，也不将外部分析工具变成沙箱。
 
-Ghidra sessions use a packaged Java `HeadlessScript`, an isolated temporary
-project, and private home, cache, and runtime directories. REA imports only the
-requested target, bounds startup and protocol messages, requests bounded CPU
-and heap settings, and deletes the temporary project when the session closes.
-These controls limit accidental persistence and resource use; they do not make
-Ghidra a sandbox. REA does not open or modify user-owned Ghidra projects.
+临时项目、预算、超时和资源清理用于限制意外持久化与资源占用；它们不构成对任意恶意代码的安全隔离保证。某些操作可以修改分析注释、执行脚本或控制调用者选择的运行时，应在理解具体操作效果后使用。
 
-`GHIDRA_INSTALL_DIR` and optional `JAVA_HOME` identify user-managed
-installations. Setup can add those values to detected client configuration only
-after showing its plan and receiving approval. REA does not download, install,
-upgrade, or modify Ghidra or Java.
+## 安装、更新与分发
 
-On Linux, REA accepts release metadata only from Hopper's HTTPS endpoint, restricts package URLs to Hopper's public download origin, bounds the package size, and compares the downloaded bytes with Hopper's published checksum before requesting installation. The published SHA-1 value is a corruption check, not a modern package signature; HTTPS origin validation remains part of the trust boundary. Dependency installation is delegated without shell evaluation to `apt-get`, `dnf`, or `pacman`, directly as root or through `pkexec`. REA never invokes `sudo`.
+从本仓库 [Releases](https://github.com/ForceMind/Tekvro/releases) 获取资产，核对版本、提交和公布的 SHA-256。校验值用于检查字节一致性；只有发布流程实际提供并可验证的证明，才能作为构建来源证据。
+
+GitHub Release 不意味着 npm 或 MCP Registry 已有可用包。`private: true` 和源码更新限制用于防止意外安装或覆盖；不要为绕过限制而执行来源不明的同名包。客户端注册应指向自己核验过的本地安装。
+
+分析工具、运行时、设备权限和商业许可需由使用者自行合法准备。下载工具的校验和、HTTPS 传输和安装确认各有不同作用，不能替代系统级隔离或供应商签名验证。
+
+更多使用边界见[中文安全说明](docs/zh-CN/security.md)及[法律告知](DISCLAIMER.md)。

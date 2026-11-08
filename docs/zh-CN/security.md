@@ -1,13 +1,26 @@
-# Tekvro 安全与授权说明
+# 安全与授权
 
-Tekvro 为开发与研究工具，并非隔离恶意代码的沙箱。
+Tekvro 在本机检查软件制品与已授权的运行环境。处理未知样本时，应使用与日常账号、密钥和生产数据隔离的工作环境。
 
-- **授权**：仅分析你拥有或明确有权检查的程序、网页、录制数据与二进制文件。
-- **权限**：本地分析引擎通常以当前用户身份执行；不要用高权限账户处理未知样本。
-- **机密**：不要在 Issue、日志或 AI 对话中公开密钥、客户数据、私有二进制、数据库或安全令牌。
-- **网络**：本地处理不等于零数据外传，连接第三方 AI 模型时，模型请求仍可能包含分析证据；确认配置和隐私策略。
-- **软件许可**：本仓库代码为原 MIT 许可衍生；Hopper、IDA 等外部工具另有许可。
-- **发布**：Tekvro 的 GitHub 源代码已公开，但 npm 包仍标记 `private: true`、MCP Registry 尚未正式发布；不得使用原项目发行凭据或官网密钥自动发布。
-- **漏洞报告**：请使用 [ForceMind/Tekvro 的私有安全报告入口](https://github.com/ForceMind/Tekvro/security/advisories/new)，不要在公开 Issue 中披露可复现漏洞细节。
+## 选择适合的操作
 
-详细技术边界与运行时防护可继续参考 [SECURITY.md](https://github.com/ForceMind/Tekvro/blob/main/SECURITY.md)。
+- 静态制品分析读取所选文件；分析目标中的代码不会因此自动执行。
+- 浏览器、应用、网络和设备观察各有独立的权限与生命周期。运行时操作可能影响进程、连接或目标状态，请先核对命令帮助与作用范围。
+- 外部分析引擎通常以当前操作系统用户身份运行。Tekvro 不提供恶意代码隔离沙箱，也不替代宿主系统的访问控制。
+- 仅对自己拥有或已明确获准检查的软件、数据、账号、设备和服务执行相应操作。
+
+## 保护调查数据
+
+Evidence、捕获、数据库快照和报告可能包含源码片段、路径、业务数据与网络内容。保存、上传或共享前，请检查内容与接收方的数据处理约定。本地分析与向联网 AI 客户端发送结果是不同的数据流。
+
+不要在公开 Issue 中提交密钥、访问令牌、个人信息、客户资料或私有目标文件。排障优先使用能够复现问题的最小合成样本，以及已去除敏感内容的命令和诊断。
+
+## 安装与配置
+
+从本仓库的版本化发行页获取安装包，按[安装说明](distribution.md)检查校验文件。安装 Tekvro 与配置 AI 客户端分开进行；先用 `tekvro setup --dry-run --json` 查看预计变更，再选择应用配置。
+
+可选引擎的获取、授权和运行条件由对应工具决定。许可证与第三方告知见 [LICENSE](https://github.com/ForceMind/Tekvro/blob/main/LICENSE) 和 [THIRD_PARTY_NOTICES.md](https://github.com/ForceMind/Tekvro/blob/main/THIRD_PARTY_NOTICES.md)。
+
+## 报告安全问题
+
+漏洞报告与披露流程见 [SECURITY.md](https://github.com/ForceMind/Tekvro/blob/main/SECURITY.md)。常规安装、兼容性与功能问题见 [SUPPORT.md](https://github.com/ForceMind/Tekvro/blob/main/SUPPORT.md)。

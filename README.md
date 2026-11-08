@@ -1,92 +1,76 @@
 # Tekvro · 探核
 
-Tekvro 是面向软件结构与运行行为调查的本地分析工具。通过命令行（CLI）和 Model Context Protocol（MCP），它将静态分析、运行时观察和专业逆向工具连接起来，并以可追溯的证据组织分析结果。
+**用证据看懂软件。**
 
-[English](README.en.md) · [使用文档](docs/index.md) · [快速开始](docs/zh-CN/quick-start.md) · [H5 / JavaScript / Electron](docs/zh-CN/javascript-h5-electron.md) · [架构](docs/zh-CN/architecture.md) · [安全说明](docs/zh-CN/security.md)
+Tekvro 是本地软件分析工具，通过命令行和 MCP 提供静态分析、运行观察与证据查询。你可以检查应用结构、追踪代码关系、比较软件制品，并把可复核的结果接入自己的工作流。
 
-## 功能
+[English](README.en.md) · [使用文档](docs/index.md) · [快速开始](docs/zh-CN/quick-start.md) · [下载 1.0.0](https://github.com/ForceMind/Tekvro/releases/tag/v1.0.0) · [报告问题](https://github.com/ForceMind/Tekvro/issues/new/choose)
 
-- **JavaScript 与 Electron**：分析打包应用、模块关系、调用线索、源码映射以及可观察的应用行为。
-- **浏览器与网络**：结合本地浏览器调试接口（CDP），检查页面脚本、网络活动和部分运行时状态。
-- **原生二进制文件**：通过可选的 Hopper、Ghidra、IDA 等分析引擎，检查程序结构、符号、指令和反编译结果。
-- **其他软件制品**：提供 Android、.NET、固件、归档等类型的分析能力，实际覆盖范围取决于目标格式和已配置的工具。
-- **证据与比较**：记录观察结果、推断依据、未知项及分析局限，为后续追踪和版本比较提供可复核的上下文。
+## 能力
 
-CLI 和 MCP 使用相同的核心分析能力，可由开发者直接调用，也可供 Codex、Claude Code 等兼容 MCP 的 AI 工具使用。
+- **应用结构分析**：检查 JavaScript 构建目录和桌面应用包，追踪模块、依赖、调用线索与源码映射。
+- **运行观察**：通过本地调试接口检查脚本、网络活动及选定的运行时行为。
+- **程序与文件检查**：分析支持的原生程序、移动应用、托管程序、数据库和其他离线制品。
+- **证据与比较**：保留来源、位置、覆盖范围和局限，区分观察、推断与未知，支持后续查询与版本比较。
+- **CLI 与 MCP**：两种入口共用分析工作流，既可直接调用，也可集成到兼容 MCP 的客户端。
 
-## 快速开始
+具体能力取决于目标格式、宿主系统和已配置的可选分析工具。查看[使用指南](docs/index.md)与本机 `tekvro capabilities --json` 获取对应范围。
 
-运行环境：Node.js `^22.23.4 || ^24.22.1 || >=26.12.1`、npm 和 Git。可选的原生分析引擎按需单独配置。
+## 安装
 
-```bash
-git clone https://github.com/ForceMind/Tekvro.git
-cd Tekvro
-git submodule update --init --recursive
-npm ci
-npm run build:cached
+运行环境为 Node.js `^22.23.4 || ^24.22.1 || >=26.12.1` 和 npm，推荐 Node.js `24.22.1`。
 
-# 查看命令与可用能力
-node scripts/rea.mjs --help
-node scripts/rea.mjs capabilities --json
-
-# 检查本机环境
-node scripts/rea.mjs doctor --json
-
-# 分析本地 JavaScript / Electron 构建目录
-node scripts/rea.mjs analyze-javascript-application /absolute/path/to/app --json
-```
-
-示例中的路径应替换为实际存在且有权分析的本地目标。静态 JavaScript 分析不要求预先安装 Ghidra、Hopper 或 IDA。
-
-更多操作示例见[快速开始](docs/zh-CN/quick-start.md)和[H5 / JavaScript / Electron 分析指南](docs/zh-CN/javascript-h5-electron.md)。
-
-## MCP 集成
-
-配置前可以先检查客户端状态和预计写入的设置：
+macOS / Linux：
 
 ```bash
-node scripts/rea.mjs doctor --client codex --json
-node scripts/rea.mjs setup --client codex --dry-run --json
-
-# 确认变更后执行配置（macOS / Linux）
-TEKVRO_LANG=zh-CN node scripts/rea.mjs setup --client codex
+curl -fsSL https://raw.githubusercontent.com/ForceMind/Tekvro/v1.0.0/install.sh -o install-tekvro.sh
+bash install-tekvro.sh --version 1.0.0
 ```
 
-配置流程可能修改本机的 AI 客户端设置；请核对显示的变更及备份信息。其他客户端和平台的说明见[安装与配置文档](docs/zh-CN/quick-start.md)。
+也可以从[发行页](https://github.com/ForceMind/Tekvro/releases/tag/v1.0.0)下载 `tekvro-1.0.0.tgz`，按[分发说明](docs/zh-CN/distribution.md)校验后安装：
 
-## 分析结果与边界
+```bash
+npm install --global ./tekvro-1.0.0.tgz
+tekvro --version
+```
 
-分析结果区分**观察（Observation）**、**推断（Inference）**和**未知（Unknown）**，并记录数据来源、覆盖范围与限制。静态源码线索不等于已经验证的运行行为；客户端分析也不能证明未观察到的服务器端实现。
+Windows 使用下载归档的安装方式。1.0.0 通过 GitHub Release 分发，npm 注册中心及 MCP 目录不属于本次发布范围。
 
-工具仅用于用户有权检查的软件和环境。运行时访问、文件操作及专业分析引擎的具体权限由相应工具和工作流约束。
+## 开始使用
 
-## 项目结构
+```bash
+# 检查环境与当前可用能力
+tekvro doctor --json
+tekvro capabilities --json
 
-- `src/`：领域模型、分析工作流、CLI/MCP 接口和分析适配器。
-- `bridge/`：外部逆向引擎与系统工具的桥接代码。
-- `tests/`：单元、集成、契约和边界测试。
-- `scripts/`：构建、检查、验证和开发工具。
-- `docs/`：使用说明、架构、协议和技术参考。
-- `skill-src/`：面向 AI Agent 的操作说明。
-- `third_party/`：第三方依赖与子模块。
+# 分析本地应用构建目录，并保存结构化证据
+tekvro analyze-javascript-application /absolute/path/to/app --json > evidence.json
+```
 
-开发规范与测试方法参见 [CONTRIBUTING.md](CONTRIBUTING.md) 和 [测试文档](docs/testing.md)。
+将示例路径替换为有权检查的本地目录。更多示例见[快速开始](docs/zh-CN/quick-start.md)和[应用分析指南](docs/zh-CN/javascript-h5-electron.md)。
 
-## 获取与版本状态
+## MCP 配置
 
-目前提供**源码构建方式**，尚未发布独立的 npm 包或 MCP Registry 条目。
+先查看配置计划，再应用选定的客户端设置：
 
-- 源码包名为 `tekvro`，现有 `rea`、`rea-agents` 命令别名及部分 MCP 注册键保留用于兼容。
-- `scripts/rea.mjs` 是当前源码构建的命令入口；不要将公共 npm 上的 `rea-agents` 包视为 Tekvro，也不要将 `npx tekvro` 当成已发布的安装方式。
-- 产品包版本暂保留 `6.1.0` 兼容标记；主线已通过 [PR #28](https://github.com/ForceMind/Tekvro/pull/28) 集成并验证固定 REA `6.8.0`，合并后的主线 CI 也已通过，具体提交及验证状态记录于 `engine-metadata.json` 和[集成记录](docs/upstream/rea-6.8.0-integration.md)，二者不代表正式发行版本。升级计划及独立发行准备情况见[开发路线](docs/roadmap.md)和[分发说明](docs/zh-CN/distribution.md)。
-- 正式发行前，`install.sh` 不提供自动下载安装。
+```bash
+tekvro setup --dry-run
+tekvro setup
+```
+
+配置由独立的 `setup` 步骤管理。运行时请检查显示的变更及备份信息，完成后重新连接客户端。需要中文帮助时，可设置 `TEKVRO_LANG=zh-CN`；命令、JSON 字段和 MCP 协议保持不变。
+
+[配置适配器](docs/installation.md#supported-agents) · [分发渠道状态](docs/installation.md#mcp-registry) · [MCP 工具目录](docs/mcp-contracts.md#generated-catalog)
+
+## 支持与贡献
+
+CLI 与 MCP 提供 Windows、macOS 和 Linux 入口，各项能力的系统依赖与验证范围见[文档](docs/index.md)。分析结果会明确标注未观察或不支持的部分；客户端制品的分析不能证明未观察到的服务端实现。
+
+- 使用问题与缺陷：[Issue 模板](https://github.com/ForceMind/Tekvro/issues/new/choose)
+- 开发与测试：[贡献指南](CONTRIBUTING.md) · [测试指南](docs/testing.md)
+- 安全问题：[安全报告说明](SECURITY.md)
+- 版本与更新：[发行页](https://github.com/ForceMind/Tekvro/releases) · [更新说明](docs/zh-CN/distribution.md)
 
 ## 许可证
 
-项目包含根据 MIT 许可证使用的 [REA](https://github.com/morluto/rea) 代码及其他第三方组件。许可证、版权声明和第三方告知见 [LICENSE](LICENSE) 与 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
-
-## 技术参考
-
-- [安装与客户端列表](docs/installation.md#supported-agents)
-- [MCP Registry](docs/installation.md#mcp-registry)
-- [MCP tool catalog](docs/mcp-contracts.md#generated-catalog)
+Tekvro 使用 [MIT 许可证](LICENSE)。组件的版权和授权说明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
