@@ -293,13 +293,22 @@ process.stdout.write(readFileSync(0));
 `,
   );
   const globalConfig = join(f.root, "global-git-config");
+  const systemConfig = join(f.root, "system-git-config");
   const quote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
+  const smudge = `${quote(process.execPath)} ${quote(filter)}`;
+  await git(f.directory, [
+    "config",
+    "--file",
+    systemConfig,
+    "filter.lfs.process",
+    `${quote(process.execPath)} -e ${quote('process.stderr.write("ambient LFS process must not run\\n"); process.exit(88)')}`,
+  ]);
   await git(f.directory, [
     "config",
     "--file",
     globalConfig,
     "filter.lfs.smudge",
-    `${quote(process.execPath)} ${quote(filter)}`,
+    smudge,
   ]);
   await git(f.directory, [
     "config",
@@ -317,24 +326,31 @@ process.stdout.write(readFileSync(0));
     await write(root, "fixtures/large.lfs", pointer);
     await git(root, ["add", ".gitattributes", "fixtures/large.lfs"]);
     await git(root, ["commit", "-m", "chore: tracked LFS pointer"]);
-    // The private global configuration supplies only the controlled smudge
-    // filter during the build, with no host process-filter command to inherit.
-    await git(root, ["config", "--unset", "filter.lfs.process"]);
-    await git(root, ["config", "filter.lfs.required", "true"]);
   }
   await git(engine, ["add", "nested/leaf"]);
   await git(engine, ["commit", "-m", "chore: pin LFS fixture"]);
   await git(f.directory, ["add", "engines/fixture"]);
   await git(f.directory, ["commit", "-m", "chore: pin nested LFS fixture"]);
   f.sourceSha = await git(f.directory, ["rev-parse", "HEAD"]);
+  for (const root of [f.directory, leaf]) {
+    await git(root, ["config", "--remove-section", "filter.lfs"]);
+    for (const [setting, value] of Object.entries({
+      clean: "cat",
+      smudge,
+      required: "true",
+    }))
+      await git(root, ["config", `filter.lfs.${setting}`, value]);
+  }
+  const environment = {
+    GIT_CONFIG_GLOBAL: globalConfig,
+    GIT_CONFIG_SYSTEM: systemConfig,
+    GIT_CONFIG_NOSYSTEM: "1",
+    GIT_LFS_SKIP_SMUDGE: "0",
+  };
   for (const root of [f.directory, engine, leaf]) {
     const status = await execute("git", ["status", "--porcelain"], {
       cwd: root,
-      env: {
-        ...process.env,
-        GIT_CONFIG_GLOBAL: globalConfig,
-        GIT_LFS_SKIP_SMUDGE: "0",
-      },
+      env: { ...process.env, ...environment },
     });
     expect(status.stdout, root).toBe("");
   }
@@ -343,7 +359,7 @@ process.stdout.write(readFileSync(0));
     leaf,
     download,
     observations,
-    environment: { GIT_CONFIG_GLOBAL: globalConfig, GIT_LFS_SKIP_SMUDGE: "0" },
+    environment,
   };
 }
 
