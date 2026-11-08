@@ -3,8 +3,8 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
-describe("Tekvro private-source update safety", () => {
-  it("refuses public package updates without invoking an installer", () => {
+describe("Tekvro registry update safety", () => {
+  it("refuses automatic registry updates and describes verified release reinstallation", () => {
     const pkg = JSON.parse(readFileSync("package.json", "utf8")) as {
       name: string;
       version: string;
@@ -33,7 +33,20 @@ describe("Tekvro private-source update safety", () => {
       reason: "unknown-install-method",
     });
     expect(output.remediation).toEqual(
-      expect.stringContaining("Tekvro is a source checkout"),
+      expect.stringContaining("Automatic registry updates are disabled"),
+    );
+    expect(output.remediation).toEqual(
+      expect.stringContaining("https://github.com/ForceMind/Tekvro/releases"),
+    );
+    expect(output.remediation).toEqual(expect.stringContaining("SHA256SUMS"));
+    expect(output.remediation).toEqual(
+      expect.stringContaining("npm install --global ./tekvro-VERSION.tgz"),
+    );
+    expect(output.remediation).toEqual(
+      expect.stringContaining("verify the archive checksum"),
+    );
+    expect(output.remediation).toEqual(
+      expect.stringContaining("npm ci and npm run build:cached"),
     );
     expect(execution.stderr).not.toContain("npm install");
   });

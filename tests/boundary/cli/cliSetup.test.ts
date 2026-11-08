@@ -11,6 +11,7 @@ import {
 } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { promisify } from "node:util";
+import { pathToFileURL } from "node:url";
 import { spawn } from "@lydell/node-pty";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -294,7 +295,7 @@ describe("TTY setup dry run", () => {
     expect(output).toContain("Skill directory is a symbolic link.");
     expect(output).toContain(linked);
     expect(output).toContain("--skill=false");
-    expect(output).not.toContain("REA setup plan");
+    expect(output).not.toContain("Tekvro setup plan");
     expect(output).not.toContain("Install or update the REA skill");
     expect((await lstat(linked)).isSymbolicLink()).toBe(true);
     expect(await readFile(join(managed, "SKILL.md"), "utf8")).toBe(original);
@@ -410,7 +411,7 @@ describe("interactive setup journey", () => {
   it("shows detected and absent clients without preselecting detected clients", async () => {
     const result = await runJourney(
       [
-        step("Which agents should use REA?", "\u001b[B"),
+        step("Which agents should use Tekvro?", "\u001b[B"),
         step("Not detected · configuration is still available", "\r"),
       ],
       false,
@@ -420,15 +421,15 @@ describe("interactive setup journey", () => {
     expect(result.output).toContain(
       "Not detected · configuration is still available",
     );
-    expect(result.output).toContain("Which agents should use REA?");
-    expect(result.output).not.toContain("What should REA set up?");
+    expect(result.output).toContain("Which agents should use Tekvro?");
+    expect(result.output).not.toContain("What should Tekvro set up?");
     expect(result.decision.selectedActionIds).toEqual([]);
   });
 
   it("selects an absent OpenCode client and bundles its skill", async () => {
     const result = await runJourney(
       [
-        step("Which agents should use REA?", "\u001b[B \r"),
+        step("Which agents should use Tekvro?", "\u001b[B \r"),
         step("Apply these 2 changes?", "\r"),
       ],
       false,
@@ -453,7 +454,7 @@ describe("interactive setup journey", () => {
   it("shows the launcher, backup, and path before final approval", async () => {
     const result = await runJourney(
       [
-        step("Which agents should use REA?", " \r"),
+        step("Which agents should use Tekvro?", " \r"),
         step("Apply these 2 changes?", "\r"),
       ],
       false,
@@ -476,7 +477,7 @@ describe("interactive setup journey", () => {
 
   it("treats final No as cancellation", async () => {
     const result = await runJourney([
-      step("Which agents should use REA?", " \r"),
+      step("Which agents should use Tekvro?", " \r"),
       step("Apply these 2 changes?", "\u001b[D\r"),
     ]);
     expect(result.output).toContain("Setup cancelled. No changes were made.");
@@ -486,7 +487,7 @@ describe("interactive setup journey", () => {
 
   it("restores the terminal after Ctrl-C during selection", async () => {
     const result = await runJourney([
-      step("Which agents should use REA?", "\u0003"),
+      step("Which agents should use Tekvro?", "\u0003"),
     ]);
     expect(result.output).toContain("\u001b[?25h");
     expect(result.decision.cancelled).toBe(true);
@@ -494,8 +495,8 @@ describe("interactive setup journey", () => {
 
   it("can install the skill for CLI use without an agent registration", async () => {
     const result = await runJourney([
-      step("Which agents should use REA?", "\r"),
-      step("Install the guided REA skill for CLI use?", "\u001b[D\r"),
+      step("Which agents should use Tekvro?", "\r"),
+      step("Install the guided Tekvro skill for CLI use?", "\u001b[D\r"),
       step("Apply this change?", "\r"),
     ]);
     expect(result.decision.selectedActionIds).toEqual(["install_skill"]);
@@ -505,7 +506,7 @@ describe("interactive setup journey", () => {
   it("offers Hopper separately and defaults against installing it", async () => {
     const result = await runJourney(
       [
-        step("Which agents should use REA?", " \r"),
+        step("Which agents should use Tekvro?", " \r"),
         step("Install Hopper for deep binary analysis?", "\r"),
         step("Apply these 2 changes?", "\r"),
       ],
@@ -536,7 +537,7 @@ describe("interactive setup journey", () => {
   it("preselects only a prior REA registration", async () => {
     const result = await runJourney(
       [
-        step("Which agents should use REA?", "\r"),
+        step("Which agents should use Tekvro?", "\r"),
         step("Apply these 2 changes?", "\r"),
       ],
       false,
@@ -550,78 +551,120 @@ describe("interactive setup journey", () => {
   });
 });
 
+const setupCompletionInvocations = [
+  {
+    name: "direct source launcher",
+    directory: "source",
+    npmCommand: "",
+    userAgent: "",
+  },
+  {
+    name: "installed launcher with npm runner metadata",
+    directory: "installed",
+    npmCommand: "exec",
+    userAgent: "npm/10.9.0 node/v24.11.0 linux x64",
+  },
+  {
+    name: "quoted installed launcher with bun runner metadata",
+    directory: "installed tool $retained 'literal'",
+    npmCommand: "exec",
+    userAgent: "bun/1.4.2 npm/? node/v26.3.0 linux x64",
+  },
+];
+
 describe("interactive setup completion", () => {
-  it.each([
-    { npmCommand: "", userAgent: "", launcher: "node scripts/rea.mjs" },
-    {
-      npmCommand: "exec",
-      userAgent: "npm/10.9.0 node/v24.11.0 linux x64",
-      launcher: "node scripts/rea.mjs",
-    },
-    {
-      npmCommand: "exec",
-      userAgent: "bun/1.4.2 npm/? node/v26.3.0 linux x64",
-      launcher: "node scripts/rea.mjs",
-    },
-  ])(
-    "prints an available next command for $launcher invocation",
-    async ({ npmCommand, userAgent, launcher }) => {
+  it.each(setupCompletionInvocations)(
+    "prints an executable next command bound to the $name",
+    async (scenario) => {
+      const home = await createTestTempDirectory("tekvro-setup-next-command-");
+      const installation = join(home, scenario.directory);
+      const elsewhere = join(home, "unrelated working directory");
+      await Promise.all([mkdir(installation), mkdir(elsewhere)]);
+      const launcher = join(installation, "tekvro.mjs");
+      const environment = {
+        ...Object.fromEntries(
+          Object.entries(process.env).filter(
+            ([key]) =>
+              !["npm_command", "npm_config_user_agent"].includes(
+                key.toLowerCase(),
+              ),
+          ),
+        ),
+        ...isolatedSetupEnvironment(home),
+        npm_command: scenario.npmCommand,
+        npm_config_user_agent: scenario.userAgent,
+        NO_COLOR: "1",
+      };
+      await writeFile(
+        launcher,
+        [
+          `import { renderInteractiveSetupResult } from ${JSON.stringify(pathToFileURL(resolve("dist/cli/interactiveSetup.js")).href)};`,
+          'if (process.argv[2] === "--complete-setup") {',
+          "renderInteractiveSetupResult({",
+          '  status: "ready",',
+          "  plannedActions: [],",
+          "  appliedActions: [],",
+          '  clients: { codex: { status: "configured" } },',
+          "  doctor: {",
+          "    healthy: true,",
+          '    availableProviders: ["hopper", "ghidra"],',
+          '    identity: { skill: { state: "aligned" }, registrations: [{ client: "codex", state: "aligned" }] },',
+          "  },",
+          "});",
+          "} else {",
+          "  process.stdout.write(JSON.stringify({ args: process.argv.slice(2), cwd: process.cwd(), launcher: process.argv[1], node: process.execPath }));",
+          "}",
+        ].join("\n"),
+      );
       const { stderr } = await execute(
         process.execPath,
-        [
-          "--input-type=module",
-          "--eval",
-          [
-            'import { renderInteractiveSetupResult } from "./dist/cli/interactiveSetup.js";',
-            "renderInteractiveSetupResult({",
-            '  status: "ready",',
-            "  plannedActions: [],",
-            "  appliedActions: [],",
-            '  clients: { codex: { status: "configured" } },',
-            "  doctor: {",
-            "    healthy: true,",
-            '    availableProviders: ["hopper", "ghidra"],',
-            '    hopperPath: "/Applications/Hopper",',
-            "    checks: [],",
-            '    providerInspections: [{ id: "ghidra", available: true }],',
-            '    identity: { skill: { state: "aligned" }, registrations: [{ client: "codex", state: "aligned" }] },',
-            "  },",
-            "});",
-          ].join("\n"),
-        ],
+        [launcher, "--complete-setup"],
         {
-          cwd: process.cwd(),
-          env: {
-            ...Object.fromEntries(
-              Object.entries(process.env).filter(
-                ([key]) =>
-                  !["npm_command", "npm_config_user_agent"].includes(
-                    key.toLowerCase(),
-                  ),
-              ),
-            ),
-            npm_command: npmCommand,
-            npm_config_user_agent: userAgent,
-            NO_COLOR: "1",
-          },
+          cwd: elsewhere,
+          env: environment,
         },
       );
-
       expect(stderr).toContain("What you can do now");
       expect(stderr).toContain("Deep analysis: Hopper and Ghidra");
       expect(stderr).toContain("Agent access: Codex");
       expect(stderr).toContain(
         "Guided reverse-engineering workflows: installed",
       );
-      expect(stderr).toContain(`CLI: ${launcher} analyze /path/to/app`);
-      expect(stderr).toContain(
-        "Run these commands from your Tekvro source checkout",
-      );
-      expect(stderr).not.toContain("npx rea-agents");
-      expect(stderr).not.toContain("bunx rea-agents");
+      expect(stderr).toContain("Restart Codex to load Tekvro.");
+      expect(stderr).not.toContain("source checkout");
+      expect(stderr).not.toContain("npx ");
+      expect(stderr).not.toContain("bunx ");
       expect(stderr).toContain(
         'Try in Codex: "Explain how a feature works in /path/to/app and show the evidence."',
       );
+      const command = /CLI(?: \(PowerShell\))?: (.+)$/mu.exec(stderr)?.[1];
+      expect(command).toBeDefined();
+      if (command === undefined)
+        throw new Error("Setup did not print an executable next command");
+      const shell =
+        process.platform === "win32"
+          ? join(
+              process.env.SystemRoot ?? "C:\\Windows",
+              "System32",
+              "WindowsPowerShell",
+              "v1.0",
+              "powershell.exe",
+            )
+          : "/bin/sh";
+      const shellArgs =
+        process.platform === "win32"
+          ? ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", command]
+          : ["-c", command];
+      const executed = await execute(shell, shellArgs, {
+        cwd: elsewhere,
+        env: { ...environment, PATH: installation },
+      });
+      expect(JSON.parse(executed.stdout)).toEqual({
+        args: ["analyze", "/path/to/app"],
+        cwd: elsewhere,
+        launcher,
+        node: process.execPath,
+      });
     },
   );
   it("prints retained cleanup resources without relying on paths in remediation", async () => {

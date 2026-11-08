@@ -102,6 +102,7 @@ it.each(["json", "jsonl", "yaml", "toon", "md"])(
     expect(mocks.run).not.toHaveBeenCalled();
     expect(mocks.host).not.toHaveBeenCalled();
     expect(mocks.dependencyInstall).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
   },
 );
 
@@ -129,11 +130,19 @@ it("preserves filtering, full output and unsuccessful update exit status", async
   expect(JSON.parse(failed.stdout)).toMatchObject({
     status: "failed",
     reason: "unknown-install-method",
-    remediation: expect.stringContaining("Tekvro is a source checkout"),
+    remediation: expect.stringContaining(
+      "Automatic registry updates are disabled",
+    ),
+  });
+  expect(JSON.parse(failed.stdout)).toMatchObject({
+    remediation: expect.stringContaining(
+      "npm install --global ./tekvro-VERSION.tgz",
+    ),
   });
   expect(mocks.run).not.toHaveBeenCalled();
   expect(mocks.host).not.toHaveBeenCalled();
   expect(mocks.dependencyInstall).not.toHaveBeenCalled();
+  expect(fetch).not.toHaveBeenCalled();
 });
 
 it.each([
