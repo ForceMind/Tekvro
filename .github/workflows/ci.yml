@@ -929,6 +929,11 @@ jobs:
         with:
           name: windows-native-inspection-fixture
           path: .cache/windows-native-inspection-fixture/
+      - name: Verify installed launcher examples in PowerShell
+        run: >-
+          npx vitest run --coverage.enabled=false
+          tests/boundary/cli/cliSetup.test.ts
+          --testNamePattern="interactive setup completion"
       - name: Verify native inspection failure ownership and recovery
         run: node scripts/verify-windows-native-inspection.mjs
       - name: Verify real Node Inspector discovery and observation
