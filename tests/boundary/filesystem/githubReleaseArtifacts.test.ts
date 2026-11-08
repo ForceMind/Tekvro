@@ -16,12 +16,28 @@ import { z } from "zod";
 import { createTestTempDirectory } from "../../fixtures/temporaryDirectory.js";
 import {
   executeWorkflowFixture as execute,
-  workflowGit as git,
+  workflowGit as runGit,
 } from "../../support/workflowGit.js";
 
 const builder = fileURLToPath(
   new URL("../../../scripts/release/github-artifacts.mjs", import.meta.url),
 );
+
+async function git(directory: string, args: readonly string[]) {
+  const metadata =
+    args[0] === "init"
+      ? join(directory, ".git")
+      : (
+          await execute("git", ["rev-parse", "--absolute-git-dir"], {
+            cwd: directory,
+          })
+        ).stdout.trim();
+  const hooks = join(metadata, "fixture-hooks");
+  await mkdir(hooks, { recursive: true });
+  // Git initialization and LFS hook maintenance must stay in Git metadata,
+  // including submodules whose working-tree .git entry is a pointer file.
+  return runGit(directory, ["-c", `core.hooksPath=${hooks}`, ...args]);
+}
 const runtimeFiles = [
   "scripts/rea.mjs",
   "scripts/lib/cli-process-environment.mjs",
