@@ -102,6 +102,7 @@ export const SCOPES = {
     "scripts/release/**",
     "tests/boundary/filesystem/githubPublication.test.ts",
     "tests/boundary/filesystem/githubReleaseArtifacts.test.ts",
+    "tests/boundary/cli/cliSetup.test.ts",
     // Both host compilers must be exercised when their installation, options,
     // or entrypoints change; Linux's accelerated checker cannot stand in for Go.
     "scripts/run-typescript.*",
