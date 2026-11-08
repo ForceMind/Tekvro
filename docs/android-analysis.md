@@ -5,9 +5,9 @@ kept as an unmodified, commit-pinned Git submodule; see
 [upstream provenance](https://github.com/ForceMind/Tekvro/blob/main/third_party/README.md). CLI and MCP use the same
 application workflow and return artifact-bound Evidence inline.
 
-This family is present on repository main and in npm 4.1.0. Check the
-[released package boundary](installation.md#released-package-and-main) and the
-connected server's tool list before selecting it.
+This family is included in Tekvro's CLI/MCP runtime. Check the installed
+GitHub archive's [release boundary](installation.md#released-package-and-main)
+and the connected server's tool list before selecting it.
 
 On Linux, JADX launches a Tekvro-owned process and requires a procps-compatible
 `ps` on Tekvro's `PATH`; see the shared
@@ -126,9 +126,9 @@ export JAVA_HOME=/absolute/path/existing-jdk
 ```
 
 On Windows x64, use a Tekvro package with its matching bundled Windows native
-controls **including owned protocol stdin support**. This Windows boundary is
-new on repository main; an older released package can still reject this host.
-PowerShell accepts paths containing spaces without additional escaping
+controls **including owned protocol stdin support**. Check the selected
+release's Windows verification; another host's package check does not establish
+this workflow. PowerShell accepts paths containing spaces without additional escaping
 inside these environment values:
 
 ```powershell

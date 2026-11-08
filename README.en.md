@@ -27,6 +27,8 @@ curl -fsSL https://raw.githubusercontent.com/ForceMind/Tekvro/v1.0.0/install.sh 
 bash install-tekvro.sh --version 1.0.0
 ```
 
+On Linux, the installer defaults to `$HOME/.local/bin`. If the current shell cannot find the command, run `export PATH="$HOME/.local/bin:$PATH"`. With `--prefix DIR`, add `DIR/bin` instead. The installer prints the actual path without changing shell configuration.
+
 Alternatively, download `tekvro-1.0.0.tgz` from the [release page](https://github.com/ForceMind/Tekvro/releases/tag/v1.0.0), verify it using the [distribution guide](docs/zh-CN/distribution.md), and install the archive:
 
 ```bash

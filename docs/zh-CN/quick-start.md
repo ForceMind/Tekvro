@@ -36,7 +36,7 @@ npm install --global .\tekvro-1.0.0.tgz
 tekvro --version
 ```
 
-若终端找不到 `tekvro`，请检查 npm 的全局安装目录是否位于 `PATH`，然后重新打开终端。
+Linux 脚本默认将命令放在 `$HOME/.local/bin`。若当前终端找不到 `tekvro`，运行 `export PATH="$HOME/.local/bin:$PATH"`。指定 `--prefix DIR` 时使用 `DIR/bin`；macOS 或手动 npm 安装应检查其实际全局安装目录。安装器会打印所选路径，不会修改 shell 配置。
 
 1.0.0 通过 GitHub Release 分发。安装本地归档的命令使用 npm，但此版本未发布到 npm 注册中心或 MCP 目录。
 

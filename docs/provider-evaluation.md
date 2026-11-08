@@ -1,6 +1,6 @@
 # Static-analysis provider evaluation
 
-This guide describes repository main. Check the [released package boundary](installation.md#released-package-and-main) when using npm.
+This guide describes repository main. Check the [released package boundary](installation.md#released-package-and-main) for the exact GitHub release archive you installed.
 
 Ghidra read-only analysis is available on Linux x64/arm64 and macOS x64/arm64.
 Install a Ghidra 12.1.x release and the 64-bit full JDK that release declares,

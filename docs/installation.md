@@ -31,6 +31,8 @@ tekvro doctor --json
 
 The installer selects the release asset and validates its checksum before installing the CLI. It leaves client configuration to a separate setup step.
 
+On Linux, the default command directory is `$HOME/.local/bin`. If it is absent from the current shell's `PATH`, run `export PATH="$HOME/.local/bin:$PATH"` before invoking Tekvro. A custom `--prefix DIR` uses `DIR/bin`; on macOS, follow the installer output for the selected npm prefix. The installer does not edit shell configuration.
+
 ### Install a downloaded package
 
 Download `tekvro-1.0.0.tgz` and `SHA256SUMS` from the same [versioned release](https://github.com/ForceMind/Tekvro/releases/tag/v1.0.0). Compute the package's SHA-256 and compare it with the line for that exact filename in `SHA256SUMS`:

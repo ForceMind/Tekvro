@@ -520,9 +520,10 @@ with an installed native FreeBuff client/version; filesystem tests cover Tekvro'
 editing, discovery, and ownership behavior only. Automatic applicability
 requires the FreeBuff profile directory even when the shared MCP file exists.
 
-FreeBuff is main-only and is not in a published release yet; npm 6.7.0 is the
-latest. `rea setup --client freebuff` against `@latest` reports an unsupported
-client until a release containing it is published.
+Use `tekvro setup --client freebuff` with a verified GitHub release archive
+or a selected source build that includes this adapter. Check the
+[release boundary](installation.md#released-package-and-main) for the installed
+version; registry `@latest` is not a distribution path for this release.
 
 ## DeepSeek Harness
 
@@ -601,19 +602,28 @@ computer. It does not import `mcp.json` from the data directory, and it does
 not attach a stdio server running on this machine. Setup does not call the
 account connector API, does not write a registration file, and does not report
 the data directory as aligned. Ask the Grok Bot chat to add a custom MCP
-server named `rea` that runs on the Bot's computer. First place and build the
-reviewed Tekvro source checkout there; use that computer's Node.js and actual
-absolute script path, for example:
+server named `rea` that runs on the Bot's computer. On that computer, install
+a Tekvro CLI archive from the selected [GitHub release](https://github.com/ForceMind/Tekvro/releases)
+after checking its SHA-256 against the release's `SHA256SUMS`, or place and
+build the reviewed source checkout there. Select the actual absolute launcher
+path on that computer, for example:
 
 ```bash
-node /absolute/path/to/Tekvro/scripts/rea.mjs mcp
+/absolute/path/to/tekvro mcp
 ```
 
-Tekvro has no independent public package. A local source checkout is not
-available on the Bot's hosted computer unless it is explicitly placed there.
+For a source build, use that computer's Node.js executable and absolute script
+path:
 
-Do not put credentials in that command or its arguments. `rea doctor --client grok_bot`
-reports this manual step. `rea uninstall` does not remove the account connector.
+```bash
+/absolute/path/to/node /absolute/path/to/Tekvro/scripts/rea.mjs mcp
+```
+
+An installation or source checkout on this machine does not become available
+on the Bot's hosted computer automatically.
+
+Do not put credentials in that command or its arguments. `tekvro doctor --client grok_bot`
+reports this manual step. `tekvro uninstall` does not remove the account connector.
 
 ## Skill selection and maintenance
 

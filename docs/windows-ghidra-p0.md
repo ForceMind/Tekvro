@@ -1,10 +1,11 @@
 # Windows Ghidra P0
 
-This guide describes repository main. npm 4.1.0 includes the Windows
-native bundle; check the [release boundary](installation.md#released-package-and-main)
-before applying these instructions to an older published package.
-Native x86 (32-bit) PE support is available on repository main; npm releases
-through 5.0.0 admit x86-64 PE targets on Windows.
+This guide describes the Windows adapter on repository main. Tekvro is
+distributed through GitHub release archives; check the
+[release boundary](installation.md#released-package-and-main) and the selected
+version's verification before applying these instructions to an installation.
+A package startup check does not establish every target format or real-engine
+workflow described here.
 
 Status: experimental Windows x64 support for the read-only P0 boundary. Windows
 package builds bundle native process, filesystem, and DACL controls. Tekvro
