@@ -43,7 +43,7 @@ const example = async () =>
       parse(
         await readFile(
           new URL(
-            "../../../examples/github-actions/rea-analysis.yml",
+            "../../../examples/github-actions/tekvro-analysis.yml",
             import.meta.url,
           ),
           "utf8",
@@ -67,9 +67,22 @@ it("keeps the example manually triggered, least-privileged, pinned and failure-p
     expect(step["continue-on-error"]).toBeUndefined();
     if (step.uses !== undefined) expect(step.uses).toMatch(/@[a-f0-9]{40}$/u);
   }
-  expect(
-    job.steps.find((step) => step.name === "Install pinned REA")?.run,
-  ).toContain("--save-exact rea-agents@6.7.0");
+  const install = job.steps.find(
+    (step) => step.name === "Install pinned Tekvro",
+  )?.run;
+  expect(install).toContain(
+    "https://raw.githubusercontent.com/ForceMind/Tekvro/v1.0.0/install.sh",
+  );
+  expect(install).toContain("curl --fail");
+  expect(install).toContain("--proto '=https' --proto-redir '=https'");
+  expect(install).toContain('--output "${installer}"');
+  expect(install).toContain(
+    'bash "${installer}" --version 1.0.0 --prefix "${RUNNER_TEMP}/tekvro-tool"',
+  );
+  expect(install).toContain(
+    '"${RUNNER_TEMP}/tekvro-tool/bin" >> "${GITHUB_PATH:?}"',
+  );
+  expect(install).not.toMatch(/npm\s+(?:install|i)\s|npx\s|--setup(?:\s|$)/u);
   const upload = job.steps.find((step) =>
     step.uses?.startsWith("actions/upload-artifact@"),
   );
@@ -93,7 +106,7 @@ it("links to the workflow asset outside the documentation site's base", async ()
     "utf8",
   );
   expect(guide).toContain(
-    "[minimal workflow](https://github.com/morluto/rea/blob/main/examples/github-actions/rea-analysis.yml)",
+    "[minimal workflow](https://github.com/ForceMind/Tekvro/blob/main/examples/github-actions/tekvro-analysis.yml)",
   );
 });
 
@@ -116,7 +129,7 @@ describe.skipIf(process.platform === "win32")(
           const analyze = job.steps.find((step) => step.id === "analyze")?.run;
           if (build === undefined || analyze === undefined)
             throw new Error("Example omitted build or analysis");
-          const root = await createTestTempDirectory("rea-ci-example-");
+          const root = await createTestTempDirectory("tekvro-ci-example-");
           const workspace = join(root, "checkout");
           const runner = join(root, "runner");
           const home = join(root, "home");
@@ -126,7 +139,7 @@ describe.skipIf(process.platform === "win32")(
             await mkdir(directory);
           await writeFile(outputs, "");
           // Use the real executable, not a stub that invents a successful report.
-          await symlink(resolve("scripts/rea.mjs"), join(bin, "rea"));
+          await symlink(resolve("scripts/rea.mjs"), join(bin, "tekvro"));
           const env = {
             PATH: [bin, dirname(process.execPath), "/usr/bin", "/bin"].join(
               delimiter,
@@ -150,7 +163,7 @@ describe.skipIf(process.platform === "win32")(
                 timeoutMs: 30_000,
               },
             );
-          const checkoutReports = join(workspace, "reports", "rea");
+          const checkoutReports = join(workspace, "reports", "tekvro");
           await mkdir(checkoutReports, { recursive: true });
           await writeFile(
             join(checkoutReports, "analysis.json"),
@@ -193,7 +206,7 @@ describe.skipIf(process.platform === "win32")(
             );
           if (kind === "missing") env.ARTIFACT_PATH = "build/missing-artifact";
           if (kind === "unsupported")
-            env.ARTIFACT_PATH = "build/rea-ci-demo/index.js";
+            env.ARTIFACT_PATH = `${job.env.ARTIFACT_PATH}/index.js`;
           const result = await run(analyze);
           expect(result.signal).toBeNull();
           const raw = await readFile(join(reports, "analysis.json"), "utf8");

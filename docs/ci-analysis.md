@@ -53,6 +53,18 @@ For changed source, use `npm run check:changed`. Use `npm run test:focused -- PA
 
 Local success gives feedback on the checkout. CI still validates the merged revision and retains the reviewable records used by publication.
 
+## Analyze an application in your own CI
+
+The [minimal workflow](https://github.com/ForceMind/Tekvro/blob/main/examples/github-actions/tekvro-analysis.yml) is a self-contained example for an Ubuntu 24.04 runner. Copy it to `.github/workflows/tekvro-analysis.yml` on your default branch and select **Tekvro static analysis example** in Actions to run it manually. It requests only `contents: read` and pins its actions to full commit revisions.
+
+The example selects Node.js `24.22.1`, downloads the versioned Tekvro `1.0.0` installer over HTTPS, and runs it with an isolated prefix under `RUNNER_TEMP`. The installer verifies the GitHub release archive before installation. Client setup is not requested. npm obtains the package's runtime dependencies; this example does not create a committed dependency lock for that installation.
+
+Replace **Build a known artifact** with your reviewed build and keep `ARTIFACT_PATH` aligned. The demonstration creates `build/tekvro-ci-demo`, whose script throws if executed; Tekvro reads it statically. A replacement build can execute code and needs its own review. Supervised operations on Linux require a procps-compatible `ps`. Optional analysis tools are not prerequisites for this JavaScript directory example.
+
+Download the `tekvro-analysis` artifact to inspect `analysis.json`, `analysis.stderr` and `exit-code.txt`. Each run uses a fresh report directory under `RUNNER_TEMP`; upload uses `always()` after that directory exists. The analysis step retains its original exit code, so a failed analysis still fails the job while available reports upload. A failure before analysis can leave an empty directory; stale workspace reports are not substituted.
+
+Exit zero can still accompany partial analysis, unknowns and limitations. Inspect Evidence and coverage before using results in a policy decision. Missing or unsupported input must retain its nonzero exit and original diagnostics. Report contents can include caller-selected paths, URLs and source-derived facts; review the artifact's sharing scope and seven-day retention for your repository.
+
 ## Connection to publication
 
 A successful completed `CI` run can trigger `.github/workflows/tekvro-release.yml` through `workflow_run`. The release script admits only the reviewed GitHub release request and matching canonical `main` revision, builds the four release assets, runs an installation canary on the actual `.tgz`, and checks source identity and checksums before publishing.
