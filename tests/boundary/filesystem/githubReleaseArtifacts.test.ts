@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import {
+  access,
   mkdir,
   readFile,
   readdir,
@@ -149,13 +150,17 @@ it(
   { timeout: 30_000 },
   async () => {
     const f = await fixture();
-    await addNestedSubmodules(f);
-    await build(f);
+    const lfs = await addLfsPointers(f);
+    await build(f, undefined, lfs.environment);
     // Cross a filesystem timestamp boundary so export-time mtimes cannot make
     // an otherwise nondeterministic source archive accidentally pass.
     await setTimeout(1_100);
     const retryOutput = join(f.root, "retry-assets");
-    await build(f, ["--output", retryOutput, "--source-sha", f.sourceSha]);
+    await build(
+      f,
+      ["--output", retryOutput, "--source-sha", f.sourceSha],
+      lfs.environment,
+    );
     for (const name of await readdir(f.output)) {
       expect(
         Buffer.compare(
@@ -165,6 +170,25 @@ it(
         name,
       ).toBe(0);
     }
+    const archive = join(f.output, "tekvro-1.0.0-source.tar.gz");
+    for (const path of [
+      "fixtures/large.lfs",
+      "engines/fixture/nested/leaf/fixtures/large.lfs",
+    ]) {
+      expect(
+        (await execute("tar", ["-xOf", archive, `tekvro-1.0.0/${path}`]))
+          .stdout,
+      ).toBe(lfs.pointer);
+    }
+    const observations = (await readFile(lfs.observations, "utf8"))
+      .trim()
+      .split("\n");
+    expect(observations).toContain(`${f.directory}\t1`);
+    expect(observations).toContain(`${lfs.leaf}\t1`);
+    expect(observations.every((line) => line.endsWith("\t1"))).toBe(true);
+    await expect(access(lfs.download)).rejects.toMatchObject({
+      code: "ENOENT",
+    });
     expect(await readdir(f.temporary)).toEqual([]);
   },
 );
@@ -172,6 +196,7 @@ it(
 function build(
   f: Fixture,
   args = ["--output", f.output, "--source-sha", f.sourceSha],
+  environment: NodeJS.ProcessEnv = {},
 ) {
   return execute(process.execPath, [builder, ...args], {
     cwd: f.directory,
@@ -180,6 +205,7 @@ function build(
       TMPDIR: f.temporary,
       TMP: f.temporary,
       TEMP: f.temporary,
+      ...environment,
     },
     maxBuffer: 4 * 1024 * 1024,
   });
@@ -227,6 +253,82 @@ async function addNestedSubmodules(f: Fixture) {
   await git(f.directory, ["commit", "-am", "chore: engine fixture"]);
   f.sourceSha = await git(f.directory, ["rev-parse", "HEAD"]);
   return join(f.directory, "engines/fixture");
+}
+
+async function addLfsPointers(f: Fixture) {
+  const engine = await addNestedSubmodules(f);
+  const leaf = join(engine, "nested/leaf");
+  const pointer =
+    "version https://git-lfs.github.com/spec/v1\noid sha256:b1d13c5021fad1bbc1fd95d8597efd5822fa179b00df8dd3fa4d5eb9f73c78b2\nsize 6252215\n";
+  const download = join(f.root, "unexpected-lfs-download");
+  const observations = join(f.root, "lfs-smudge-observations");
+  const filter = join(f.root, "smudge.mjs");
+  await writeFile(
+    filter,
+    `
+import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
+if (process.env.GIT_LFS_SKIP_SMUDGE !== "1") {
+  writeFileSync(${JSON.stringify(download)}, "download attempted");
+  process.stderr.write("LFS download was not disabled");
+  process.exit(87);
+}
+appendFileSync(${JSON.stringify(observations)}, process.cwd() + "\\t1\\n");
+process.stdout.write(readFileSync(0));
+`,
+  );
+  const globalConfig = join(f.root, "global-git-config");
+  const quote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
+  await git(f.directory, [
+    "config",
+    "--file",
+    globalConfig,
+    "filter.lfs.smudge",
+    `${quote(process.execPath)} ${quote(filter)}`,
+  ]);
+  await git(f.directory, [
+    "config",
+    "--file",
+    globalConfig,
+    "filter.lfs.required",
+    "true",
+  ]);
+  for (const root of [f.directory, leaf]) {
+    // Do not let a host's long-running LFS filter contact its real endpoint.
+    await git(root, ["config", "filter.lfs.process", ""]);
+    await git(root, ["config", "filter.lfs.clean", "cat"]);
+    await git(root, ["config", "filter.lfs.required", "false"]);
+    await write(root, ".gitattributes", "*.lfs filter=lfs -text\n");
+    await write(root, "fixtures/large.lfs", pointer);
+    await git(root, ["add", ".gitattributes", "fixtures/large.lfs"]);
+    await git(root, ["commit", "-m", "chore: tracked LFS pointer"]);
+    // The private global configuration supplies only the controlled smudge
+    // filter during the build, with no host process-filter command to inherit.
+    await git(root, ["config", "--unset", "filter.lfs.process"]);
+    await git(root, ["config", "filter.lfs.required", "true"]);
+  }
+  await git(engine, ["add", "nested/leaf"]);
+  await git(engine, ["commit", "-m", "chore: pin LFS fixture"]);
+  await git(f.directory, ["add", "engines/fixture"]);
+  await git(f.directory, ["commit", "-m", "chore: pin nested LFS fixture"]);
+  f.sourceSha = await git(f.directory, ["rev-parse", "HEAD"]);
+  for (const root of [f.directory, engine, leaf]) {
+    const status = await execute("git", ["status", "--porcelain"], {
+      cwd: root,
+      env: {
+        ...process.env,
+        GIT_CONFIG_GLOBAL: globalConfig,
+        GIT_LFS_SKIP_SMUDGE: "0",
+      },
+    });
+    expect(status.stdout, root).toBe("");
+  }
+  return {
+    pointer,
+    leaf,
+    download,
+    observations,
+    environment: { GIT_CONFIG_GLOBAL: globalConfig, GIT_LFS_SKIP_SMUDGE: "0" },
+  };
 }
 
 it(

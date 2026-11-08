@@ -47,9 +47,11 @@ For version 1.0.0, the only public assets are:
 | Asset                        | Contents                                                                              |
 | ---------------------------- | ------------------------------------------------------------------------------------- |
 | `tekvro-1.0.0.tgz`           | npm-installable CLI/MCP package containing `dist/` and required runtime files         |
-| `tekvro-1.0.0-source.tar.gz` | Tracked source at the release revision, including pinned submodule contents           |
+| `tekvro-1.0.0-source.tar.gz` | Complete tracked Git source and pinned submodule Git contents                         |
 | `SHA256SUMS`                 | SHA-256 records for both archives and `release-manifest.json`                         |
 | `release-manifest.json`      | Version, tag, source commit/tree, archive hashes/sizes and build Node.js/npm versions |
+
+Source export uses `GIT_LFS_SKIP_SMUDGE=1` to preserve committed LFS pointer files. The archive contains complete Git-tracked source and pinned submodule Git contents, without external large test-fixture objects or `.git` metadata. Fetch optional LFS test data in a Git checkout according to the selected suite; these fixtures are separate from required CLI runtime dependencies.
 
 `npm pack` and `npm install` of a local `.tgz` are packaging operations. They do not require making the package public in a registry. Keep `private: true`, the registry publication guards and the disabled registry workflow boundaries.
 

@@ -7,11 +7,11 @@ Tekvro 1.0.0 通过 [GitHub Release](https://github.com/ForceMind/Tekvro/release
 | 文件                         | 用途                                                      |
 | ---------------------------- | --------------------------------------------------------- |
 | `tekvro-1.0.0.tgz`           | 可由 npm 安装的运行归档，包含已构建的 CLI 与 MCP 运行文件 |
-| `tekvro-1.0.0-source.tar.gz` | 完整源码归档，包含固定的子模块内容，适合审查与自行构建    |
+| `tekvro-1.0.0-source.tar.gz` | 完整 Git 源码及固定子模块的 Git 内容，适合审查与自行构建  |
 | `SHA256SUMS`                 | 发行资产的 SHA-256 校验值                                 |
 | `release-manifest.json`      | 记录版本、源码提交及发行资产信息                          |
 
-请使用发行页中列出的完整源码资产进行离线审查或构建；自动生成的仓库快照与包含子模块内容的完整源码资产有不同用途。
+源码资产包含完整 Git 跟踪源码及固定子模块的 Git 内容。Git LFS 文件保留提交中的 pointer，不附带外部大型测试资源对象；这些可选测试数据不是 CLI 的必需运行依赖。请使用发行页中列出的源码资产进行审查或构建。
 
 ## 校验下载内容
 
@@ -87,11 +87,13 @@ node scripts/rea.mjs doctor --json
 从 Git 获取指定版本时使用：
 
 ```bash
-git clone --branch v1.0.0 --recurse-submodules https://github.com/ForceMind/Tekvro.git
+GIT_LFS_SKIP_SMUDGE=1 git clone --branch v1.0.0 --recurse-submodules https://github.com/ForceMind/Tekvro.git
 cd Tekvro
 npm ci
 npm run build:cached
 ```
+
+上述克隆跳过可选 LFS 大资源的自动下载。若选定测试套件需要这些资源，请在 Git 检出中按该套件要求获取；源码归档不含 `.git`，不能直接在解压目录中拉取 LFS 对象。
 
 开发工具链以 `.nvmrc` 和 `package.json` 的 `packageManager` 为准。贡献流程和检查命令见[贡献指南](https://github.com/ForceMind/Tekvro/blob/main/CONTRIBUTING.md)。
 

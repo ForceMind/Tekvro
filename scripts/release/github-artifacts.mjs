@@ -296,6 +296,7 @@ async function archiveSources({ root, workspace, sourceName, repositories }) {
     await mkdir(destination, { recursive: true });
     const environment = {
       GIT_INDEX_FILE: join(workspace, `source-index-${index}`),
+      GIT_LFS_SKIP_SMUDGE: "1",
     };
     await git(
       repository.root,
