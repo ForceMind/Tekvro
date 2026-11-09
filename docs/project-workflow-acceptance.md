@@ -238,7 +238,7 @@ decision:
   但报告认证和真实检查仍待 PW-04。
 
 以上为各验收项的存储部分，M1 的真实 Agent、浏览器闭环及界面尚未验收。
-当前 PR 的 CI 与审阅结果继续记录后再决定本工作包状态。
+存储切片已通过下述精确来源的 CI 与审阅并合并；阶段接口及运行边界仍待落实，M0 尚未关闭。
 
 ### 当前宿主的后续执行预检
 
@@ -256,6 +256,19 @@ PR #55 首次 CI 的源码测试、静态检查、文档、编译和 Windows 原
 `69b45568-49ac-4b89-9006-a9de7a46310d`。
 重试失败作业接口返回 HTTP 403 与 `This workflow run cannot be retried`。
 保留失败记录，后续提交重新执行当前完整资格后再更新验收状态。
+
+### 存储切片最终资格与合并记录
+
+[PR #55](https://github.com/ForceMind/Tekvro/pull/55) 的最终来源为
+`b49549bc2f72bcfbfcfe95b1f82e604044ab48c2`，合并提交为
+`3bf8cc6174d1a85608402ea91cf0f90dcfd962f6`。
+[该来源 CI](https://github.com/ForceMind/Tekvro/actions/runs/42676758338)
+为 33,784 项通过、234 项按环境条件跳过，执行清单核对为 true。
+跨宿主历史路径的审阅问题已修复并解决；本地存储边界为前述 15 项通过。
+[核心实测](https://github.com/ForceMind/Tekvro/actions/runs/42676758000)
+首次因 Electron MCP 用例 20 秒超时失败，同一来源重跑后通过；首次失败保留，
+测试及超时设置没有修改。这些结果只覆盖已实现的元数据与既有工具范围，
+不表示项目执行器、真实 Builder、项目 CLI/MCP 或工作台已经实现。
 
 ## 9. 本文件所依据的既有契约
 
