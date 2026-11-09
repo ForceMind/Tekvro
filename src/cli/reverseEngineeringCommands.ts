@@ -1,3 +1,4 @@
+import { cliDecimalShape } from "./options.js";
 import { z } from "incur";
 import type { Logger } from "pino";
 
@@ -141,22 +142,24 @@ export const registerReverseEngineeringCommands = (
         .enum(OBJDUMP_ARTIFACT_OPERATIONS)
         .describe("GNU objdump inspection operation to run."),
     }),
-    options: z.object({
-      ...analysisEvidenceDeliveryOptions,
-      symbol: z
-        .string()
-        .optional()
-        .describe(
-          "Native symbol to select with the disassemble operation; GNU objdump controls matching and boundaries.",
-        ),
-      followDebugLinks: z
-        .boolean()
-        .default(false)
-        .describe(
-          "Follow local DWARF debug links. External debug-file identity is not bound to Evidence.",
-        ),
-      commandTimeoutMs: reverseCommandTimeoutSchema,
-    }),
+    options: z.object(
+      cliDecimalShape({
+        ...analysisEvidenceDeliveryOptions,
+        symbol: z
+          .string()
+          .optional()
+          .describe(
+            "Native symbol to select with the disassemble operation; GNU objdump controls matching and boundaries.",
+          ),
+        followDebugLinks: z
+          .boolean()
+          .default(false)
+          .describe(
+            "Follow local DWARF debug links. External debug-file identity is not bound to Evidence.",
+          ),
+        commandTimeoutMs: reverseCommandTimeoutSchema,
+      }),
+    ),
     run: ({ args, options }) =>
       withCommandCancellation((signal) =>
         logCliCommand(logger, CLI_COMMANDS.inspectWithObjdump, async () => {
@@ -193,10 +196,12 @@ export const registerReverseEngineeringCommands = (
   cli.command(CLI_COMMANDS.listObjdumpArchitectures, {
     description: "List BFD targets advertised by the installed GNU objdump",
     args: z.object({}),
-    options: z.object({
-      ...analysisEvidenceDeliveryOptions,
-      commandTimeoutMs: reverseCommandTimeoutSchema,
-    }),
+    options: z.object(
+      cliDecimalShape({
+        ...analysisEvidenceDeliveryOptions,
+        commandTimeoutMs: reverseCommandTimeoutSchema,
+      }),
+    ),
     run: ({ options }) =>
       withCommandCancellation((signal) =>
         logCliCommand(
@@ -240,9 +245,11 @@ export const registerReverseEngineeringCommands = (
         .describe("Path to the local artifact to analyze."),
       command: z.string().min(1).describe("One caller-selected Rizin command."),
     }),
-    options: z.object({
-      commandTimeoutMs: reverseCommandTimeoutSchema,
-    }),
+    options: z.object(
+      cliDecimalShape({
+        commandTimeoutMs: reverseCommandTimeoutSchema,
+      }),
+    ),
     run: ({ args, options }) =>
       withCommandCancellation((signal) =>
         logCliCommand(logger, CLI_COMMANDS.executeRizinCommand, async () => {

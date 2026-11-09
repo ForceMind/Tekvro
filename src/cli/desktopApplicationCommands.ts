@@ -1,3 +1,4 @@
+import { cliDecimalShape } from "./options.js";
 import { localPathStringSchema } from "../domain/localPath.js";
 import {
   analysisEvidenceDeliveryOptions,
@@ -23,25 +24,27 @@ export const registerDesktopApplicationCommands = (
     args: z.object({
       path: localPathStringSchema.describe("Local installation directory"),
     }),
-    options: z.object({
-      max_entries: z
-        .number()
-        .int()
-        .positive()
-        .max(100_000)
-        .default(20_000)
-        .describe(
-          "Maximum directory entries to examine; exhaustion leaves partial coverage",
-        ),
-      ...analysisEvidenceDeliveryOptions,
-      max_probe_bytes: z
-        .number()
-        .int()
-        .min(4096)
-        .max(64 * 1024 * 1024)
-        .default(8 * 1024 * 1024)
-        .describe("Maximum total bytes read from selected file ranges"),
-    }),
+    options: z.object(
+      cliDecimalShape({
+        max_entries: z
+          .number()
+          .int()
+          .positive()
+          .max(100_000)
+          .default(20_000)
+          .describe(
+            "Maximum directory entries to examine; exhaustion leaves partial coverage",
+          ),
+        ...analysisEvidenceDeliveryOptions,
+        max_probe_bytes: z
+          .number()
+          .int()
+          .min(4096)
+          .max(64 * 1024 * 1024)
+          .default(8 * 1024 * 1024)
+          .describe("Maximum total bytes read from selected file ranges"),
+      }),
+    ),
     run: ({ args, options }) =>
       withCommandCancellation((signal) =>
         logCliCommand(

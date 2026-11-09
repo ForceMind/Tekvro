@@ -5,6 +5,8 @@ import type { Socket } from "node:net";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { expect, it, onTestFinished } from "vitest";
+import { Ajv2020 } from "ajv/dist/2020.js";
+import { z } from "zod";
 import { parseEvidence } from "../../src/domain/evidence.js";
 import { webEventListenersSchema } from "../../src/domain/webEventListeners.js";
 import { startRuntimeBrowser } from "../fixtures/webRuntime.js";
@@ -24,18 +26,15 @@ it("advertises the canonical observation duration bounds through the compiled CL
     [entrypoint, "observe-web-execution", "--schema", "--json"],
     { env: environment(), timeout: 20_000 },
   );
-  expect(JSON.parse(stdout)).toMatchObject({
-    options: {
-      properties: {
-        observationMs: {
-          type: "integer",
-          minimum: 1,
-          maximum: 2_147_483_647,
-          default: 10_000,
-        },
-      },
-    },
-  });
+  const schema: unknown = JSON.parse(stdout);
+  const envelope = z
+    .object({ options: z.record(z.string(), z.unknown()) })
+    .parse(schema);
+  const validate = new Ajv2020({ strict: false }).compile(envelope.options);
+  for (const value of [1, 2_147_483_647, "0001", "2147483647"])
+    expect(validate({ observationMs: value })).toBe(true);
+  for (const value of [0, 2_147_483_648, "0x10", "1e3", "1 "])
+    expect(validate({ observationMs: value })).toBe(false);
 });
 
 it("runs the compiled public listener command through its default native CDP composition", async () => {

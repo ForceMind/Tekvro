@@ -139,6 +139,195 @@ const CASES = [
     1,
     120000,
   ],
+  [
+    "inspect-web-page",
+    "observationMs",
+    "observation-ms",
+    9007199254740991,
+    ["http://127.0.0.1:1", "selected-target"],
+    0,
+    500,
+  ],
+  [
+    "inspect-web-page",
+    "commandTimeoutMs",
+    "command-timeout-ms",
+    2147483647,
+    ["http://127.0.0.1:1", "selected-target"],
+    1,
+    undefined,
+  ],
+  [
+    "inspect-electron-page",
+    "observationMs",
+    "observation-ms",
+    9007199254740991,
+    ["http://127.0.0.1:1", "selected-target"],
+    0,
+    100,
+  ],
+  [
+    "inspect-electron-page",
+    "commandTimeoutMs",
+    "command-timeout-ms",
+    2147483647,
+    ["http://127.0.0.1:1", "selected-target"],
+    1,
+    undefined,
+  ],
+  [
+    "observe-web-session",
+    "observationMs",
+    "observation-ms",
+    9007199254740991,
+    ["http://127.0.0.1:1", "selected-target"],
+    1,
+    10000,
+  ],
+  [
+    "observe-web-session",
+    "commandTimeoutMs",
+    "command-timeout-ms",
+    2147483647,
+    ["http://127.0.0.1:1", "selected-target"],
+    1,
+    undefined,
+  ],
+  [
+    "discover-webmcp-tools",
+    "observationMs",
+    "observation-ms",
+    9007199254740991,
+    ["http://127.0.0.1:1", "selected-target"],
+    0,
+    100,
+  ],
+  [
+    "discover-webmcp-tools",
+    "commandTimeoutMs",
+    "command-timeout-ms",
+    2147483647,
+    ["http://127.0.0.1:1", "selected-target"],
+    1,
+    undefined,
+  ],
+  [
+    "observe-javascript-runtime",
+    "observationMs",
+    "observation-ms",
+    9007199254740991,
+    ["http://127.0.0.1:1", "selected-target"],
+    0,
+    100,
+  ],
+  [
+    "observe-web-execution",
+    "observationMs",
+    "observation-ms",
+    2147483647,
+    ["http://127.0.0.1:1", "selected-target"],
+    1,
+    10000,
+  ],
+  [
+    "observe-web-execution",
+    "commandTimeoutMs",
+    "command-timeout-ms",
+    2147483647,
+    ["http://127.0.0.1:1", "selected-target"],
+    1,
+    undefined,
+  ],
+  [
+    "analyze-web-bundle",
+    "maxHeapMb",
+    "max-heap-mb",
+    16384,
+    ["http://127.0.0.1:1", "selected-target"],
+    128,
+    undefined,
+  ],
+  [
+    "analyze-web-bundle",
+    "analysisTimeoutMs",
+    "analysis-timeout-ms",
+    2147483647,
+    ["http://127.0.0.1:1", "selected-target"],
+    1,
+    undefined,
+  ],
+  [
+    "analyze-web-bundle",
+    "totalAnalysisTimeoutMs",
+    "total-analysis-timeout-ms",
+    2147483647,
+    ["http://127.0.0.1:1", "selected-target"],
+    1,
+    undefined,
+  ],
+  [
+    "analyze-web-bundle",
+    "sourceMapFetchTimeoutMs",
+    "source-map-fetch-timeout-ms",
+    2147483647,
+    ["http://127.0.0.1:1", "selected-target"],
+    1,
+    undefined,
+  ],
+  [
+    "analyze-javascript-application",
+    "maxHeapMb",
+    "max-heap-mb",
+    16384,
+    ["/nonexistent/app"],
+    128,
+    undefined,
+  ],
+  [
+    "analyze-javascript-application",
+    "analysisTimeoutMs",
+    "analysis-timeout-ms",
+    2147483647,
+    ["/nonexistent/app"],
+    1,
+    undefined,
+  ],
+  [
+    "analyze-javascript-application",
+    "maxSemanticNodes",
+    "max-semantic-nodes",
+    1000000,
+    ["/nonexistent/app"],
+    1,
+    undefined,
+  ],
+  [
+    "analyze-javascript-application",
+    "maxSemanticNodesPerFile",
+    "max-semantic-nodes-per-file",
+    1000000,
+    ["/nonexistent/app"],
+    1,
+    undefined,
+  ],
+  [
+    "analyze-javascript-application",
+    "maxSemanticUnknowns",
+    "max-semantic-unknowns",
+    1000000,
+    ["/nonexistent/app"],
+    1,
+    undefined,
+  ],
+  [
+    "analyze-javascript-application",
+    "maxSemanticUnknownsPerFile",
+    "max-semantic-unknowns-per-file",
+    1000000,
+    ["/nonexistent/app"],
+    1,
+    undefined,
+  ],
 ] as const;
 
 const NON_DECIMAL = [
@@ -192,7 +381,7 @@ describe("offline decimal CLI inputs", () => {
           () => Parser.parse([`--${flag}`, value], { options }),
           value,
         ).toThrow();
-      const sample = Math.min(16, maximum);
+      const sample = Math.max(minimum, Math.min(16, maximum));
       for (const value of [String(minimum), `000${sample}`, String(maximum)])
         expect(
           Parser.parse([`--${flag}=${value}`], { options }).options[field],
@@ -211,7 +400,7 @@ describe("offline decimal CLI inputs", () => {
     async (language) => {
       const cli = createCli({ TEKVRO_LANG: language });
       const ajv = new Ajv2020({ strict: false });
-      for (const [name, field, , maximum] of CASES) {
+      for (const [name, field, , maximum, , minimum] of CASES) {
         let stdout = "";
         await cli.serve([name, "--schema", "--json"], {
           env: {},
@@ -227,7 +416,7 @@ describe("offline decimal CLI inputs", () => {
             validate({ [field]: value }),
             `${name} ${field} ${JSON.stringify(value)}`,
           ).toBe(false);
-        const sample = Math.min(16, maximum);
+        const sample = Math.max(minimum, Math.min(16, maximum));
         for (const value of [sample, `000${sample}`])
           expect(validate({ [field]: value })).toBe(true);
         expect(validate({ [field]: maximum + 1 })).toBe(false);
@@ -238,7 +427,10 @@ describe("offline decimal CLI inputs", () => {
         expect(property.description).toBe(
           commandOptions(cli, name).shape[field]?.description,
         );
-        if (["workerTimeoutMs", "rowLimit", "commandTimeoutMs"].includes(field))
+        if (
+          ["inspect-sqlite-database", "inspect-wasm-artifact"].includes(name) &&
+          ["workerTimeoutMs", "rowLimit", "commandTimeoutMs"].includes(field)
+        )
           expect(property.description).toMatch(
             language === "zh-CN" ? /毫秒|行样本/ : /milliseconds|row count/,
           );

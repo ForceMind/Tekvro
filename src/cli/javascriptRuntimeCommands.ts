@@ -1,4 +1,5 @@
 import { Cli, z } from "incur";
+import { cliDecimalField } from "./options.js";
 
 import {
   listJavaScriptRuntimeTargets,
@@ -25,12 +26,9 @@ const observeOptionsSchema = z.object({
     .describe(
       "Declared target role; Inspector cannot authenticate the Electron role",
     ),
-  observationMs: z
-    .number()
-    .int()
-    .min(0)
-    .default(100)
-    .describe("Observation window in milliseconds"),
+  observationMs: cliDecimalField(
+    observeJavaScriptRuntimeInputSchema.shape.observation_ms,
+  ).describe("Observation window in milliseconds"),
 });
 
 /** Register CLI equivalents of passive V8 Inspector tools. */

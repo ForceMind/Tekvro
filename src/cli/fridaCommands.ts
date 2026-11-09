@@ -1,3 +1,4 @@
+import { cliDecimalField } from "./options.js";
 import { z } from "incur";
 
 import { FridaInstrumentationService } from "../application/frida/FridaInstrumentationService.js";
@@ -47,12 +48,14 @@ export const registerFridaCommands = (
       .optional()
       .describe("Remote TLS certificate"),
     origin: z.string().min(1).optional().describe("Remote connection origin"),
-    keepaliveInterval: z
-      .number()
-      .int()
-      .positive()
-      .optional()
-      .describe(FRIDA_KEEPALIVE_INTERVAL_DESCRIPTION),
+    keepaliveInterval: cliDecimalField(
+      z
+        .number()
+        .int()
+        .positive()
+        .optional()
+        .describe(FRIDA_KEEPALIVE_INTERVAL_DESCRIPTION),
+    ),
   });
   const remoteFrom = (
     options: z.infer<typeof remoteOptions>,
@@ -172,13 +175,15 @@ export const registerFridaCommands = (
           .array(z.string())
           .optional()
           .describe("Arguments passed to a spawned target"),
-        durationMs: z
-          .number()
-          .int()
-          .min(0)
-          .max(60_000)
-          .default(1_000)
-          .describe("Instrumentation duration in milliseconds"),
+        durationMs: cliDecimalField(
+          z
+            .number()
+            .int()
+            .min(0)
+            .max(60_000)
+            .default(1_000)
+            .describe("Instrumentation duration in milliseconds"),
+        ),
       })
       .refine(
         (options) =>
@@ -232,7 +237,7 @@ export const registerFridaCommands = (
               : { remote };
           const targetInput =
             args.mode === "attach"
-              ? /^[1-9][0-9]*$/u.test(args.target) &&
+              ? /^[0-9]+$/u.test(args.target) &&
                 Number.isSafeInteger(Number(args.target)) &&
                 Number(args.target) > 0
                 ? {

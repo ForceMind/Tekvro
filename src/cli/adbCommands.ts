@@ -7,9 +7,11 @@ import { CLI_COMMANDS } from "../cliCommandNames.js";
 import { logCliCommand } from "../cliLogging.js";
 import {
   MAX_ADB_ACTIVITY_EXTRAS,
+  adbInputSchemas,
   type AdbOperation,
 } from "../domain/adb/adbDeviceAnalysis.js";
 import type { Logger } from "pino";
+import { cliDecimalField } from "./options.js";
 import type { CliInstance } from "./types.js";
 import { withCommandCancellation } from "./commandCancellation.js";
 import { finishAnalysisCommand } from "./finishAnalysisCommand.js";
@@ -103,23 +105,16 @@ export const registerAdbCommands = (
     description: "Read a bounded dump of the device log for one buffer",
     args: z.object({ serial }),
     options: z.object({
-      count: z
-        .number()
-        .int()
-        .min(1)
-        .max(10_000)
-        .default(500)
-        .describe("Number of most recent lines to read"),
+      count: cliDecimalField(
+        adbInputSchemas.read_adb_logcat.shape.count,
+      ).describe("Number of most recent lines to read"),
       buffer: z
         .enum(["main", "system", "radio", "events", "crash"])
         .default("main")
         .describe("Log buffer to read"),
-      pid: z
-        .number()
-        .int()
-        .positive()
-        .optional()
-        .describe("Restrict to one process id"),
+      pid: cliDecimalField(adbInputSchemas.read_adb_logcat.shape.pid).describe(
+        "Restrict to one process id",
+      ),
     }),
     run: ({ args, options }) =>
       execute(CLI_COMMANDS.readAdbLogcat, "read_adb_logcat", {
