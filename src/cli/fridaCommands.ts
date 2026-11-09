@@ -237,7 +237,7 @@ export const registerFridaCommands = (
               : { remote };
           const targetInput =
             args.mode === "attach"
-              ? /^[0-9]+$/u.test(args.target) &&
+              ? /^[1-9][0-9]*$/u.test(args.target) &&
                 Number.isSafeInteger(Number(args.target)) &&
                 Number(args.target) > 0
                 ? {
