@@ -263,17 +263,42 @@ private func readRunToken(pid: Int32, pointerSize: Int) -> RunTokenObservation {
   }
   bytes = Array(bytes.prefix(size))
   let parse: Result<ParsedRunToken, RunTokenReadError>
+  var parseStage = "header"
+  var parseOffset = 0
   do {
-    parse = .success(try parseProcessEnvironment(in: bytes, pointerSize: pointerSize))
+    parse = .success(try parseProcessEnvironment(
+      in: bytes,
+      pointerSize: pointerSize,
+      trace: { stage, offset in
+        parseStage = stage
+        parseOffset = offset
+      }
+    ))
   } catch let failure as RunTokenReadError {
     parse = .failure(failure)
   } catch {
     parse = .failure(.invalidBuffer)
   }
-  return processRunTokenObservation(
+  let observation = processRunTokenObservation(
     pid: pid,
     parse: parse,
     codeSigningFlags: { codeSigningFlags(pid: pid) }
+  )
+  guard observation.reason == "malformed_procargs" else { return observation }
+  // Structural facts only: never include argv, environment bytes or values.
+  let argc = bytes.count >= MemoryLayout<Int32>.size
+    ? bytes.withUnsafeBytes { $0.loadUnaligned(as: Int32.self).littleEndian }
+    : -1
+  var zeroRun = 0
+  if parseOffset >= 0, parseOffset < bytes.count {
+    while parseOffset + zeroRun < bytes.count, bytes[parseOffset + zeroRun] == 0 {
+      zeroRun += 1
+    }
+  }
+  let flags = codeSigningFlags(pid: pid).map { String($0) } ?? "unknown"
+  return unavailable(
+    pid: pid,
+    reason: "malformed_procargs(stage=\(parseStage),offset=\(parseOffset),bytes=\(bytes.count),argc=\(argc),pointer=\(pointerSize),zero_run=\(zeroRun),flags=\(flags))"
   )
 }
 
@@ -300,28 +325,36 @@ func readRunTokens(pids: [Int32]) -> [RunTokenObservation] {
 
 func parseProcessEnvironment(
   in bytes: [UInt8],
-  pointerSize: Int = MemoryLayout<UnsafeRawPointer>.size
+  pointerSize: Int = MemoryLayout<UnsafeRawPointer>.size,
+  trace: ((String, Int) -> Void)? = nil
 ) throws -> ParsedRunToken {
+  trace?("header", 0)
   guard bytes.count >= MemoryLayout<Int32>.size else { throw RunTokenReadError.invalidBuffer }
   let argc = bytes.withUnsafeBytes { $0.loadUnaligned(as: Int32.self).littleEndian }
+  trace?("argc", 0)
   guard argc >= 0, Int(argc) <= bytes.count else { throw RunTokenReadError.invalidBuffer }
   var offset = MemoryLayout<Int32>.size
+  trace?("executable", offset)
   guard let executablePath = readString(in: bytes, offset: &offset) else {
     throw RunTokenReadError.invalidBuffer
   }
+  trace?("pointer_size", offset)
   guard pointerSize == 4 || pointerSize == 8 else { throw RunTokenReadError.invalidBuffer }
   let pathRecordSize = Array("executable_path=".utf8).count + executablePath.count + 1
   let padding = (pointerSize - pathRecordSize % pointerSize) % pointerSize
+  trace?("padding_\(padding)", offset)
   guard offset + padding <= bytes.count,
         bytes[offset..<(offset + padding)].allSatisfy({ $0 == 0 }) else {
     throw RunTokenReadError.invalidBuffer
   }
   offset += padding
-  for _ in 0..<argc {
+  for index in 0..<argc {
+    trace?("argv_\(index)", offset)
     guard readString(in: bytes, offset: &offset, allowEmpty: true) != nil else {
       throw RunTokenReadError.invalidBuffer
     }
   }
+  trace?("trailing_terminator", bytes.count - 1)
   guard bytes.last == 0 else { throw RunTokenReadError.invalidBuffer }
   if offset == bytes.count {
     throw RunTokenReadError.environmentUnavailable
@@ -339,6 +372,7 @@ func parseProcessEnvironment(
       }
       continue
     }
+    trace?("trailing_entry", offset)
     guard let entry = readString(in: bytes, offset: &offset) else {
       throw RunTokenReadError.invalidBuffer
     }

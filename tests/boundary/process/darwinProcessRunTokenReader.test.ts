@@ -1189,6 +1189,7 @@ it.skipIf(!onDarwin)(
         timeout: 10_000,
       });
       expect(JSON.parse(stdout)).toEqual({
+        malformedTraceFailsClosed: true,
         argvDecoyIgnored: true,
         readableEnvironmentWithoutToken: {
           runId: null,

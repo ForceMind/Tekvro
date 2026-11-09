@@ -43,6 +43,42 @@ const expectUnownedLineage = (adapter: ProcessOwnershipHost) =>
     reason: "process lineage contains an unowned or PID-reused process",
   });
 
+it.each([
+  {
+    diagnostic:
+      "malformed_procargs(stage=padding_7,offset=83,bytes=512,argc=3,pointer=8,zero_run=2,flags=unknown)",
+    label: "malformed_procargs(stage=padding_7",
+  },
+  {
+    diagnostic:
+      "malformed_procargs(stage=argv_1,offset=90,bytes=512,argc=3,pointer=8,zero_run=0,flags=0)",
+    label: "malformed_procargs(stage=argv_1",
+  },
+  {
+    diagnostic: "malformed_procargs(stage=environment-value)",
+    label: "other_unavailable",
+  },
+])(
+  "retains structural native diagnostics without authorizing cleanup: $label",
+  async ({ diagnostic, label }) => {
+    const signalGroup = vi.fn();
+    const adapter: ProcessOwnershipHost = {
+      platform: "darwin",
+      listProcesses: async () => [launcher],
+      environment: async () => {
+        throw new Error("native read unavailable");
+      },
+      runTokens: async () =>
+        new Map([[100, { state: "unavailable" as const, reason: diagnostic }]]),
+      signalGroup,
+    };
+    const result = await cleanupOwnedProcessGroup(ownership, adapter);
+    expect(result.cleaned).toBe(false);
+    if (!result.cleaned) expect(result.reason).toContain(label);
+    expect(signalGroup).not.toHaveBeenCalled();
+  },
+);
+
 describe("owned process-group cleanup validation: ownership and lineage", () => {
   it("settles unreadable observations for Darwin processes exiting in the kernel", async () => {
     let snapshots = 0;

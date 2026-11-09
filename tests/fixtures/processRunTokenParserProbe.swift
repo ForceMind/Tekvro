@@ -26,6 +26,21 @@ func fixture(
 @main
 struct ProcessRunTokenParserProbe {
   static func main() throws {
+    var structuralTrace: [String] = []
+    var malformedTraceFailsClosed = false
+    let malformedWithPrivateValue = Array(fixture(
+      arguments: ["/fixture/executable"],
+      environment: ["PROBE_VALUE=not-for-structural-diagnostics"]
+    ).dropLast())
+    do {
+      _ = try parseProcessEnvironment(in: malformedWithPrivateValue, trace: { stage, offset in
+        structuralTrace.append("\(stage):\(offset)")
+      })
+    } catch RunTokenReadError.invalidBuffer {
+      malformedTraceFailsClosed = structuralTrace.last?.hasPrefix("trailing_terminator:") == true
+        && !structuralTrace.joined().contains("PROBE_VALUE")
+        && !structuralTrace.joined().contains("not-for-structural-diagnostics")
+    }
     let argvDecoy = try parseProcessEnvironment(in: fixture(
       arguments: ["/fixture/executable", "REA_PROCESS_RUN_ID=argv-decoy", "trailing"],
       environment: ["DECOY=words REA_PROCESS_RUN_ID=synthetic-decoy"]
@@ -191,6 +206,7 @@ struct ProcessRunTokenParserProbe {
     )
 
     let result: [String: Any] = [
+      "malformedTraceFailsClosed": malformedTraceFailsClosed,
       "argvDecoyIgnored": argvDecoy.runId == nil && argvDecoy.environmentEntryCount == 1,
       "realTokenRead": realToken.runId == "owned-token",
       "readableEnvironmentWithoutToken": [
