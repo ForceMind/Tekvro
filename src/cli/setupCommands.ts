@@ -324,7 +324,12 @@ const runSetupCommand = async (
     systemSetupHost(createSystemDoctorHost(environment), environment),
     interactive
       ? (actions, context) =>
-          confirmInteractiveSetup(actions, options.accessible, context)
+          confirmInteractiveSetup(
+            actions,
+            options.accessible,
+            context,
+            environment,
+          )
       : undefined,
   );
   if (interactive) renderInteractiveSetupResult(result, environment);
@@ -333,7 +338,8 @@ const runSetupCommand = async (
     !input.formatExplicit &&
     hasInteractiveTerminal()
   ) {
-    if (result.status === "planned") renderSetupDryRun(result.plannedActions);
+    if (result.status === "planned")
+      renderSetupDryRun(result.plannedActions, environment);
     else renderInteractiveSetupResult(result, environment);
   }
   return result;
