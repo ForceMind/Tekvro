@@ -46,6 +46,19 @@ export default defineConfig({
         ],
       },
       {
+        text: "项目工作流（实施规划）",
+        collapsed: true,
+        items: [
+          { text: "产品与技术设计", link: "/project-workflow-design" },
+          { text: "实施阶段与接手", link: "/project-workflow-plan" },
+          { text: "验收矩阵", link: "/project-workflow-acceptance" },
+          {
+            text: "架构决策",
+            link: "/adr/0004-project-workflow-orchestration",
+          },
+        ],
+      },
+      {
         text: "高级技术资料（英语）",
         collapsed: true,
         items: [

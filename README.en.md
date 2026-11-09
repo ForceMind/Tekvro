@@ -72,6 +72,7 @@ CLI and MCP entrypoints are available for Windows, macOS, and Linux. Individual 
 - Development: [contributing](CONTRIBUTING.md) · [testing](docs/testing.md)
 - Security: [vulnerability reporting](SECURITY.md)
 - Versions: [releases](https://github.com/ForceMind/Tekvro/releases) · [updates](docs/zh-CN/distribution.md)
+- Product direction: [roadmap](docs/roadmap.md) · [project workflow implementation plan](docs/project-workflow-plan.md) (planned capabilities, not yet implemented)
 
 ## License
 

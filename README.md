@@ -72,6 +72,7 @@ CLI 与 MCP 提供 Windows、macOS 和 Linux 入口，各项能力的系统依�
 - 开发与测试：[贡献指南](CONTRIBUTING.md) · [测试指南](docs/testing.md)
 - 安全问题：[安全报告说明](SECURITY.md)
 - 版本与更新：[发行页](https://github.com/ForceMind/Tekvro/releases) · [更新说明](docs/zh-CN/distribution.md)
+- 产品演进：[维护路线](docs/roadmap.md) · [项目工作流实施规划](docs/project-workflow-plan.md)（新增能力尚未实现）
 
 ## 许可证
 
