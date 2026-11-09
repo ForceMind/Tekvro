@@ -59,7 +59,12 @@ if (args[0] === "api") {
     respond({ object: { type: "commit", sha: state.tag } });
   } else if (endpoint.startsWith("releases?")) {
     const page = Number(new URL("https://fixture.invalid/" + endpoint).searchParams.get("page"));
-    const releases = [...state.otherReleases, ...(state.release === null ? [] : [state.release])];
+    const hideDraft = state.release?.draft && state.hiddenDraftReads > 0;
+    if (hideDraft && state.otherReleases.length < page * 100) {
+      state.hiddenDraftReads -= 1;
+      save();
+    }
+    const releases = [...state.otherReleases, ...(state.release === null || hideDraft ? [] : [state.release])];
     respond(releases.slice((page - 1) * 100, page * 100));
   } else throw new Error("Unmodeled API endpoint: " + endpoint);
 } else if (args[0] === "release" && args[1] === "create") {
@@ -188,6 +193,7 @@ async function fixture() {
       assets: Array<{ name: string; size: number }>;
       html_url: string;
     } | null,
+    hiddenDraftReads: 0,
     mutateLocalOnCreate: false,
     corruptDownload: false,
     moveMainOnDownload: false,
@@ -376,39 +382,83 @@ it.each(["prerelease", "title", "notes"] as const)(
   },
 );
 
-it("uploads exactly the checked assets and publishes only after reading their bytes back", async () => {
+it.each([0, 1])(
+  "publishes the verified assets with %i initial draft listing misses",
+  async (hiddenDraftReads) => {
+    const f = await fixture();
+    f.state.hiddenDraftReads = hiddenDraftReads;
+    await f.save();
+    const result = await f.invoke("publish");
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      published: "true",
+      tag: releaseTag,
+      source: f.source,
+    });
+    const calls = await f.calls();
+    expect(
+      releaseWrites(calls).filter((args) => args[1] === "create"),
+    ).toHaveLength(1);
+    const create = calls.find((args) => args[1] === "create");
+    expect(create).toContain("--draft");
+    expect(create?.[create.indexOf("--target") + 1]).toBe(f.source);
+    expect(
+      calls
+        .filter((args) => args[1] === "upload")
+        .map((args) => basename(args[3] ?? ""))
+        .sort(),
+    ).toEqual(assetNames);
+    expect(calls.findIndex((args) => args[1] === "download")).toBeLessThan(
+      calls.findIndex((args) => args[1] === "edit"),
+    );
+    for (const name of assetNames) {
+      const remote = await readFile(join(f.remote, name));
+      expect(remote.equals(await readFile(join(f.assets, name)))).toBe(true);
+    }
+    const state = await f.remoteState();
+    expect(state).toMatchObject({
+      tag: f.source,
+      release: { draft: false, prerelease: false, target_commitish: f.source },
+    });
+    expect(state.release?.assets.map((asset) => asset.name).sort()).toEqual(
+      assetNames,
+    );
+  },
+);
+
+it("stops when a new draft stays invisible and resumes the same empty draft on rerun", async () => {
   const f = await fixture();
+  f.state.hiddenDraftReads = 4;
+  await f.save();
+  await expect(f.invoke("publish")).rejects.toMatchObject({
+    code: 1,
+    stderr: expect.stringContaining(
+      `Draft ${releaseTag} was created but did not appear in the release list after 4 reads`,
+    ),
+  });
+  expect(releaseWrites(await f.calls()).map((args) => args[1])).toEqual([
+    "create",
+  ]);
+  expect(await f.remoteState()).toMatchObject({
+    tag: null,
+    release: { draft: true, target_commitish: f.source, assets: [] },
+  });
+
   const result = await f.invoke("publish");
   expect(JSON.parse(result.stdout)).toMatchObject({
     published: "true",
     tag: releaseTag,
     source: f.source,
   });
-  const calls = await f.calls();
-  const create = calls.find((args) => args[1] === "create");
-  expect(create).toContain("--draft");
-  expect(create?.[create.indexOf("--target") + 1]).toBe(f.source);
-  expect(
-    calls
-      .filter((args) => args[1] === "upload")
-      .map((args) => basename(args[3] ?? ""))
-      .sort(),
-  ).toEqual(assetNames);
-  expect(calls.findIndex((args) => args[1] === "download")).toBeLessThan(
-    calls.findIndex((args) => args[1] === "edit"),
-  );
-  for (const name of assetNames) {
-    const remote = await readFile(join(f.remote, name));
-    expect(remote.equals(await readFile(join(f.assets, name)))).toBe(true);
-  }
-  const state = await f.remoteState();
-  expect(state).toMatchObject({
+  const writes = releaseWrites(await f.calls());
+  expect(writes.map((args) => args[1])).toEqual([
+    "create",
+    ...assetNames.map(() => "upload"),
+    "edit",
+  ]);
+  expect(await f.remoteState()).toMatchObject({
     tag: f.source,
-    release: { draft: false, prerelease: false, target_commitish: f.source },
+    release: { draft: false, target_commitish: f.source },
   });
-  expect(state.release?.assets.map((asset) => asset.name).sort()).toEqual(
-    assetNames,
-  );
 });
 
 it.each([

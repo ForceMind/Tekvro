@@ -10,6 +10,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
 
 const repository = "ForceMind/Tekvro";
 const requiredJobs = [
@@ -311,6 +312,10 @@ function output(values) {
 
 function verifyDraft(draft, intent, source) {
   requireCondition(
+    draft !== null,
+    `Draft ${intent.tag} is missing from the release list`,
+  );
+  requireCondition(
     draft.draft === true &&
       draft.prerelease === false &&
       draft.target_commitish === source &&
@@ -321,25 +326,39 @@ function verifyDraft(draft, intent, source) {
   );
 }
 
-function uploadDraft(options, intent, existing, artifacts) {
-  const { directory, names, hashes, temporary } = artifacts;
-  if (!existing) {
-    run("gh", [
-      "release",
-      "create",
-      intent.tag,
-      "--repo",
-      repository,
-      "--target",
-      options.source,
-      "--title",
-      `Tekvro ${intent.version}`,
-      "--notes-file",
-      intent.notes,
-      "--draft",
-    ]);
+async function createDraft(intent, source) {
+  run("gh", [
+    "release",
+    "create",
+    intent.tag,
+    "--repo",
+    repository,
+    "--target",
+    source,
+    "--title",
+    `Tekvro ${intent.version}`,
+    "--notes-file",
+    intent.notes,
+    "--draft",
+  ]);
+  // A successful create can precede visibility in the authenticated list.
+  // Retry only an absent entry, without repeating the write or masking API errors.
+  const delays = [0, 1_000, 2_000, 4_000];
+  for (const delay of delays) {
+    if (delay > 0) await sleep(delay);
+    const draft = findRelease(intent.tag);
+    if (draft) return draft;
   }
-  const draft = findRelease(intent.tag);
+  throw new Error(
+    `Draft ${intent.tag} was created but did not appear in the release list after ${delays.length} reads. Inspect the draft before retrying with source ${source}.`,
+  );
+}
+
+async function uploadDraft(options, intent, existing, artifacts) {
+  const { directory, names, hashes, temporary } = artifacts;
+  const draft = existing
+    ? findRelease(intent.tag)
+    : await createDraft(intent, options.source);
   verifyDraft(draft, intent, options.source);
   requireCondition(
     draft.assets.every((asset) => names.includes(asset.name)),
@@ -379,12 +398,12 @@ function uploadDraft(options, intent, existing, artifacts) {
     );
 }
 
-function publish(options, intent, existing) {
+async function publish(options, intent, existing) {
   const directory = resolve(options.directory);
   const { names, hashes } = verifyAssets(directory, intent, options.source);
   const temporary = mkdtempSync(join(tmpdir(), "tekvro-publication-"));
   try {
-    uploadDraft(options, intent, existing, {
+    await uploadDraft(options, intent, existing, {
       directory,
       names,
       hashes,
@@ -453,7 +472,7 @@ try {
         version: intent.version,
         tag: intent.tag,
       });
-    else publish(selected, intent, existing);
+    else await publish(selected, intent, existing);
   }
 } catch (error) {
   console.error(
