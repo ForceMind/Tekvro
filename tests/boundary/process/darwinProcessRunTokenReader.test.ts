@@ -1190,6 +1190,10 @@ it.skipIf(!onDarwin)(
       });
       expect(JSON.parse(stdout)).toEqual({
         malformedTraceFailsClosed: true,
+        restrictedPaddingRemainsUnavailable: true,
+        ordinaryMalformedPaddingFailsClosed: true,
+        platformOnlyMalformedPaddingFailsClosed: true,
+        restrictedMalformedArgvFailsClosed: true,
         argvDecoyIgnored: true,
         readableEnvironmentWithoutToken: {
           runId: null,

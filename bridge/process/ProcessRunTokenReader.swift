@@ -200,6 +200,7 @@ private func codeSigningFlags(pid: Int32) -> UInt32? {
 func processRunTokenObservation(
   pid: Int32,
   parse: Result<ParsedRunToken, RunTokenReadError>,
+  parseFailureStage: String? = nil,
   codeSigningFlags: () -> UInt32?
 ) -> RunTokenObservation {
   switch parse {
@@ -243,6 +244,13 @@ func processRunTokenObservation(
     case .appleVectorUnavailable:
       return unavailable(pid: pid, reason: "apple_vector_unavailable")
     case .invalidBuffer:
+      // Restricted procargs can be unavailable before their environment is
+      // parseable. Preserve that existing opaque-process classification only
+      // for the observed padding failure, without admitting any token bytes.
+      if parseFailureStage?.hasPrefix("padding_") == true,
+         let flags = codeSigningFlags(), (flags & csRestrict) != 0 {
+        return unavailable(pid: pid, reason: "restricted_process_environment_withheld")
+      }
       return unavailable(pid: pid, reason: "malformed_procargs")
     }
   }
@@ -282,6 +290,7 @@ private func readRunToken(pid: Int32, pointerSize: Int) -> RunTokenObservation {
   let observation = processRunTokenObservation(
     pid: pid,
     parse: parse,
+    parseFailureStage: parseStage,
     codeSigningFlags: { codeSigningFlags(pid: pid) }
   )
   guard observation.reason == "malformed_procargs" else { return observation }

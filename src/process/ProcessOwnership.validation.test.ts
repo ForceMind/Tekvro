@@ -45,6 +45,10 @@ const expectUnownedLineage = (adapter: ProcessOwnershipHost) =>
 
 it.each([
   {
+    diagnostic: "restricted_process_environment_withheld",
+    label: "restricted_process_environment_withheld",
+  },
+  {
     diagnostic:
       "malformed_procargs(stage=padding_7,offset=83,bytes=512,argc=3,pointer=8,zero_run=2,flags=unknown)",
     label: "malformed_procargs(stage=padding_7",

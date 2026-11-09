@@ -26,6 +26,39 @@ func fixture(
 @main
 struct ProcessRunTokenParserProbe {
   static func main() throws {
+    // Structural counterpart of the observed restricted-process alignment:
+    // argc=1, path ends at offset 112, expected padding=4, actual padding=1.
+    var restrictedPadding = fixture(
+      arguments: ["opaque-process"],
+      environment: ["PROBE_VALUE=not-for-structural-diagnostics"],
+      executablePath: "/" + String(repeating: "p", count: 106)
+    )
+    restrictedPadding.removeSubrange(112..<115)
+    var restrictedPaddingStage: String?
+    var restrictedPaddingRejected = false
+    do {
+      _ = try parseProcessEnvironment(in: restrictedPadding, trace: { stage, _ in
+        restrictedPaddingStage = stage
+      })
+    } catch RunTokenReadError.invalidBuffer {
+      restrictedPaddingRejected = true
+    }
+    let restrictedMalformedPadding = processRunTokenObservation(
+      pid: 1, parse: .failure(.invalidBuffer), parseFailureStage: restrictedPaddingStage,
+      codeSigningFlags: { 0x2601_4a01 }
+    )
+    let ordinaryMalformedPadding = processRunTokenObservation(
+      pid: 1, parse: .failure(.invalidBuffer), parseFailureStage: restrictedPaddingStage,
+      codeSigningFlags: { 0 }
+    )
+    let platformOnlyMalformedPadding = processRunTokenObservation(
+      pid: 1, parse: .failure(.invalidBuffer), parseFailureStage: restrictedPaddingStage,
+      codeSigningFlags: { 0x0400_0000 }
+    )
+    let restrictedMalformedArgv = processRunTokenObservation(
+      pid: 1, parse: .failure(.invalidBuffer), parseFailureStage: "argv_1",
+      codeSigningFlags: { 0x2601_4a01 }
+    )
     var structuralTrace: [String] = []
     var malformedTraceFailsClosed = false
     let malformedWithPrivateValue = Array(fixture(
@@ -207,6 +240,14 @@ struct ProcessRunTokenParserProbe {
 
     let result: [String: Any] = [
       "malformedTraceFailsClosed": malformedTraceFailsClosed,
+      "restrictedPaddingRemainsUnavailable": restrictedPaddingRejected
+        && restrictedPaddingStage == "padding_4"
+        && restrictedMalformedPadding.state == "unavailable"
+        && restrictedMalformedPadding.run_id == nil
+        && restrictedMalformedPadding.reason == "restricted_process_environment_withheld",
+      "ordinaryMalformedPaddingFailsClosed": ordinaryMalformedPadding.reason == "malformed_procargs",
+      "platformOnlyMalformedPaddingFailsClosed": platformOnlyMalformedPadding.reason == "malformed_procargs",
+      "restrictedMalformedArgvFailsClosed": restrictedMalformedArgv.reason == "malformed_procargs",
       "argvDecoyIgnored": argvDecoy.runId == nil && argvDecoy.environmentEntryCount == 1,
       "realTokenRead": realToken.runId == "owned-token",
       "readableEnvironmentWithoutToken": [
