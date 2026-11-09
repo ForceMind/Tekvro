@@ -226,7 +226,7 @@ decision:
 
 ## PW-01 当前执行记录
 
-元数据领域与存储切片在 Linux x64 / Node.js 24.22.1 的 12 项边界测试通过。
+元数据领域与存储切片在 Linux x64 / Node.js 24.22.1 的 15 项边界测试通过。
 记录来源为 `tests/boundary/filesystem/projectStore.test.ts`，
 接口、存储格式和限制见[项目存储契约](project-storage.md)。
 

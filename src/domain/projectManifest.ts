@@ -1,15 +1,18 @@
 import { z } from "zod";
 import { digestCanonicalValue } from "./canonicalDigest.js";
 import { digestSchema, prefixedDigestSchema } from "./digests.js";
-import {
-  absoluteLocalPathStringSchema,
-  nulFreeStringSchema,
-} from "./localPath.js";
+import { localPathStringSchema, nulFreeStringSchema } from "./localPath.js";
 import { offsetDateTimeSchema } from "./offsetDateTime.js";
 
 const id = z.string().uuid();
 const text = nulFreeStringSchema.min(1);
 const counter = z.number().int().safe().positive();
+
+/** Historical paths retain either host's spelling. Validate the active host at I/O, not on reopen. */
+const persistedAbsolutePath = localPathStringSchema.regex(
+  /^(?:[\\/]|[A-Za-z]:[\\/])/u,
+  "must record an absolute POSIX or Windows filesystem path",
+);
 
 /** Run lifecycle and acceptance are independent project facts. */
 export const projectExecutionStatusSchema = z.enum([
@@ -36,10 +39,10 @@ export const projectScopeSchema = z.strictObject({
   question: text,
   target: z.strictObject({
     original_input: text,
-    path: absoluteLocalPathStringSchema,
+    path: persistedAbsolutePath,
     sha256: digestSchema,
   }),
-  output_root: absoluteLocalPathStringSchema,
+  output_root: persistedAbsolutePath,
   requirements: z
     .array(
       z.strictObject({
@@ -54,7 +57,7 @@ export const projectScopeSchema = z.strictObject({
 /** Reference metadata does not assert that the referenced bundle was opened. */
 export const projectEvidenceRefSchema = z.strictObject({
   evidence_id: prefixedDigestSchema("ev"),
-  bundle_path: absoluteLocalPathStringSchema,
+  bundle_path: persistedAbsolutePath,
   bundle_sha256: digestSchema,
 });
 
@@ -67,7 +70,7 @@ export const projectCheckRefSchema = z.strictObject({
   checker_sha256: digestSchema,
   scenario_sha256: digestSchema,
   environment_sha256: digestSchema,
-  report_path: absoluteLocalPathStringSchema,
+  report_path: persistedAbsolutePath,
   report_sha256: digestSchema,
   evidence_ids: z.array(prefixedDigestSchema("ev")),
 });

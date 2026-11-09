@@ -333,6 +333,108 @@ it("retains explicit target and output paths when the metadata directory moves",
   }
 });
 
+it.each([
+  {
+    name: "Windows drive",
+    target: "C:\\工作\\input.bin",
+    output: "D:\\output",
+    bundle: "C:\\证据\\bundle.json",
+    report: "D:\\checks\\report.json",
+  },
+  {
+    name: "Windows UNC",
+    target: "\\\\host\\share\\input.bin",
+    output: "\\\\host\\share\\output",
+    bundle: "\\\\host\\share\\bundle.json",
+    report: "\\\\host\\share\\report.json",
+  },
+  {
+    name: "POSIX",
+    target: "/工作/input.bin",
+    output: "/output",
+    bundle: "/证据/bundle.json",
+    report: "/checks/report.json",
+  },
+])(
+  "reopens and rebinds $name history without using its recorded paths",
+  async (paths) => {
+    const f = await fixture();
+    try {
+      const scope = {
+        ...scopeFor(f.root),
+        target: { ...scopeFor(f.root).target, path: paths.target },
+        output_root: paths.output,
+      };
+      const run = randomUUID();
+      const evidenceId = "ev_" + "b".repeat(64);
+      const historical = take(
+        await f.store.edit(
+          f.directory,
+          projectRevisionToken(f.initial.revision),
+          {
+            scope,
+            change_reason: "Imported historical platform scope",
+            run_ids: [run],
+            evidence_refs: [
+              {
+                evidence_id: evidenceId,
+                bundle_path: paths.bundle,
+                bundle_sha256: "c".repeat(64),
+              },
+            ],
+            check_refs: [
+              {
+                check_id: randomUUID(),
+                run_id: run,
+                scope_sha256: digestCanonicalValue(scope),
+                candidate_sha256: "d".repeat(64),
+                checker_sha256: "e".repeat(64),
+                scenario_sha256: "f".repeat(64),
+                environment_sha256: "1".repeat(64),
+                report_path: paths.report,
+                report_sha256: "2".repeat(64),
+                evidence_ids: [evidenceId],
+              },
+            ],
+          },
+        ),
+      );
+      const historicalBytes = await readFile(
+        join(f.directory, "0000000000000002.json"),
+      );
+      const moved = join(f.root, "imported");
+      await rename(f.directory, moved);
+      expect(take(await f.store.read(moved)).revision).toEqual(
+        historical.revision,
+      );
+      const rebound = take(
+        await f.store.edit(moved, projectRevisionToken(historical.revision), {
+          scope: scopeFor(f.root),
+          change_reason: "Bind to this host",
+          name: "Rebound",
+        }),
+      );
+      expect(take(await f.store.read(moved)).revision).toEqual(
+        rebound.revision,
+      );
+      expect(rebound.revision.project.scope).toEqual(scopeFor(f.root));
+      expect(rebound.revision.project.evidence_refs[0]?.bundle_path).toBe(
+        paths.bundle,
+      );
+      expect(rebound.revision.project.check_refs[0]?.report_path).toBe(
+        paths.report,
+      );
+      expect(
+        (await readFile(join(moved, "0000000000000002.json"))).equals(
+          historicalBytes,
+        ),
+      ).toBe(true);
+    } finally {
+      await f.resources.close();
+    }
+  },
+);
+
 it.skipIf(process.platform === "win32")(
   "coordinates real processes through canonical and symlink paths",
   async () => {
