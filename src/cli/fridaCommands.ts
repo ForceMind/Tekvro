@@ -43,8 +43,8 @@ export const registerFridaCommands = (
       .optional()
       .describe(
         selectHumanText(
-          "Remote Frida host address, optionally with a port; mutually exclusive with --device-id",
-          "远程 Frida 主机地址，可包含端口；与 --device-id 互斥",
+          "Remote Frida host address, optionally with a port",
+          "远程 Frida 主机地址，可包含端口",
         ),
       ),
     token: z
