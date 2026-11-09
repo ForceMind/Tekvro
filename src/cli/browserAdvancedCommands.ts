@@ -63,12 +63,9 @@ const registerWebMcp = (
     }),
     options: z.object({
       ...browserScopeOptions,
-      observationMs: z
-        .number()
-        .int()
-        .min(0)
-        .default(100)
-        .describe("Observation duration in milliseconds"),
+      observationMs: cliDecimalField(
+        discoverWebMcpToolsInputSchema.shape.observation_ms,
+      ).describe("Observation duration in milliseconds"),
     }),
     run: ({ args, options }) =>
       withCommandCancellation((signal) =>

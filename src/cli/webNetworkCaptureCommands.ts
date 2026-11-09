@@ -8,7 +8,7 @@ import { CLI_COMMANDS } from "../cliCommandNames.js";
 import { logCliCommand } from "../cliLogging.js";
 import type { Logger } from "pino";
 import type { CliInstance } from "./types.js";
-import { cliIntegerArgument } from "./options.js";
+import { cliIntegerArgument, cliDecimalShape } from "./options.js";
 import { withCommandCancellation } from "./commandCancellation.js";
 import {
   analysisEvidenceDeliveryOptions,
@@ -33,31 +33,33 @@ export const registerWebNetworkCaptureCommands = (
         .enum(WEB_NETWORK_CAPTURE_FORMATS)
         .describe("Producer capture format"),
     }),
-    options: z.object({
-      ...analysisEvidenceDeliveryOptions,
-      protobufFraming: z
-        .enum(["auto", "raw", "grpc", "grpc-web", "grpc-web-text"])
-        .optional()
-        .describe("Override framing for selected retained binary bodies"),
-      protobufBodyPointer: z
-        .array(z.string())
-        .optional()
-        .describe("Exact body pointers; repeat to select several"),
-      protobufSchema: localPathStringSchema
-        .optional()
-        .describe("Local compiled FileDescriptorSet path"),
-      protobufMessage: z
-        .string()
-        .optional()
-        .describe("Fully qualified message type in the descriptor set"),
-      record: z
-        .array(cliIntegerArgument(0))
-        .optional()
-        .describe("Zero-based producer ordinals; repeat to select several"),
-      ...explicitSensitiveValueOptions,
-      captureTimeoutMs:
-        inspectWebNetworkCaptureInputSchema.shape.capture_timeout_ms,
-    }),
+    options: z.object(
+      cliDecimalShape({
+        ...analysisEvidenceDeliveryOptions,
+        protobufFraming: z
+          .enum(["auto", "raw", "grpc", "grpc-web", "grpc-web-text"])
+          .optional()
+          .describe("Override framing for selected retained binary bodies"),
+        protobufBodyPointer: z
+          .array(z.string())
+          .optional()
+          .describe("Exact body pointers; repeat to select several"),
+        protobufSchema: localPathStringSchema
+          .optional()
+          .describe("Local compiled FileDescriptorSet path"),
+        protobufMessage: z
+          .string()
+          .optional()
+          .describe("Fully qualified message type in the descriptor set"),
+        record: z
+          .array(cliIntegerArgument(0))
+          .optional()
+          .describe("Zero-based producer ordinals; repeat to select several"),
+        ...explicitSensitiveValueOptions,
+        captureTimeoutMs:
+          inspectWebNetworkCaptureInputSchema.shape.capture_timeout_ms,
+      }),
+    ),
     run: ({ args, options }) =>
       withCommandCancellation((signal) =>
         logCliCommand(

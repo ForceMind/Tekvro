@@ -1,5 +1,6 @@
 import { javascriptRouteDeliveryOptions } from "./cli/javascriptRouteDelivery.js";
 import { z } from "incur";
+import { cliDecimalField } from "./cli/options.js";
 import { selectHumanText } from "./cli/localization.js";
 import { webRuntimeCommandTimeoutSchema } from "./domain/browserDeadline.js";
 import { javaScriptAnalysisResourceControlsSchema } from "./domain/javascript/javascriptAnalysisResourceControls.js";
@@ -7,12 +8,14 @@ import { javaScriptSourcePathsSchema } from "./domain/javascript/javascriptSourc
 
 /** Accept an agent-selected browser observation duration without an artificial ceiling. */
 export const observationDuration = (fallback: number, minimum = 0) =>
-  z
-    .number()
-    .int()
-    .min(minimum)
-    .default(fallback)
-    .describe("Observation duration in milliseconds");
+  cliDecimalField(
+    z
+      .number()
+      .int()
+      .min(minimum)
+      .default(fallback)
+      .describe("Observation duration in milliseconds"),
+  );
 
 /** Shared passive browser origin options. */
 export const browserScopeOptions = {
@@ -20,7 +23,7 @@ export const browserScopeOptions = {
     .array(z.string().min(1))
     .optional()
     .describe("Optional exact-origin filter"),
-  commandTimeoutMs: webRuntimeCommandTimeoutSchema,
+  commandTimeoutMs: cliDecimalField(webRuntimeCommandTimeoutSchema),
 };
 
 /** Keep an omitted command deadline absent so Evidence records the caller selection only. */
@@ -70,14 +73,14 @@ export const electronPageInspectionOptions = z.object({
     .boolean()
     .default(false)
     .describe("Include JavaScript source text"),
-  commandTimeoutMs: webRuntimeCommandTimeoutSchema,
+  commandTimeoutMs: cliDecimalField(webRuntimeCommandTimeoutSchema),
 });
 
 const humanResourceOption = <T extends z.ZodType>(
   schema: T,
   chinese: string,
-): T =>
-  schema.describe(
+): z.ZodType<z.output<T>> =>
+  cliDecimalField(schema).describe(
     selectHumanText(
       schema.description ?? "JavaScript resource control",
       chinese,
@@ -118,7 +121,9 @@ export const javascriptApplicationOptions = z.object({
     .describe(
       "Inline JSON array or JSON file path of exact inventoried file paths relative to the application root, selected after any --source-path values. Use a file for selections that exceed the host command-line limit.",
     ),
-  maxHeapMb: javaScriptAnalysisResourceControlsSchema.shape.max_heap_mb,
+  maxHeapMb: cliDecimalField(
+    javaScriptAnalysisResourceControlsSchema.shape.max_heap_mb,
+  ),
   analysisTimeoutMs: humanResourceOption(
     javaScriptAnalysisResourceControlsSchema.shape.analysis_timeout_ms,
     "每个源码的启动、分析和传输总超时（毫秒），默认 300000；超时保留已采集的部分 Evidence 并停止分析。",

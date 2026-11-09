@@ -14,6 +14,7 @@ import {
   directAnalysisOptionsFromCli,
   nativeOpenOptionFields,
   snapshotSelectionOption,
+  cliDecimalShape,
 } from "./options.js";
 import type { CliInstance } from "./types.js";
 
@@ -30,23 +31,28 @@ export const registerCoreNativeCommands = (
       path: z.string().describe("Local executable path"),
       pattern: z.string().describe("Hexadecimal byte pairs with ?? wildcards"),
     }),
-    options: z.object({
-      mask: z.string().optional().describe("Equal-length hexadecimal bit mask"),
-      start: z.string().optional().describe("Inclusive start address"),
-      end: z.string().optional().describe("Inclusive end address"),
-      cursor: z
-        .string()
-        .optional()
-        .describe("Continuation from the same query's next_cursor"),
-      limit: z
-        .number()
-        .int()
-        .min(1)
-        .max(1000)
-        .default(100)
-        .describe("Maximum matches on this page"),
-      ...nativeOpenOptionFields,
-    }),
+    options: z.object(
+      cliDecimalShape({
+        mask: z
+          .string()
+          .optional()
+          .describe("Equal-length hexadecimal bit mask"),
+        start: z.string().optional().describe("Inclusive start address"),
+        end: z.string().optional().describe("Inclusive end address"),
+        cursor: z
+          .string()
+          .optional()
+          .describe("Continuation from the same query's next_cursor"),
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(1000)
+          .default(100)
+          .describe("Maximum matches on this page"),
+        ...nativeOpenOptionFields,
+      }),
+    ),
     run: ({ args, options }) =>
       logCliCommand(logger, CLI_COMMANDS.searchBytes, () =>
         runDirectAnalysis(
@@ -87,15 +93,17 @@ export const registerCoreNativeCommands = (
       path: z.string().describe("Local executable path"),
       address: z.string().describe("Exact provider memory address"),
     }),
-    options: z.object({
-      length: z
-        .number()
-        .int()
-        .min(1)
-        .default(256)
-        .describe("Requested byte count"),
-      ...nativeOpenOptionFields,
-    }),
+    options: z.object(
+      cliDecimalShape({
+        length: z
+          .number()
+          .int()
+          .min(1)
+          .default(256)
+          .describe("Requested byte count"),
+        ...nativeOpenOptionFields,
+      }),
+    ),
     run: ({ args, options }) =>
       logCliCommand(logger, CLI_COMMANDS.readBytes, () =>
         runDirectAnalysis(
@@ -133,57 +141,59 @@ export const registerCoreNativeCommands = (
         .string()
         .describe("Explicit native procedure symbol or address"),
     }),
-    options: z.object({
-      maxDepth: z
-        .number()
-        .int()
-        .min(0)
-        .max(16)
-        .default(3)
-        .describe("Maximum call traversal depth"),
-      maxFunctions: z
-        .number()
-        .int()
-        .min(1)
-        .max(64)
-        .default(16)
-        .describe("Maximum function decompilations"),
-      maxCallSites: z
-        .number()
-        .int()
-        .min(1)
-        .max(4096)
-        .default(256)
-        .describe("Maximum static call-site resolutions"),
-      maxNodes: z
-        .number()
-        .int()
-        .min(1)
-        .max(20000)
-        .default(5000)
-        .describe("Maximum retained graph nodes"),
-      maxEdges: z
-        .number()
-        .int()
-        .min(1)
-        .max(40000)
-        .default(10000)
-        .describe("Maximum retained graph edges"),
-      offset: z
-        .number()
-        .int()
-        .min(0)
-        .default(0)
-        .describe("First graph node index"),
-      limit: z
-        .number()
-        .int()
-        .min(1)
-        .max(5000)
-        .default(1000)
-        .describe("Maximum nodes on this page"),
-      ...nativeOpenOptionFields,
-    }),
+    options: z.object(
+      cliDecimalShape({
+        maxDepth: z
+          .number()
+          .int()
+          .min(0)
+          .max(16)
+          .default(3)
+          .describe("Maximum call traversal depth"),
+        maxFunctions: z
+          .number()
+          .int()
+          .min(1)
+          .max(64)
+          .default(16)
+          .describe("Maximum function decompilations"),
+        maxCallSites: z
+          .number()
+          .int()
+          .min(1)
+          .max(4096)
+          .default(256)
+          .describe("Maximum static call-site resolutions"),
+        maxNodes: z
+          .number()
+          .int()
+          .min(1)
+          .max(20000)
+          .default(5000)
+          .describe("Maximum retained graph nodes"),
+        maxEdges: z
+          .number()
+          .int()
+          .min(1)
+          .max(40000)
+          .default(10000)
+          .describe("Maximum retained graph edges"),
+        offset: z
+          .number()
+          .int()
+          .min(0)
+          .default(0)
+          .describe("First graph node index"),
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(5000)
+          .default(1000)
+          .describe("Maximum nodes on this page"),
+        ...nativeOpenOptionFields,
+      }),
+    ),
     run: ({ args, options }) =>
       logCliCommand(logger, CLI_COMMANDS.traceNativeValues, () =>
         runDirectAnalysis(
@@ -270,16 +280,19 @@ const registerNativeDispatchMetadataCommand = (
     args: z.object({
       path: z.string().describe("Target path used to bind the result evidence"),
     }),
-    options: z.object({
-      maxRecords: nativeDispatchMetadataInputSchema.shape.max_records.describe(
-        "Maximum symbol records to inspect",
-      ),
-      maxInputBytes: nativeDispatchMetadataInputSchema.shape.max_input_bytes,
-      snapshot: snapshotSelectionOption.describe(
-        "Load or update the local analysis snapshot",
-      ),
-      ...nativeOpenOptionFields,
-    }),
+    options: z.object(
+      cliDecimalShape({
+        maxRecords:
+          nativeDispatchMetadataInputSchema.shape.max_records.describe(
+            "Maximum symbol records to inspect",
+          ),
+        maxInputBytes: nativeDispatchMetadataInputSchema.shape.max_input_bytes,
+        snapshot: snapshotSelectionOption.describe(
+          "Load or update the local analysis snapshot",
+        ),
+        ...nativeOpenOptionFields,
+      }),
+    ),
     run: async ({ args, options }) =>
       logCliCommand(logger, "inspect-native-dispatch-metadata", () =>
         runDirectAnalysis(
@@ -314,30 +327,32 @@ const registerNativeUiActionCommand = (
           "A unique compiled UI action selector or interface object ID",
         ),
     }),
-    options: z.object({
-      maxDepth: z
-        .number()
-        .int()
-        .min(0)
-        .max(32)
-        .default(8)
-        .describe("Maximum relationship depth"),
-      maxNodes: z
-        .number()
-        .int()
-        .min(1)
-        .max(2_000)
-        .default(250)
-        .describe("Maximum returned graph nodes"),
-      maxEdges: z
-        .number()
-        .int()
-        .min(1)
-        .max(5_000)
-        .default(500)
-        .describe("Maximum returned graph edges"),
-      ...nativeOpenOptionFields,
-    }),
+    options: z.object(
+      cliDecimalShape({
+        maxDepth: z
+          .number()
+          .int()
+          .min(0)
+          .max(32)
+          .default(8)
+          .describe("Maximum relationship depth"),
+        maxNodes: z
+          .number()
+          .int()
+          .min(1)
+          .max(2_000)
+          .default(250)
+          .describe("Maximum returned graph nodes"),
+        maxEdges: z
+          .number()
+          .int()
+          .min(1)
+          .max(5_000)
+          .default(500)
+          .describe("Maximum returned graph edges"),
+        ...nativeOpenOptionFields,
+      }),
+    ),
     run: async ({ args, options }) =>
       logCliCommand(logger, "trace-native-ui-action", () =>
         runDirectAnalysis(

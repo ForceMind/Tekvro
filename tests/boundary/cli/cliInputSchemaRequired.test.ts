@@ -210,12 +210,13 @@ describe("CLI advertised input schemas", () => {
     expect(args({})).toBe(false);
     expect(options({})).toBe(true);
     expect(options({ limit: 0 })).toBe(false);
+    expect(options({ limit: "0001" })).toBe(true);
+    expect(options({ limit: "0x10" })).toBe(false);
     expect(advertised.args?.properties?.["archive"]).toMatchObject({
       default: ".",
     });
     expect(advertised.options?.properties?.["limit"]).toMatchObject({
       default: 20_000,
-      minimum: 1,
     });
     expect(
       parserSchema(cli, "inspect-keyed-archive", "args")?.parse({ path: "x" }),
@@ -398,7 +399,11 @@ describe("reference-source outline-depth input schema", () => {
     const cli = createCli({});
     const advertised = await advertisedSchema(cli, "import-reference-source");
     const outlineDepth = advertised.options?.properties?.outlineDepth;
-    expect(outlineDepth).toMatchObject({ type: "integer", minimum: 0 });
+    expect(outlineDepth).toMatchObject({
+      anyOf: expect.arrayContaining([
+        expect.objectContaining({ type: "integer", minimum: 0 }),
+      ]),
+    });
 
     const parser = parserSchema(cli, "import-reference-source", "options");
     expect(parser?.safeParse({ outlineDepth: -1 }).success).toBe(false);
@@ -413,6 +418,8 @@ describe("reference-source outline-depth input schema", () => {
     expect(validate({ outlineDepth: -1 })).toBe(false);
     expect(validate({ outlineDepth: 0 })).toBe(true);
     expect(validate({ outlineDepth: 2 })).toBe(true);
+    expect(validate({ outlineDepth: "0002" })).toBe(true);
+    expect(validate({ outlineDepth: "0x10" })).toBe(false);
   });
 });
 

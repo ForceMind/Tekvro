@@ -1,3 +1,4 @@
+import { cliDecimalShape } from "./options.js";
 import { selectHumanText } from "./localization.js";
 import { basename } from "node:path";
 import { localPathStringSchema } from "../domain/localPath.js";
@@ -514,54 +515,56 @@ const registerBuildCommand = (
           ),
         ),
     }),
-    options: z.object({
-      name: z
-        .string()
-        .optional()
-        .describe(
-          selectHumanText(
-            "Env folder and env id (kebab-case); default the manifest's name, or the capture file's name when the origin is a loopback or IP address",
-            "环境目录和标识（kebab-case）；默认使用清单名称，来源为回环或 IP 地址时使用捕获文件名",
+    options: z.object(
+      cliDecimalShape({
+        name: z
+          .string()
+          .optional()
+          .describe(
+            selectHumanText(
+              "Env folder and env id (kebab-case); default the manifest's name, or the capture file's name when the origin is a loopback or IP address",
+              "环境目录和标识（kebab-case）；默认使用清单名称，来源为回环或 IP 地址时使用捕获文件名",
+            ),
           ),
-        ),
-      templateRule: z
-        .array(z.enum(TEMPLATE_RULES))
-        .optional()
-        .describe(
-          selectHumanText(
-            "Opt-in template rule; repeat to select several. Replaces the default after-uid-literal, opaque-token, sibling-variance and prefix-variance",
-            "显式选择模板规则，可重复指定多个；替换默认的 after-uid-literal、opaque-token、sibling-variance 和 prefix-variance",
+        templateRule: z
+          .array(z.enum(TEMPLATE_RULES))
+          .optional()
+          .describe(
+            selectHumanText(
+              "Opt-in template rule; repeat to select several. Replaces the default after-uid-literal, opaque-token, sibling-variance and prefix-variance",
+              "显式选择模板规则，可重复指定多个；替换默认的 after-uid-literal、opaque-token、sibling-variance 和 prefix-variance",
+            ),
           ),
-        ),
-      formatRulesOnly: z
-        .boolean()
-        .default(false)
-        .describe(
-          selectHumanText(
-            "Apply only the four format rules, the views' own default",
-            "仅应用四个格式规则，与视图默认行为一致",
+        formatRulesOnly: z
+          .boolean()
+          .default(false)
+          .describe(
+            selectHumanText(
+              "Apply only the four format rules, the views' own default",
+              "仅应用四个格式规则，与视图默认行为一致",
+            ),
           ),
-        ),
-      packageTarball: localPathStringSchema
-        .optional()
-        .describe(
-          selectHumanText(
-            "Packed Tekvro tarball (npm pack) copied into the env folder and installed by the Dockerfile instead of the registry package pinned to this version",
-            "打包后的 Tekvro tarball（npm pack），复制到环境目录并由 Dockerfile 安装，替代版本固定的注册表包；本项目尚未正式发行，应使用本地包",
+        packageTarball: localPathStringSchema
+          .optional()
+          .describe(
+            selectHumanText(
+              "Packed Tekvro tarball (npm pack) copied into the env folder and installed by the Dockerfile instead of the registry package pinned to this version",
+              "打包后的 Tekvro tarball（npm pack），复制到环境目录并由 Dockerfile 安装，替代版本固定的注册表包；本项目尚未正式发行，应使用本地包",
+            ),
           ),
-        ),
-      dryRun: z
-        .boolean()
-        .default(false)
-        .describe(
-          selectHumanText(
-            "Run every stage and report, but write nothing",
-            "执行各阶段并生成报告，但不写入文件",
+        dryRun: z
+          .boolean()
+          .default(false)
+          .describe(
+            selectHumanText(
+              "Run every stage and report, but write nothing",
+              "执行各阶段并生成报告，但不写入文件",
+            ),
           ),
-        ),
-      captureTimeoutMs:
-        inspectWebNetworkCaptureInputSchema.shape.capture_timeout_ms,
-    }),
+        captureTimeoutMs:
+          inspectWebNetworkCaptureInputSchema.shape.capture_timeout_ms,
+      }),
+    ),
     run: ({ args, options }) =>
       withCommandCancellation((signal) =>
         logCliCommand(logger, CLI_COMMANDS.environmentBuild, () =>
