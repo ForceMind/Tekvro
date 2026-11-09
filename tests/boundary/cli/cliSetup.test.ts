@@ -218,6 +218,7 @@ cliTest(
 const runSetupDryRunInTty = async (
   home: string,
   arguments_: readonly string[],
+  locale = "en",
 ): Promise<{ readonly exitCode: number; readonly output: string }> => {
   const terminal = spawn(
     process.execPath,
@@ -229,6 +230,7 @@ const runSetupDryRunInTty = async (
         ...isolatedSetupEnvironment(home),
         REA_LOG_LEVEL: "silent",
         NO_COLOR: "1",
+        TEKVRO_LANG: locale,
       },
       name: "xterm-256color",
       cols: 120,
@@ -253,24 +255,31 @@ const runSetupDryRunInTty = async (
 };
 
 describe("TTY setup dry run", () => {
-  it("prints the plan and no-mutation notice for a TTY dry run", async () => {
-    const home = await createTestTempDirectory("rea-cli-setup-dry-run-");
-    const { exitCode, output } = await runSetupDryRunInTty(home, [
-      "--client",
-      "codex",
-      "--skill=false",
-    ]);
+  it.each(["en", "zh-CN"])(
+    "prints the plan and no-mutation notice for a TTY dry run in %s",
+    async (locale) => {
+      const home = await createTestTempDirectory("rea-cli-setup-dry-run-");
+      const { exitCode, output } = await runSetupDryRunInTty(
+        home,
+        ["--client", "codex", "--skill=false"],
+        locale,
+      );
 
-    expect(exitCode, output).toBe(0);
-    expect(output).toContain("CREATE  Codex");
-    expect(output).toContain(join(home, ".codex/config.toml"));
-    expect(output).toContain("Dry run complete. No changes were made.");
-    await expect(
-      access(join(home, ".codex/config.toml")),
-    ).rejects.toMatchObject({
-      code: "ENOENT",
-    });
-  });
+      expect(exitCode, output).toBe(0);
+      expect(output).toContain("CREATE  Codex");
+      expect(output).toContain(join(home, ".codex/config.toml"));
+      expect(output).toContain(
+        locale === "zh-CN"
+          ? "预览完成，未作任何更改。"
+          : "Dry run complete. No changes were made.",
+      );
+      await expect(
+        access(join(home, ".codex/config.toml")),
+      ).rejects.toMatchObject({
+        code: "ENOENT",
+      });
+    },
+  );
 
   it("shows the refusal instead of a blocked skill plan for a TTY dry run", async () => {
     const home = await createTestTempDirectory("rea-cli-setup-linked-dry-run-");
@@ -406,6 +415,83 @@ cliTest.skipIf(process.platform === "win32")(
     expect(await readFile(backup, "utf8")).toBe(original);
   },
 );
+
+describe("localized interactive setup journey", () => {
+  it("uses the selected Chinese locale for selection, preview and final approval", async () => {
+    const result = await runJourney(
+      [
+        step("哪些智能体需要使用 Tekvro？", "\u001b[B"),
+        step("未检测到 · 仍可选择配置", "\u001b[A \r"),
+        step("应用这 2 项更改？", "\r"),
+      ],
+      false,
+      [
+        {
+          ...actions[0],
+          backupPath: "/isolated/配置.bak",
+          commands: ["node '/isolated/启动.mjs' mcp"],
+        },
+        actions[1],
+      ],
+      [],
+      { TEKVRO_LANG: "zh-CN" },
+    );
+    expect(result.output).toContain("已检测到：Codex");
+    expect(result.output).toContain("未检测到 · 仍可选择配置");
+    expect(result.output).toContain("备份：/isolated/配置.bak");
+    expect(result.output).toContain("命令：node '/isolated/启动.mjs' mcp");
+    expect(result.output.indexOf("备份：")).toBeLessThan(
+      result.output.indexOf("应用这 2 项更改？"),
+    );
+    expect(result.decision).toMatchObject({
+      approved: true,
+      selectedActionIds: ["configure_client:codex", "install_skill"],
+    });
+  });
+
+  it.each([
+    { prompt: "哪些智能体需要使用 Tekvro？", input: "\u0003", final: false },
+    { prompt: "应用这 2 项更改？", input: "\u001b[D\r", final: true },
+  ])(
+    "keeps Chinese cancellation non-mutating at $prompt",
+    async ({ prompt, input, final }) => {
+      const result = await runJourney(
+        [
+          ...(final ? [step("哪些智能体需要使用 Tekvro？", " \r")] : []),
+          step(prompt, input),
+        ],
+        false,
+        agentActions,
+        [],
+        { TEKVRO_LANG: "zh-CN" },
+      );
+      expect(result.output).toContain("配置已取消，未作任何更改。");
+      expect(result.decision).toMatchObject({
+        approved: false,
+        cancelled: true,
+      });
+    },
+  );
+
+  it("uses Chinese sequential choices and keeps optional software opt-in", async () => {
+    const result = await runJourney(
+      [
+        step("配置 Codex？", "\u001b[A\r"),
+        step("配置 OpenCode？", "\r"),
+        step("安装 Hopper 以进行深度二进制分析？", "\r"),
+        step("应用这 2 项更改？", "\r"),
+      ],
+      true,
+      actions,
+      [],
+      { TEKVRO_LANG: "zh-Hans" },
+    );
+    expect(result.decision).toMatchObject({
+      approved: true,
+      selectedActionIds: ["configure_client:codex", "install_skill"],
+    });
+  });
+});
 
 describe("interactive setup journey", () => {
   it("shows detected and absent clients without preselecting detected clients", async () => {
@@ -572,9 +658,43 @@ const setupCompletionInvocations = [
   },
 ];
 
+const expectReadyText = (stderr: string, locale: string): void => {
+  const chinese = locale === "zh-CN";
+  expect(stderr).toContain(
+    chinese ? "现在可以进行的操作" : "What you can do now",
+  );
+  expect(stderr).toContain(
+    chinese ? "深度分析：Hopper、Ghidra" : "Deep analysis: Hopper and Ghidra",
+  );
+  expect(stderr).toContain(
+    chinese ? "智能体接入：Codex" : "Agent access: Codex",
+  );
+  expect(stderr).toContain(
+    chinese
+      ? "逆向分析引导技能：已安装"
+      : "Guided reverse-engineering workflows: installed",
+  );
+  expect(stderr).toContain(
+    chinese ? "请重启 Codex 以加载 Tekvro。" : "Restart Codex to load Tekvro.",
+  );
+  expect(stderr).not.toContain("source checkout");
+  expect(stderr).not.toContain("npx ");
+  expect(stderr).not.toContain("bunx ");
+  expect(stderr).toContain(
+    chinese
+      ? "在 Codex 中尝试：“解释 /path/to/app 中某项功能的工作方式，并展示证据。”"
+      : 'Try in Codex: "Explain how a feature works in /path/to/app and show the evidence."',
+  );
+};
+
 describe("interactive setup completion", () => {
-  it.each(setupCompletionInvocations)(
-    "prints an executable next command bound to the $name",
+  it.each(
+    setupCompletionInvocations.flatMap((scenario) => [
+      { ...scenario, locale: "en" },
+      { ...scenario, locale: "zh-CN" },
+    ]),
+  )(
+    "prints an executable next command bound to the $name in $locale",
     async (scenario) => {
       const home = await createTestTempDirectory("tekvro-setup-next-command-");
       const installation = join(home, scenario.directory);
@@ -594,6 +714,7 @@ describe("interactive setup completion", () => {
         npm_command: scenario.npmCommand,
         npm_config_user_agent: scenario.userAgent,
         NO_COLOR: "1",
+        TEKVRO_LANG: scenario.locale,
       };
       await writeFile(
         launcher,
@@ -624,19 +745,7 @@ describe("interactive setup completion", () => {
           env: environment,
         },
       );
-      expect(stderr).toContain("What you can do now");
-      expect(stderr).toContain("Deep analysis: Hopper and Ghidra");
-      expect(stderr).toContain("Agent access: Codex");
-      expect(stderr).toContain(
-        "Guided reverse-engineering workflows: installed",
-      );
-      expect(stderr).toContain("Restart Codex to load Tekvro.");
-      expect(stderr).not.toContain("source checkout");
-      expect(stderr).not.toContain("npx ");
-      expect(stderr).not.toContain("bunx ");
-      expect(stderr).toContain(
-        'Try in Codex: "Explain how a feature works in /path/to/app and show the evidence."',
-      );
+      expectReadyText(stderr, scenario.locale);
       const command = /CLI(?: \(PowerShell\))?: (.+)$/mu.exec(stderr)?.[1];
       expect(command).toBeDefined();
       if (command === undefined)
@@ -667,43 +776,49 @@ describe("interactive setup completion", () => {
       });
     },
   );
-  it("prints retained cleanup resources without relying on paths in remediation", async () => {
-    const resources = ["/fixture/owned backup", "/fixture/临时目录"];
-    const result: SetupResult = {
-      status: "needs_human",
-      code: "cleanup_failed",
-      plannedActions: [],
-      appliedActions: [],
-      clients: {},
-      clientStates: [],
-      doctor: {
-        healthy: true,
-        environment_healthy: true,
-        availableProviders: [],
-        scope: {
-          mode: "explicit",
-          clients: [],
-          providers: [],
-          skill: false,
-          target: null,
+  it.each(["en", "zh-CN"])(
+    "prints retained cleanup resources without relying on paths in remediation in %s",
+    async (locale) => {
+      const resources = ["/fixture/owned backup", "/fixture/临时目录"];
+      const result: SetupResult = {
+        status: "needs_human",
+        code: "cleanup_failed",
+        plannedActions: [],
+        appliedActions: [],
+        clients: {},
+        clientStates: [],
+        doctor: {
+          healthy: true,
+          environment_healthy: true,
+          availableProviders: [],
+          scope: {
+            mode: "explicit",
+            clients: [],
+            providers: [],
+            skill: false,
+            target: null,
+          },
         },
-      },
-      remediation: "Owned descriptor remains busy",
-      cleanup: { reason: "Owned descriptor remains busy", resources },
-    };
-    const { stderr } = await execute(
-      process.execPath,
-      [
-        "--input-type=module",
-        "--eval",
-        'import { renderInteractiveSetupResult } from "./dist/cli/interactiveSetup.js";\n' +
-          `renderInteractiveSetupResult(${JSON.stringify(result)}, {});`,
-      ],
-      { cwd: process.cwd(), env: { ...process.env, NO_COLOR: "1" } },
-    );
-    expect(stderr).toContain(result.remediation);
-    for (const resource of resources) expect(stderr).toContain(resource);
-  });
+        remediation: "Owned descriptor remains busy",
+        cleanup: { reason: "Owned descriptor remains busy", resources },
+      };
+      const { stderr } = await execute(
+        process.execPath,
+        [
+          "--input-type=module",
+          "--eval",
+          'import { renderInteractiveSetupResult } from "./dist/cli/interactiveSetup.js";\n' +
+            `renderInteractiveSetupResult(${JSON.stringify(result)}, { TEKVRO_LANG: ${JSON.stringify(locale)} });`,
+        ],
+        { cwd: process.cwd(), env: { ...process.env, NO_COLOR: "1" } },
+      );
+      expect(stderr).toContain(result.remediation);
+      expect(stderr).toContain(
+        locale === "zh-CN" ? "待清理资源：" : "Pending cleanup:",
+      );
+      for (const resource of resources) expect(stderr).toContain(resource);
+    },
+  );
 });
 
 interface JourneyStep {
@@ -726,16 +841,17 @@ const runJourney = async (
   accessible = false,
   journeyActions: readonly object[] = agentActions,
   initialClientIds: readonly string[] = [],
+  environment: Readonly<Record<string, string>> = { TEKVRO_LANG: "en" },
 ): Promise<JourneyResult> => {
   const isolatedHome = await createTestTempDirectory("rea-cli-setup-test-");
   const script = [
     'import { confirmInteractiveSetup } from "./dist/cli/interactiveSetup.js";',
     `const actions = ${JSON.stringify(journeyActions)};`,
     `const context = ${JSON.stringify({ stage: "select", clientStates, selectedClientIds: initialClientIds, clientSelectionAllowed: true })};`,
-    `let decision = await confirmInteractiveSetup(actions, ${JSON.stringify(accessible)}, context);`,
+    `let decision = await confirmInteractiveSetup(actions, ${JSON.stringify(accessible)}, context, ${JSON.stringify(environment)});`,
     "if (!decision.cancelled && decision.selectedActionIds.length > 0) {",
     "  const selected = new Set(decision.selectedActionIds);",
-    `  decision = await confirmInteractiveSetup(actions.filter(({ id }) => selected.has(id)), ${JSON.stringify(accessible)}, { ...context, stage: "confirm", clientSelectionAllowed: false });`,
+    `  decision = await confirmInteractiveSetup(actions.filter(({ id }) => selected.has(id)), ${JSON.stringify(accessible)}, { ...context, stage: "confirm", clientSelectionAllowed: false }, ${JSON.stringify(environment)});`,
     "}",
     `process.stdout.write(${JSON.stringify(`\n${decisionMarker}`)} + JSON.stringify(decision) + "\\n");`,
   ].join("\n");
