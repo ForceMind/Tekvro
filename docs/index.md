@@ -56,4 +56,6 @@ Windows 和手动安装方式见[快速开始](zh-CN/quick-start.md)。版本 1.
 
 [项目架构](zh-CN/architecture.md) · [测试与验证](testing.md) · [贡献指南](https://github.com/ForceMind/Tekvro/blob/main/CONTRIBUTING.md) · [问题反馈](https://github.com/ForceMind/Tekvro/issues/new/choose) · [安全说明](zh-CN/security.md) · [维护路线](roadmap.md)
 
+项目工作流与本地工作台已形成实施规划：[完整设计](project-workflow-design.md) · [阶段与工作包](project-workflow-plan.md) · [验收矩阵](project-workflow-acceptance.md)。这些新增能力尚未实现，不属于 1.0.0 的已交付范围。
+
 代码许可与组件告知见 [LICENSE](https://github.com/ForceMind/Tekvro/blob/main/LICENSE) 和 [THIRD_PARTY_NOTICES.md](https://github.com/ForceMind/Tekvro/blob/main/THIRD_PARTY_NOTICES.md)。
