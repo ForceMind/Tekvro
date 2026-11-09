@@ -40,6 +40,7 @@ export default defineConfig({
           },
           { text: "项目架构", link: "/zh-CN/architecture" },
           { text: "常见问题", link: "/zh-CN/faq" },
+          { text: "诊断与固件检查", link: "/zh-CN/diagnostics" },
           { text: "安全与授权", link: "/zh-CN/security" },
           { text: "品牌说明", link: "/BRAND" },
           { text: "维护路线", link: "/roadmap" },

@@ -67,6 +67,78 @@ const CASES = [
     0,
     0,
   ],
+  [
+    "inspect-firmware-regions",
+    "analysisTimeoutMs",
+    "analysis-timeout-ms",
+    2147483647,
+    ["/nonexistent/firmware.bin"],
+    1,
+    undefined,
+  ],
+  [
+    "extract-firmware",
+    "analysisTimeoutMs",
+    "analysis-timeout-ms",
+    2147483647,
+    ["/nonexistent/firmware.bin", "/nonexistent/extracted"],
+    1,
+    undefined,
+  ],
+  [
+    "extract-firmware",
+    "offset",
+    "offset",
+    9007199254740991,
+    ["/nonexistent/firmware.bin", "/nonexistent/extracted"],
+    0,
+    undefined,
+  ],
+  [
+    "extract-firmware",
+    "length",
+    "length",
+    9007199254740991,
+    ["/nonexistent/firmware.bin", "/nonexistent/extracted"],
+    1,
+    undefined,
+  ],
+  [
+    "extract-firmware",
+    "maxDepth",
+    "max-depth",
+    10,
+    ["/nonexistent/firmware.bin", "/nonexistent/extracted"],
+    1,
+    3,
+  ],
+  [
+    "extract-firmware",
+    "maxOutputBytes",
+    "max-output-bytes",
+    536870912,
+    ["/nonexistent/firmware.bin", "/nonexistent/extracted"],
+    1,
+    268435456,
+  ],
+  [
+    "extract-firmware",
+    "maxOutputFiles",
+    "max-output-files",
+    100000,
+    ["/nonexistent/firmware.bin", "/nonexistent/extracted"],
+    1,
+    10000,
+  ],
+  [
+    "extract-firmware",
+    "publicationTimeoutMs",
+    "publication-timeout-ms",
+    2147483647,
+    ["/nonexistent/firmware.bin", "/nonexistent/extracted"],
+    1,
+    120000,
+  ],
 ] as const;
 
 const NON_DECIMAL = [
@@ -120,14 +192,17 @@ describe("offline decimal CLI inputs", () => {
           () => Parser.parse([`--${flag}`, value], { options }),
           value,
         ).toThrow();
-      for (const value of [String(minimum), "00016", String(maximum)])
+      const sample = Math.min(16, maximum);
+      for (const value of [String(minimum), `000${sample}`, String(maximum)])
         expect(
           Parser.parse([`--${flag}=${value}`], { options }).options[field],
         ).toBe(Number(value));
       if (defaultValue === undefined)
         expect(options.parse({})).not.toHaveProperty(field);
       else expect(options.parse({})).toMatchObject({ [field]: defaultValue });
-      expect(options.parse({ [field]: 16 })).toMatchObject({ [field]: 16 });
+      expect(options.parse({ [field]: sample })).toMatchObject({
+        [field]: sample,
+      });
     },
   );
 
@@ -152,7 +227,8 @@ describe("offline decimal CLI inputs", () => {
             validate({ [field]: value }),
             `${name} ${field} ${JSON.stringify(value)}`,
           ).toBe(false);
-        for (const value of [16, "00016"])
+        const sample = Math.min(16, maximum);
+        for (const value of [sample, `000${sample}`])
           expect(validate({ [field]: value })).toBe(true);
         expect(validate({ [field]: maximum + 1 })).toBe(false);
         expect(validate({})).toBe(true);

@@ -1,4 +1,5 @@
 import { z } from "incur";
+import { selectHumanText } from "./localization.js";
 
 import type { DirectAnalysis } from "../composition/directAnalysis.js";
 import type { ReferenceSourcePolicy } from "../domain/referenceSourcePolicy.js";
@@ -33,7 +34,7 @@ export const registerUtilityCommands = (
   analysis: Pick<DirectAnalysis, "runProviderAnalysis" | "runSessionStatus">,
 ): void => {
   const { runProviderAnalysis } = analysis;
-  registerCapabilityCommands(cli, logger, analysis);
+  registerCapabilityCommands(cli, logger, analysis, environment);
   registerNativeCommands(cli, logger, runProviderAnalysis);
   registerNativeCallCommands(cli, logger, runProviderAnalysis);
   registerNativeUiCommands(cli, logger, runProviderAnalysis);
@@ -169,6 +170,7 @@ const registerCapabilityCommands = (
   cli: CliInstance,
   logger: Logger,
   { runSessionStatus }: Pick<DirectAnalysis, "runSessionStatus">,
+  environment: Readonly<NodeJS.ProcessEnv>,
 ): void => {
   for (const command of [
     CLI_COMMANDS.capabilities,
@@ -177,8 +179,16 @@ const registerCapabilityCommands = (
     cli.command(command, {
       description:
         command === "capabilities"
-          ? "List provider capabilities and side effects"
-          : "List configured analysis providers",
+          ? selectHumanText(
+              "List provider capabilities and side effects",
+              "列出分析能力、可用条件及作用范围",
+              environment,
+            )
+          : selectHumanText(
+              "List configured analysis providers",
+              "列出已配置的分析提供方及当前会话状态",
+              environment,
+            ),
       run: () => logCliCommand(logger, command, () => runSessionStatus(logger)),
     });
   }
