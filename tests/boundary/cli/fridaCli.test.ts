@@ -491,6 +491,11 @@ it.each([
     "attach mode needs a positive integer process ID.",
   ],
   [
+    ["attach", "001", "--script", "send(1)"],
+    "target",
+    "attach mode needs a positive integer process ID.",
+  ],
+  [
     ["attach", "71"],
     "script",
     "Provide exactly one of --script or --script-file.",

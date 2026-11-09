@@ -1,5 +1,30 @@
 # REA 6.8.0 内核集成记录
 
+## 2026-11-09：剩余整数 CLI 参数适配
+
+在固件组 PR #54 之后，继续适配固定提交 `99db80a13e369885e7de99417475c25380446081`
+中的已有 CLI 数值边界，并检查当前本地目录的其他独立整数选项。
+采用已有 `cliDecimalField` 与 `cliDecimalShape`，保留每个本地字段的范围、
+默认值及描述。字节搜索继续使用本地上限 1000，未直接采用来源提交的不同上限。
+源码中没有的 API contract 与 desktop capture 命令未引入。
+
+| 分组           | 已有入口范围                                                   | 验证范围                                                       |
+| -------------- | -------------------------------------------------------------- | -------------------------------------------------------------- |
+| 浏览器与 JS    | 观察时长、CDP 命令预算、Web bundle 与本地 JS 堆/分析/语义预算  | 参数解析、发布 Schema 与真实 CLI 拒绝；既有 CDP 协议及取消验证 |
+| 本地制品       | ELF/PE/IPS、devicetree、字节熵、原生图遍历、导出及反编译限制   | 参数与离线边界；路径和文本地址仍按原契约                       |
+| 工具及设备入口 | ADB logcat、Apktool、Frida、JEB、objdump、Rizin                | 参数拒绝及现有提供方协议夹具；设备和商用实例另外验收           |
+| 抓包与信号     | 分页、条目预算、HAR 解码时限、环境构建捕获时限                 | 公开参数、Schema、帮助及协议边界                               |
+| 当前分支补充   | pyc/BEAM、桌面目录、Apple 资源、Android overload、历史源码摘要 | 当前目录的整数选项统一词法入口，保留各自预算                   |
+
+十进制整数与前导零输入可解析。十六进制、科学计数法、符号、浮点拼写与空白文本
+在不可逆数值转换前被拒绝。JSON/MCP 的数字契约继续由领域 schema 验证。
+`providerDecimalArguments.test.ts` 覆盖提供方入口及全目录独立整数选项，
+`cliDecimalArguments.test.ts` 覆盖选定边界、默认、极值及编译后 argv 两种传参形式。
+Schema 回归按实际输入的数值/文本联合表示验证最小值和默认值。
+
+本地实际通过的验证与 CI 源提交在对应 PR 中记录。真实固件工具链、
+特定商用实例和实体设备仍需各自环境；本轮参数准入和协议测试不扩大其支持范围。
+
 ## 离线十进制 CLI 参数第二组（2026-11-07）
 
 在第一组 [PR #44](https://github.com/ForceMind/Tekvro/pull/44) 已合并的 `eaff9718` 主线上，继续选择性适配固定上游 `99db80a13e369885e7de99417475c25380446081` 的三个字段：`inspect-evm-interface --timeout-ms`、`trace-web-source-location --decode-timeout-ms` 与 `compare-web-screenshots --channel-threshold`。仅把现有领域字段接入第一组的共享十进制适配器，保留本地 `finishAnalysisCommand` 流程，不导入上游尚未具备的其他结果投影前置层。

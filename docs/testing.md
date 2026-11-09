@@ -2234,3 +2234,22 @@ It requires WABT configuration and makes no host tool installation.
 Source-owned provider tests separately exercise cancellation, deadline propagation,
 malformed producer output and cleanup uncertainty; shared owned-command tests
 exercise actual subprocess timeout and cancellation.
+
+### Darwin ownership diagnostics
+
+An unclassified native procargs parse failure retains `malformed_procargs` and structural
+context: parser stage, byte offset, buffer length, argc, pointer width, the
+following NUL-run length, and code-signing flags when available. These facts
+contain no argv or environment values. The native Swift parser probe checks
+that a malformed buffer still fails while its trace omits a known fixture value.
+
+This diagnostic does not establish a run token or authorize cleanup. Preserve
+the package verifier's primary result and cleanup failure together; do not
+remove the ownership gate to make an installed-package lane pass. Use
+`ci:full` when the change needs the complete native host package matrix.
+The macOS package failure exposed a restricted process with padding shorter
+than the parser's expected alignment. A padding failure with an observed
+`CS_RESTRICT` flag uses the existing unavailable-environment classification;
+it never supplies a token. Unrelated opaque candidates remain listed as
+unverified, and related candidates still prevent cleanup. Ordinary malformed
+padding, platform flags without `CS_RESTRICT`, and malformed argv stay rejected.

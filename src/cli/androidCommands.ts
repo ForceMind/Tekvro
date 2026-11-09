@@ -1,3 +1,4 @@
+import { cliDecimalShape } from "./options.js";
 import { z } from "incur";
 import { AndroidAnalysisService } from "../application/android/AndroidAnalysisService.js";
 import { createAndroidAnalysisProvider } from "../composition/android.js";
@@ -75,16 +76,18 @@ export const registerAndroidCommands = (
       className,
       methodName: z.string().describe("Exact declared method name"),
     }),
-    options: z.object({
-      overloadIndex: z
-        .number()
-        .int()
-        .nonnegative()
-        .optional()
-        .describe(
-          "Explicit zero-based index among same-name methods; required when ambiguous",
-        ),
-    }),
+    options: z.object(
+      cliDecimalShape({
+        overloadIndex: z
+          .number()
+          .int()
+          .nonnegative()
+          .optional()
+          .describe(
+            "Explicit zero-based index among same-name methods; required when ambiguous",
+          ),
+      }),
+    ),
     run: ({ args, options }) =>
       execute(CLI_COMMANDS.inspectAndroidMethod, "inspect_android_method", {
         path: args.path,
@@ -99,18 +102,20 @@ export const registerAndroidCommands = (
     description:
       "Trace incoming APK using nodes for a class or selected method",
     args: z.object({ path, className }),
-    options: z.object({
-      methodName: z
-        .string()
-        .optional()
-        .describe("Declared method name; omit for class references"),
-      overloadIndex: z
-        .number()
-        .int()
-        .nonnegative()
-        .optional()
-        .describe("Index among same-name methods from inspect-android-class"),
-    }),
+    options: z.object(
+      cliDecimalShape({
+        methodName: z
+          .string()
+          .optional()
+          .describe("Declared method name; omit for class references"),
+        overloadIndex: z
+          .number()
+          .int()
+          .nonnegative()
+          .optional()
+          .describe("Index among same-name methods from inspect-android-class"),
+      }),
+    ),
     run: ({ args, options }) =>
       execute(CLI_COMMANDS.traceAndroidReferences, "trace_android_references", {
         path: args.path,

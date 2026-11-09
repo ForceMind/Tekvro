@@ -1,4 +1,5 @@
 import { z } from "incur";
+import { cliDecimalField, cliDecimalShape } from "./options.js";
 import { selectHumanText } from "./localization.js";
 
 import type { DirectAnalysis } from "../composition/directAnalysis.js";
@@ -41,7 +42,7 @@ export const registerUtilityCommands = (
   registerReferenceSourceCommand(cli, logger, environment);
 };
 
-const nativeUiScopeOptions = {
+const nativeUiScopeOptions = cliDecimalShape({
   pid: z.number().int().positive().describe("Existing application PID"),
   windowId: z
     .number()
@@ -64,7 +65,7 @@ const nativeUiScopeOptions = {
     .default(500)
     .describe("Maximum accessibility nodes per capture"),
   nativeUiDeadlineMs: nativeUiDeadlineField,
-};
+});
 
 const nativeUiScope = (options: {
   readonly pid: number;
@@ -208,7 +209,7 @@ const registerNativeCommands = (
       description: `Run ${tool} without launching Hopper`,
       args: z.object({ path: z.string().describe("Mach-O or app path") }),
       options: z.object({
-        nativeCommandTimeoutMs: nativeCommandTimeoutField,
+        nativeCommandTimeoutMs: cliDecimalField(nativeCommandTimeoutField),
       }),
       run: ({ args, options }) =>
         logCliCommand(logger, command, () =>
@@ -233,7 +234,7 @@ const registerNativeCommands = (
         .describe(
           "Plist path relative to the app root, or an absolute path (default: the bundle's Info.plist)",
         ),
-      nativeCommandTimeoutMs: nativeCommandTimeoutField,
+      nativeCommandTimeoutMs: cliDecimalField(nativeCommandTimeoutField),
     }),
     run: ({ args, options }) =>
       logCliCommand(logger, "inspect-plist", () =>
@@ -259,7 +260,7 @@ const registerNativeCommands = (
       symbols: swiftSymbolsSchema.describe("Swift mangled symbols to demangle"),
     }),
     options: z.object({
-      nativeCommandTimeoutMs: nativeCommandTimeoutField,
+      nativeCommandTimeoutMs: cliDecimalField(nativeCommandTimeoutField),
     }),
     run: ({ args, options }) =>
       logCliCommand(logger, "demangle-swift", () =>
@@ -290,25 +291,27 @@ const registerReferenceSourceCommand = (
         .string()
         .describe("Local source directory to import as historical reference"),
     }),
-    options: z.object({
-      detail: z
-        .enum(["full", "summary"])
-        .default("full")
-        .describe(
-          "Complete committed graph or compact historical-source summary",
-        ),
-      outlineDepth: z
-        .number()
-        .int()
-        .safe()
-        // After .safe(): its safe-range check overwrites an earlier minimum,
-        // which advertised negative depths the parser rejects.
-        .nonnegative()
-        .optional()
-        .describe(
-          "Summary outline path depth (default: 2; 0 omits entries); requires --detail summary",
-        ),
-    }),
+    options: z.object(
+      cliDecimalShape({
+        detail: z
+          .enum(["full", "summary"])
+          .default("full")
+          .describe(
+            "Complete committed graph or compact historical-source summary",
+          ),
+        outlineDepth: z
+          .number()
+          .int()
+          .safe()
+          // After .safe(): its safe-range check overwrites an earlier minimum,
+          // which advertised negative depths the parser rejects.
+          .nonnegative()
+          .optional()
+          .describe(
+            "Summary outline path depth (default: 2; 0 omits entries); requires --detail summary",
+          ),
+      }),
+    ),
     run: ({ args, options }) =>
       logCliCommand(
         logger,

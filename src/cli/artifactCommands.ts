@@ -1,3 +1,4 @@
+import { cliDecimalShape } from "./options.js";
 import {
   analysisEvidenceDeliveryOptions,
   cliEvidenceDeliveryInputError,
@@ -35,22 +36,24 @@ export const registerArtifactCommands = (
         .default(".")
         .describe("Relative archive path when the target is a bundle"),
     }),
-    options: z.object({
-      root: z.string().optional().describe("Named $top archive root"),
-      offset: z
-        .number()
-        .int()
-        .min(0)
-        .default(0)
-        .describe("First original object-table index"),
-      limit: z
-        .number()
-        .int()
-        .min(1)
-        .max(20000)
-        .default(20000)
-        .describe("Maximum object-table entries to return"),
-    }),
+    options: z.object(
+      cliDecimalShape({
+        root: z.string().optional().describe("Named $top archive root"),
+        offset: z
+          .number()
+          .int()
+          .min(0)
+          .default(0)
+          .describe("First original object-table index"),
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(20000)
+          .default(20000)
+          .describe("Maximum object-table entries to return"),
+      }),
+    ),
     run: ({ args, options }) =>
       logCliCommand(logger, CLI_COMMANDS.inspectKeyedArchive, () =>
         runProviderAnalysis(
@@ -116,21 +119,23 @@ const registerAssetCatalogCommand = (
   cli.command(CLI_COMMANDS.inspectAssetCatalog, {
     description: "Inspect compiled Apple asset catalog metadata",
     args: z.object({ path: z.string().describe("Apple .app bundle path") }),
-    options: z.object({
-      offset: z
-        .number()
-        .int()
-        .min(0)
-        .default(0)
-        .describe("First metadata record"),
-      limit: z
-        .number()
-        .int()
-        .min(1)
-        .max(10_000)
-        .default(1_000)
-        .describe("Maximum records to return"),
-    }),
+    options: z.object(
+      cliDecimalShape({
+        offset: z
+          .number()
+          .int()
+          .min(0)
+          .default(0)
+          .describe("First metadata record"),
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(10_000)
+          .default(1_000)
+          .describe("Maximum records to return"),
+      }),
+    ),
     run: ({ args, options }) =>
       logCliCommand(logger, CLI_COMMANDS.inspectAssetCatalog, () =>
         runProviderAnalysis(
@@ -154,29 +159,31 @@ const registerInterfaceBuilderCommand = (
     args: z.object({
       path: z.string().describe("Apple .app bundle path"),
     }),
-    options: z.object({
-      maxDocuments: z
-        .number()
-        .int()
-        .min(1)
-        .max(64)
-        .default(64)
-        .describe("Maximum archives to decode"),
-      maxObjects: z
-        .number()
-        .int()
-        .min(1)
-        .max(20_000)
-        .default(20_000)
-        .describe("Maximum graph objects"),
-      maxConnections: z
-        .number()
-        .int()
-        .min(1)
-        .max(40_000)
-        .default(40_000)
-        .describe("Maximum decoded connections"),
-    }),
+    options: z.object(
+      cliDecimalShape({
+        maxDocuments: z
+          .number()
+          .int()
+          .min(1)
+          .max(64)
+          .default(64)
+          .describe("Maximum archives to decode"),
+        maxObjects: z
+          .number()
+          .int()
+          .min(1)
+          .max(20_000)
+          .default(20_000)
+          .describe("Maximum graph objects"),
+        maxConnections: z
+          .number()
+          .int()
+          .min(1)
+          .max(40_000)
+          .default(40_000)
+          .describe("Maximum decoded connections"),
+      }),
+    ),
     run: ({ args, options }) =>
       logCliCommand(logger, "decode-interface-builder", () =>
         runProviderAnalysis(
