@@ -59,3 +59,24 @@ tekvro extract-firmware /absolute/path/firmware.bin /absolute/path/new-output \
 `max-depth` 达到深度上限时可能返回部分覆盖。`max-output-bytes` 限制暂存文件字节，检查间隔内可能短暂超出。`max-output-files` 的条目数包含目录与链接。读取结果中的覆盖范围、提取缺口和来源后，再判断是否满足本次调查目标。
 
 MCP 的对应工具是 `inspect_firmware_regions` 与 `extract_firmware`。它们接受领域契约中的 JSON 数字及绝对路径。CLI 文本参数适配的检查、命令能启动和协议测试分别提供各自范围的验证；真实引擎、目标设备和具体提取行为仍须独立执行。
+
+## 动态插桩与宿主权限
+
+Frida 的本机受控样例可以独立于手机设备核对。将下列路径替换为本机 Node.js
+可执行文件；此命令新建一个短暂运行的样例进程，并请求它发送一条带 PID 的消息：
+
+```bash
+tekvro instrument-with-frida spawn /absolute/path/to/node \
+  --argument=-e --argument='setTimeout(() => {}, 1500)' \
+  --script='send({tekvro_probe: "ok", pid: Process.id});' \
+  --duration-ms 500 --json
+```
+
+安装了绑定不代表宿主允许插桩。当前 Work 实测在原生 spawn 阶段出现
+`ptrace failed: Operation not permitted`，未取得脚本消息，不能计为插桩成功。
+CLI 退出码为 1，JSON 为 `capability_unavailable`，`details.operation` 是
+`start_frida_session`，`details.reason` 是原生调用返回的 `Target exited with status 1`。
+
+同时保存标准输出和标准错误。原生工具可能只在标准错误输出具体宿主原因；
+不能仅凭目标退出码推断权限拒绝。增加观察时长不会改变宿主权限。
+完成本机样例也只验证该宿主的本机通道，远程设备、服务版本、连接和具体目标仍须分别验收。
