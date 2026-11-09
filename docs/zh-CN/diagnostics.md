@@ -81,7 +81,6 @@ CLI 退出码为 1，JSON 为 `capability_unavailable`，`details.operation` 是
 不能仅凭目标退出码推断权限拒绝。增加观察时长不会改变宿主权限。
 完成本机样例也只验证该宿主的本机通道，远程设备、服务版本、连接和具体目标仍须分别验收。
 
-
 ### Frida 参数与通道选择
 
 ```bash
