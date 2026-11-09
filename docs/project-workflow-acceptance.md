@@ -240,6 +240,23 @@ decision:
 以上为各验收项的存储部分，M1 的真实 Agent、浏览器闭环及界面尚未验收。
 当前 PR 的 CI 与审阅结果继续记录后再决定本工作包状态。
 
+### 当前宿主的后续执行预检
+
+已发现 Codex CLI `0.167.0-alpha.4`，登录状态显示 ChatGPT 授权存在。
+在独立临时工作目录尝试最小 `codex exec --sandbox workspace-write --json --ephemeral`
+写文件任务时，程序退出码为 1，初始化阶段报告
+`failed to initialize in-process app-server client: Read-only file system (os error 30)`。
+输出目录未生成请求的文件，也没有收到可解析的 JSONL 事件。
+该记录保留为 PWA-04 的实际阻塞，尚未证明 Builder 的写入、恢复或取消能力。
+
+PR #55 首次 CI 的源码测试、静态检查、文档、编译和 Windows 原生控件构建通过，
+但工作流因 GitHub 平台内部错误结束，完整资格未完成。
+[失败运行](https://github.com/ForceMind/Tekvro/actions/runs/42670966511)
+报告 `Internal server error`，关联 ID 为
+`69b45568-49ac-4b89-9006-a9de7a46310d`。
+重试失败作业接口返回 HTTP 403 与 `This workflow run cannot be retried`。
+保留失败记录，后续提交重新执行当前完整资格后再更新验收状态。
+
 ## 9. 本文件所依据的既有契约
 
 - [统一应用工具契约](https://github.com/ForceMind/Tekvro/blob/ee5ebf85b35c800c92d2e308ea601c158c529596/src/contracts/applicationToolContracts.ts)：重建账本与覆盖评估入口。
