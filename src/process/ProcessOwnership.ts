@@ -1236,6 +1236,13 @@ const sanitizedTokenReadFailure = (diagnostic: string | undefined): string => {
   if (diagnostic === "apple_vector_unavailable") return diagnostic;
   if (diagnostic === "ambiguous_environment_boundary") return diagnostic;
   if (diagnostic === "malformed_procargs") return diagnostic;
+  if (
+    diagnostic !== undefined &&
+    /^malformed_procargs\(stage=[a-z0-9_]{1,32},offset=\d{1,20},bytes=\d{1,20},argc=-?\d{1,20},pointer=\d{1,2},zero_run=\d{1,20},flags=(?:\d{1,20}|unknown)\)$/u.test(
+      diagnostic,
+    )
+  )
+    return diagnostic;
   if (diagnostic === "process_identity_changed_during_token_read")
     return diagnostic;
   if (diagnostic === "process_not_in_snapshot") return diagnostic;
