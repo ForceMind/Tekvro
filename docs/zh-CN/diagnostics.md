@@ -80,3 +80,38 @@ CLI 退出码为 1，JSON 为 `capability_unavailable`，`details.operation` 是
 同时保存标准输出和标准错误。原生工具可能只在标准错误输出具体宿主原因；
 不能仅凭目标退出码推断权限拒绝。增加观察时长不会改变宿主权限。
 完成本机样例也只验证该宿主的本机通道，远程设备、服务版本、连接和具体目标仍须分别验收。
+
+
+### Frida 参数与通道选择
+
+```bash
+TEKVRO_LANG=zh-CN tekvro list-frida-devices --help
+TEKVRO_LANG=zh-CN tekvro list-frida-processes --help
+TEKVRO_LANG=zh-CN tekvro instrument-with-frida --help
+```
+
+省略设备与远程地址时，进程发现和插桩使用 `local`。`--device-id` 与
+`--remote-address` 互斥；认证令牌、TLS 证书、来源和保活间隔需要远程地址。
+`--keepalive-interval` 使用正整数秒，`--duration-ms` 使用 0–60000 毫秒，默认 1000。
+列出设备成功只证明发现通道可用，实际附加、启动和脚本执行须分别验证。
+本次 Linux x64 / Node.js 24.22.1、Frida 绑定 17.23.2 的真实 CLI 检查中，
+设备发现与本机进程发现均退出 0、清理错误为 null，进程列表包含自建 Node.js 目标。
+该结果与前述插桩权限失败分别记录，远程与设备插桩仍未验证。
+
+`attach` 的位置参数是严格的正整数 PID，不能带前导零；`spawn` 的位置参数是
+程序路径。每个目标参数重复使用 `--argument`，以 `--argument=-e` 的形式传递
+以连字符开头的值。该选项只适用于 `spawn`。脚本须在 `--script` 与
+`--script-file` 中选择且只选择一个。
+
+以下命令演示派发前的参数诊断，不会附加到 PID 1 或启动目标：
+
+```bash
+tekvro instrument-with-frida attach 001 --script='send(1)' --json
+tekvro instrument-with-frida attach 1 --script='send(1)' --argument=-e --json
+tekvro instrument-with-frida attach 1 --script='send(1)' --keepalive-interval 1 --json
+```
+
+前两项返回 `invalid_request`，分别指向 `target` 和 `argument`。
+第三项因缺少 `--remote-address` 返回 `VALIDATION_ERROR`。
+中文仅用于人读帮助；错误代码、字段和 JSON 结构保持一致。合法调用若仍失败，
+继续核对宿主原生错误、所选设备和远程服务条件；修改语言或增加时长不会解除权限拒绝。

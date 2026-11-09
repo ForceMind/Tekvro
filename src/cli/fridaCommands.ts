@@ -1,4 +1,5 @@
 import { cliDecimalField } from "./options.js";
+import { selectHumanText } from "./localization.js";
 import { z } from "incur";
 
 import { FridaInstrumentationService } from "../application/frida/FridaInstrumentationService.js";
@@ -40,21 +41,55 @@ export const registerFridaCommands = (
       .max(2048)
       .refine(isValidFridaRemoteAddress)
       .optional()
-      .describe("Remote Frida host address, optionally with a port"),
-    token: z.string().min(1).optional().describe("Remote authentication token"),
+      .describe(
+        selectHumanText(
+          "Remote Frida host address, optionally with a port; mutually exclusive with --device-id",
+          "远程 Frida 主机地址，可包含端口；与 --device-id 互斥",
+        ),
+      ),
+    token: z
+      .string()
+      .min(1)
+      .optional()
+      .describe(
+        selectHumanText(
+          "Remote authentication token; requires --remote-address",
+          "远程认证令牌；需要 --remote-address",
+        ),
+      ),
     certificate: z
       .string()
       .min(1)
       .optional()
-      .describe("Remote TLS certificate"),
-    origin: z.string().min(1).optional().describe("Remote connection origin"),
+      .describe(
+        selectHumanText(
+          "Remote TLS certificate; requires --remote-address",
+          "远程 TLS 证书；需要 --remote-address",
+        ),
+      ),
+    origin: z
+      .string()
+      .min(1)
+      .optional()
+      .describe(
+        selectHumanText(
+          "Remote connection origin; requires --remote-address",
+          "远程连接来源；需要 --remote-address",
+        ),
+      ),
     keepaliveInterval: cliDecimalField(
       z
         .number()
         .int()
         .positive()
         .optional()
-        .describe(FRIDA_KEEPALIVE_INTERVAL_DESCRIPTION),
+        .describe(
+          selectHumanText(
+            FRIDA_KEEPALIVE_INTERVAL_DESCRIPTION +
+              "; positive integer; requires --remote-address",
+            "远程保活间隔，单位秒；正整数，需要 --remote-address",
+          ),
+        ),
     ),
   });
   const remoteFrom = (
@@ -84,7 +119,10 @@ export const registerFridaCommands = (
       options.keepaliveInterval === undefined);
 
   cli.command(CLI_COMMANDS.listFridaDevices, {
-    description: "List local Frida devices and an optional remote endpoint",
+    description: selectHumanText(
+      "List local Frida devices and an optional remote endpoint",
+      "列出本地 Frida 设备及可选远程端点；发现设备不代表已取得插桩权限",
+    ),
     args: z.object({}),
     options: remoteOptions.refine(
       remoteAddressRequired,
@@ -104,7 +142,10 @@ export const registerFridaCommands = (
       ),
   });
   cli.command(CLI_COMMANDS.listFridaProcesses, {
-    description: "List processes visible through a Frida device",
+    description: selectHumanText(
+      "List processes visible through a Frida device",
+      "列出指定 Frida 设备可见的进程；省略设备与远程地址时选择 local",
+    ),
     args: z.object({}),
     options: remoteOptions
       .extend({
@@ -112,7 +153,12 @@ export const registerFridaCommands = (
           .string()
           .min(1)
           .optional()
-          .describe("Frida device identifier"),
+          .describe(
+            selectHumanText(
+              "Frida device identifier (default: local); mutually exclusive with --remote-address",
+              "Frida 设备标识（默认 local）；与 --remote-address 互斥",
+            ),
+          ),
       })
       .refine(
         (options) =>
@@ -143,15 +189,28 @@ export const registerFridaCommands = (
       ),
   });
   cli.command(CLI_COMMANDS.instrumentWithFrida, {
-    description: `Run one Frida script against a selected process and detach. ${exactlyOneScriptSource}`,
+    description: selectHumanText(
+      `Run one Frida script against a selected process and detach. ${exactlyOneScriptSource}`,
+      "在指定进程中运行一次 Frida 脚本并清理会话。--script 与 --script-file 必须且只能提供一个。失败或清理未完成时保留原因与已收集观察；远程和设备通道须分别验证。",
+    ),
     args: z.object({
       mode: z
         .enum(["attach", "spawn"])
-        .describe("Attach to a PID or spawn a program"),
+        .describe(
+          selectHumanText(
+            "Attach to a PID or spawn a program",
+            "attach 附加到进程，spawn 启动程序",
+          ),
+        ),
       target: z
         .string()
         .min(1)
-        .describe("Process ID for attach or program path for spawn"),
+        .describe(
+          selectHumanText(
+            "Process ID for attach or program path for spawn",
+            "attach 使用不带前导零的正整数 PID；spawn 使用程序路径",
+          ),
+        ),
     }),
     options: remoteOptions
       .extend({
@@ -159,22 +218,40 @@ export const registerFridaCommands = (
           .string()
           .min(1)
           .optional()
-          .describe("Frida device identifier"),
+          .describe(
+            selectHumanText(
+              "Frida device identifier (default: local); mutually exclusive with --remote-address",
+              "Frida 设备标识（默认 local）；与 --remote-address 互斥",
+            ),
+          ),
         script: z
           .string()
           .optional()
-          .describe(`Inline JavaScript to load. ${exactlyOneScriptSource}`),
+          .describe(
+            selectHumanText(
+              `Inline JavaScript to load. ${exactlyOneScriptSource}`,
+              "要加载的 JavaScript 源码；与 --script-file 必须且只能提供一个",
+            ),
+          ),
         scriptFile: z
           .string()
           .min(1)
           .optional()
           .describe(
-            `Path to JavaScript source file. ${exactlyOneScriptSource}`,
+            selectHumanText(
+              `Path to JavaScript source file. ${exactlyOneScriptSource}`,
+              "JavaScript 源文件路径；与 --script 必须且只能提供一个",
+            ),
           ),
         argument: z
           .array(z.string())
           .optional()
-          .describe("Arguments passed to a spawned target"),
+          .describe(
+            selectHumanText(
+              "Arguments passed to a spawned target; spawn mode only; repeat --argument for each value",
+              "仅 spawn 模式：传给目标程序的参数；每个值重复使用 --argument",
+            ),
+          ),
         durationMs: cliDecimalField(
           z
             .number()
@@ -182,7 +259,12 @@ export const registerFridaCommands = (
             .min(0)
             .max(60_000)
             .default(1_000)
-            .describe("Instrumentation duration in milliseconds"),
+            .describe(
+              selectHumanText(
+                "Instrumentation duration in milliseconds (0–60000; default: 1000)",
+                "插桩观察时长，单位毫秒，范围 0–60000，默认 1000；不改变宿主权限",
+              ),
+            ),
         ),
       })
       .refine(
