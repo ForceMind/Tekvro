@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { digestCanonicalValue } from "../../../src/domain/canonicalDigest.js";
 import {
   mkdir,
   readFile,
@@ -393,3 +394,29 @@ it.skipIf(process.platform === "win32")(
     }
   },
 );
+
+it("rejects a recomputed commit that invents an earlier scope change", async () => {
+  const f = await fixture();
+  try {
+    const { digest: _digest, ...body } = f.initial.revision;
+    const changed = {
+      ...body,
+      project: {
+        ...body.project,
+        scope_revision: 2,
+        scope_change_reason: "Unrecorded change",
+      },
+    };
+    const content = JSON.stringify({
+      ...changed,
+      digest: digestCanonicalValue(changed),
+    });
+    const path = join(f.directory, "0000000000000001.json");
+    await writeFile(path, content);
+    const result = await f.store.read(f.directory);
+    expect(result.ok).toBe(false);
+    expect(await readFile(path, "utf8")).toBe(content);
+  } finally {
+    await f.resources.close();
+  }
+});

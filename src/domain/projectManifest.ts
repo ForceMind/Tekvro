@@ -102,6 +102,16 @@ export const projectManifestSchema = z
         path: ["scope_sha256"],
         message: "Project scope digest mismatch",
       });
+    if (
+      project.scope_revision > project.revision ||
+      (project.scope_revision === 1 && project.scope_change_reason !== null) ||
+      (project.scope_revision > 1 && project.scope_change_reason === null)
+    )
+      context.addIssue({
+        code: "custom",
+        path: ["scope_revision"],
+        message: "Project scope history is inconsistent with its revision",
+      });
     const requirements = project.scope.requirements.map(
       (item) => item.requirement_id,
     );
