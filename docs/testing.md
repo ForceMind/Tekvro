@@ -1987,6 +1987,15 @@ unknown chunks, depth limits and extracted child digests. The optional
 Neither optional toolchain is a base-lane prerequisite. See
 [firmware analysis](firmware-analysis.md) for limits and unverified formats.
 
+The firmware CLI decimal-input regression is part of
+`tests/boundary/cli/cliDecimalArguments.test.ts`. It covers both analysis
+deadlines, paired offsets/lengths, extraction depth, staging byte/entry budgets
+and publication deadlines through the parser, advertised JSON Schema and actual
+compiled CLI. `firmwareIncompleteRange.test.ts` checks the shared missing-pair
+diagnostic. These checks establish parameter admission and refusal behavior.
+The real-engine lane above separately establishes extraction behavior; physical
+device verification remains separate from both lanes.
+
 ### JavaScript source recovery
 
 Build once with `npm run build:cached`, then run `npm run verify:javascript:recovery`.

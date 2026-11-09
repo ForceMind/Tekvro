@@ -26,6 +26,36 @@ const flagsIn = (help: string) =>
 
 const cases = [
   {
+    command: "capabilities",
+    english: "List provider capabilities and side effects",
+    chinese: "列出分析能力、可用条件及作用范围",
+    boundaries: [],
+  },
+  {
+    command: "providers",
+    english: "List configured analysis providers",
+    chinese: "列出已配置的分析提供方及当前会话状态",
+    boundaries: [],
+  },
+  {
+    command: "inspect-firmware-regions",
+    english: "Inspect firmware signature candidates",
+    chinese: "检查固件签名候选及其范围",
+    boundaries: ["不执行固件", "不含排队及提取后的发布"],
+  },
+  {
+    command: "extract-firmware",
+    english: "Extract selected firmware bytes",
+    chinese: "提取选定的固件字节",
+    boundaries: [
+      "须同时提供 length",
+      "须同时提供 offset",
+      "父目录须已存在",
+      "包含目录与链接",
+      "最终清理",
+    ],
+  },
+  {
     command: "inspect-wasm-artifact",
     english: "Inspect an explicit local WASM artifact with WABT",
     chinese: "使用 WABT 检查指定的本地 WASM 文件",

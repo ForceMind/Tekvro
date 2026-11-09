@@ -48,7 +48,7 @@ tekvro capabilities --json
 tekvro --help
 ```
 
-`doctor` 报告本机运行条件；`capabilities` 列出当前能力及其可用状态。可选工具缺失时，按计划使用的任务补齐对应依赖，具体配置见[安装与配置](../installation.md)。
+`doctor` 报告本机运行条件；`capabilities` 列出当前能力及其可用状态。可选工具缺失时，按计划使用的任务补齐对应依赖，具体配置见[安装与配置](../installation.md)。按任务缩小诊断范围、读取错误结果及使用固件命令，见[诊断与固件检查](diagnostics.md)。
 
 ## 完成第一次分析
 
