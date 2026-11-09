@@ -80,6 +80,8 @@ The public installer downloads a versioned release and verifies its checksum. It
 
 A failed gate must not publish. Retain diagnostics and the admitted source revision, correct the issue in a new reviewed commit when needed, and qualify that revision before a new release attempt.
 
+After creating a draft, the publisher reads the authenticated release list immediately and retries a missing entry up to three times, waiting one, two and four seconds between reads. If the draft still does not appear, the run stops before uploading assets. Inspect the draft before rerunning with the same source SHA and CI run ID while that revision remains current on `main`.
+
 Never overwrite a public release, replace an existing asset or retarget an existing version tag. A run for an already public version skips publication. If a public version has incorrect bytes, publish a corrected version with its own review and qualification. A draft retry must preserve the same commit, notes and exact asset bytes; existing matching assets are retained. Inspect any partially created draft or tag before retrying; the publishing script's collision checks remain authoritative. Keep the original failed run for diagnosis.
 
 The older registry-oriented workflows and scripts remain guarded for compatibility and regression checks. They are not the publication path for Tekvro's GitHub channel. Do not enable them or remove their private-package refusal to complete this release.
