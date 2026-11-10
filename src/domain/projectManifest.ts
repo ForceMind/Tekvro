@@ -1,7 +1,11 @@
 import { z } from "zod";
 import { digestCanonicalValue } from "./canonicalDigest.js";
 import { digestSchema, prefixedDigestSchema } from "./digests.js";
-import { localPathStringSchema, nulFreeStringSchema } from "./localPath.js";
+import {
+  CROSS_PLATFORM_ABSOLUTE_PATH_PATTERN,
+  localPathStringSchema,
+  nulFreeStringSchema,
+} from "./localPath.js";
 import { offsetDateTimeSchema } from "./offsetDateTime.js";
 
 const id = z.string().uuid();
@@ -10,7 +14,7 @@ const counter = z.number().int().safe().positive();
 
 /** Historical paths retain either host's spelling. Validate the active host at I/O, not on reopen. */
 const persistedAbsolutePath = localPathStringSchema.regex(
-  /^(?:[\\/]|[A-Za-z]:[\\/])/u,
+  CROSS_PLATFORM_ABSOLUTE_PATH_PATTERN,
   "must record an absolute POSIX or Windows filesystem path",
 );
 
