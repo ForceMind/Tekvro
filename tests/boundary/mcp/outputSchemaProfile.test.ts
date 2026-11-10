@@ -86,8 +86,8 @@ it("omits only output schema advertisements and keeps canonical MCP output valid
   }
 });
 
-it("keeps a full catalog below a measured one-megabyte frame when output schemas are off", async () => {
-  const measure = async (omitOutputSchemas: boolean): Promise<number> => {
+it("keeps complete input guidance below a one-megabyte frame when only output schemas are off", async () => {
+  const list = async (omitOutputSchemas: boolean) => {
     const server = createServer(omitOutputSchemas);
     const [clientTransport, serverTransport] =
       InMemoryTransport.createLinkedPair();
@@ -103,16 +103,28 @@ it("keeps a full catalog below a measured one-megabyte frame when output schemas
     await server.connect(serverTransport);
     await client.connect(clientTransport);
     try {
-      const listed = await client.listTools();
-      return Buffer.byteLength(JSON.stringify(listed), "utf8");
+      return await client.listTools();
     } finally {
       await client.close();
       await server.close();
     }
   };
 
-  const fullBytes = await measure(false);
-  const compactBytes = await measure(true);
+  const full = await list(false);
+  const withoutOutputs = await list(true);
+  expect(full.tools.map(({ name }) => name).sort()).toEqual(
+    TOOL_CONTRACTS.map(({ name }) => name).sort(),
+  );
+  // This profile removes only output advertisements: every input constraint,
+  // explicit description, example and other discovery field stays intact.
+  expect(withoutOutputs.tools).toEqual(
+    full.tools.map(({ outputSchema: _outputSchema, ...tool }) => tool),
+  );
+  const fullBytes = Buffer.byteLength(JSON.stringify(full), "utf8");
+  const compactBytes = Buffer.byteLength(
+    JSON.stringify(withoutOutputs),
+    "utf8",
+  );
   expect(fullBytes).toBeGreaterThan(1024 * 1024);
   expect(compactBytes).toBeLessThan(1024 * 1024);
   expect(compactBytes).toBeLessThan(fullBytes);
