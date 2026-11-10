@@ -3,7 +3,7 @@
 PW-01 的首个实现提供共享应用服务与版本一元数据。入口为
 `src/application/project/ProjectStore.ts` 的 `create`、`read`、
 `edit`，领域契约在 `src/domain/projectManifest.ts`。
-CLI/MCP 项目命令、运行调度与工作台按后续工作包接入。
+CLI/MCP 项目入口、运行调度与独立检查已经实现，实际用法见[项目运行指南](project-workflow-runtime.md)，验证范围见[验收矩阵](project-workflow-acceptance.md)。工作台仍按后续工作包推进。
 
 ## 字段与归属
 
@@ -15,7 +15,7 @@ CLI/MCP 项目命令、运行调度与工作台按后续工作包接入。
 修改范围须记录 `change_reason`。候选摘要与范围摘要分别保存。
 历史检查保留候选、范围、检查器、场景、环境和报告身份；
 `projectCheckIsCurrent` 判断其范围和候选是否仍与当前选择一致。
-实际打开报告、认证 Evidence bundle、执行检查并判定验收由 PW-04 接入既有工作流。
+ProjectStore 负责保存和验证项目元数据及引用，不打开检查报告或执行检查。当前运行切片已实现外部检查报告的摘要认证与独立检查；项目工作流中的完整 Evidence/bundle 认证、义务账本闭合及项目验收汇总仍待 PW-04 对应验收，范围见[验收矩阵](project-workflow-acceptance.md)。
 
 `phase`、`execution_status` 与 `acceptance_status` 分别保存。
 M0 创建的状态为 study、idle、not_evaluated。当前编辑入口只修改范围和引用，

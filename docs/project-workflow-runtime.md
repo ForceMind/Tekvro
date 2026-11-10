@@ -2,7 +2,7 @@
 
 本页说明当前源码中的项目运行切片：持久化项目与运行事件、一次受预算约束的 Builder 尝试、独立检查、显式修正及继续，以及共享这些行为的 CLI/MCP 入口。实现范围与实际验证范围分别记录；完整阶段门槛见[验收矩阵](project-workflow-acceptance.md)，后续工作见[工作包计划](project-workflow-plan.md)。
 
-当前本地已经实际验证独立检查器、真实 Node fixture 子进程和失败保留边界。当前宿主的项目工作区租约在真实 Unix socket `listen` 时返回 `EPERM`；涉及该租约的运行器场景按明确环境前置条件跳过。真实 Codex 写入预检另受 `EROFS` 阻塞。它们仍需要在具备相应条件的宿主取得实际运行证据，M1 网页闭环尚未验收。
+M0 的项目契约、持久化与接口边界已验收；#62 的精确 Linux CI 已实际验证所列项目租约、恢复、预算、取消及跨入口 fixture。原本地宿主仍保留 Unix socket `listen EPERM` 的历史记录，真实 Codex 写入另受 `EROFS` 阻塞。Linux fixture 的通过不代表真实 Agent 生成或网页重建通过，M1 网页闭环继续进行。精确提交、实际通过/跳过明细和限定范围见[验收矩阵](project-workflow-acceptance.md)。
 
 ## 1. 当前可选择的输入与目录
 
@@ -201,15 +201,19 @@ CLI 中断与服务关闭传递取消信号，进程仍由共享 owner 完成清
 
 ## 7. 当前资格、复跑与维护
 
-| 范围                                                                          | 当前记录                                                                                                                        |
-| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| 外部 checker、原始输出、负向对照、候选/证明失效、取消/超时                    | 本地真实 Node 进程边界已有实际通过记录，见验收文末；覆盖固定文件 fixture                                                        |
-| RunService 的恢复、并发、预算、取消与投影故障                                 | 已提供真实边界测试；当前宿主真实 socket `listen` 返回 `EPERM`，19 项按此前置条件跳过，等待具备 socket 能力的 Linux CI 实测      |
-| 真实 Codex Builder                                                            | 已发现实际 CLI/授权预检记录；最小写入在初始化时因 `Read-only file system (os error 30)` 失败，写入/恢复资格仍未通过             |
-| CLI/MCP                                                                       | 九个入口共用 domain/contracts/application；元数据与运行场景按各自真实 transport 测试记录，不从内部服务测试推导 transport 已通过 |
-| 网页/H5、多视口、动态 mask、完整 reconstruction ledger、工作台、桌面/游戏扩展 | 仍按 PW-05、PW-07、PW-09 等完整门槛推进；本轮没有取得这些范围的验收结论                                                         |
+| 范围                                                                          | 当前记录                                                                                                                     |
+| ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| M0 项目契约、持久化与接口                                                     | PW-01 所负责的 PWA-01/11/16 子范围已验收；首个 v1 无已发布旧格式需迁移，历史迁移 N/A                                         |
+| 外部 checker、原始输出、负向对照、候选/证明失效、取消/超时                    | 本地及所列 Linux CI 的真实 Node 进程边界通过；覆盖固定文件 fixture                                                           |
+| RunService 的恢复、并发、预算、取消与投影故障                                 | 所列 Linux CI 实际运行通过，包含原本地跳过的 19 项；Builder 为明确标注的 Node fixture                                        |
+| Workspace 的归属与恢复                                                        | 所列 Linux CI 实际运行通过，包含原本地跳过的 5 项；覆盖路径/inode、独立 owner 标记与未知清理边界                             |
+| 真实 Codex Builder                                                            | 最小写入在原宿主初始化时因 Read-only file system (os error 30) 失败；写入/恢复资格仍未通过                                   |
+| CLI/MCP                                                                       | 九入口共用 domain/contracts/application；已有跨入口执行 fixture 在真实 transport 与租约上通过，不能外推真实 Agent 端到端资格 |
+| 网页/H5、多视口、动态 mask、完整 reconstruction ledger、工作台、桌面/游戏扩展 | 继续按 PW-05、PW-07、PW-09 等完整门槛推进；本轮没有取得这些范围的验收结论                                                    |
 
-2026-11-10 本轮项目相关唯一用例累计 90 项实际通过、25 项因真实 socket 权限拒绝跳过。通过项包括纯领域/持久化、独立 checker、明确标注的 Codex 协议 fixture 与真实只读 CLI/MCP；25 项由 RunService 19 项、Workspace 5 项及跨 transport 执行 1 项组成。通过项不包含真实 Codex 生成或网页闭环；具备 socket 能力的 Linux CI 仍须实际执行这 25 项，不能把测试进程退出码为零当作已通过它们。
+2026-11-10 的本地历史记录为项目相关唯一用例 90 项实际通过、25 项因真实 socket 权限拒绝跳过。通过项包括纯领域/持久化、独立 checker、明确标注的 Codex 协议 fixture 与真实只读 CLI/MCP；25 项由 RunService 19 项、Workspace 5 项及跨 transport 执行 1 项组成。保留这份记录，不把后续 CI 成功回写为当时本地通过。
+
+[PR #62](https://github.com/ForceMind/Tekvro/pull/62) 的最终代码来源为 `ba49ea0fb7f6c0e2050b4a83a26bc6e98eb571cf`，合并提交为 `7631020d85d665466e6584378dcc3689f389dd18`。[该来源 CI 工作流](https://github.com/ForceMind/Tekvro/actions/runs/42767419422) 实际检出 `2a31775269fe974c14f5e34b6abf19412dabb04a`，便携测试汇总为 33,997 项通过、234 项跳过；项目相关用例实际为 119 项通过、0 项跳过，原本地受阻的 25 项已逐项执行通过。[核心实测](https://github.com/ForceMind/Tekvro/actions/runs/42767419307) 的实际执行提交为 `2a31775269fe974c14f5e34b6abf19412dabb04a`。宿主、命令、来源对应和各项目测试文件的明细见[最终资格记录](project-workflow-acceptance.md)。这些记录不包含真实 Codex 生成、网页闭环或实际发行包资格。
 
 仓库已有的精确验证入口：
 
