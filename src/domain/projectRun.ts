@@ -240,6 +240,13 @@ export const projectRunEventSchema = z.discriminatedUnion("kind", [
     cleanup_status: settledCleanupSchema,
   }),
   eventBase.extend({
+    kind: z.literal("build_paused"),
+    binding: projectCheckBindingSchema,
+    reason: z.literal("budget_exhausted"),
+    observed_tokens: count.nullable(),
+    cleanup_status: settledCleanupSchema,
+  }),
+  eventBase.extend({
     kind: z.literal("check_started"),
     binding: projectCheckBindingSchema,
   }),

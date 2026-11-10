@@ -322,6 +322,7 @@ export class ProjectCheckService implements ProjectValidatorPort<ProjectCheckReq
           arguments: manifest.argv,
           runId: checkId,
           expectedCommand: null,
+          sweepTokenOwnedProcesses: true,
           cwd: manifest.cwd,
           hostEnvironment: {},
           env: {

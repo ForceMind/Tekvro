@@ -22,10 +22,29 @@ export const takeProjectResult = <T, E>(result: Result<T, E>): T => {
 const hash = (text: string): string =>
   createHash("sha256").update(text).digest("hex");
 
+const detachedCheckerHelperSource = `
+import { readFile, writeFile } from "node:fs/promises";
+import { setTimeout as delay } from "node:timers/promises";
+const [ready, stop] = process.argv.slice(1);
+const deadline = setTimeout(() => process.exit(64), 30000);
+await writeFile(ready, JSON.stringify({
+  pid: process.pid, parent_pid: process.ppid, run_id: process.env.REA_PROCESS_RUN_ID,
+}));
+while (true) {
+  try { await readFile(stop); break; }
+  catch (error) { if (error.code !== "ENOENT") throw error; }
+  await delay(20);
+}
+clearTimeout(deadline);
+`;
+
 // The oracle reads expected content from a verifier-owned file. It deliberately
 // does not consume a candidate-authored test, assertion or success marker.
 const checkerSource = `
+import { spawn } from "node:child_process";
+import { once } from "node:events";
 import { readFile, writeFile } from "node:fs/promises";
+import { setTimeout as delay } from "node:timers/promises";
 const scenario = JSON.parse(await readFile(process.argv[2], "utf8"));
 const expected = await readFile(process.argv[3], "utf8");
 const actual = await readFile(scenario.candidate_file, "utf8");
@@ -40,6 +59,18 @@ if (mode === "hang") {
   await writeFile(process.argv[4], "ready");
   setInterval(() => {}, 1000);
 } else {
+  if (mode === "detached-helper") {
+    const helper = spawn(process.execPath,
+      ["--input-type=module", "-e", ${JSON.stringify(detachedCheckerHelperSource)}, process.argv[4], process.argv[5]],
+      { detached: true, stdio: "ignore" });
+    await once(helper, "spawn");
+    helper.unref();
+    while (true) {
+      try { await readFile(process.argv[6]); break; }
+      catch (error) { if (error.code !== "ENOENT") throw error; }
+      await delay(20);
+    }
+  }
   if (mode === "duplicate") report.checks.push(check);
   if (mode === "unknown") check.status = "unknown";
   if (mode === "missing") report.checks = [{ ...check, requirement_id: "optional" }];
@@ -72,6 +103,8 @@ export const createProjectWorkflowFixture = async (mode = "normal") => {
   const scenarioPath = join(verifier, "scenario.json");
   const expectedPath = join(verifier, "expected.txt");
   const readyPath = join(verifier, "ready.txt");
+  const helperStopPath = join(verifier, "helper-stop");
+  const checkerReleasePath = join(verifier, "checker-release");
   const scenario = JSON.stringify({ candidate_file: candidatePath });
   await Promise.all([
     writeFile(candidatePath, "ready\n"),
@@ -118,7 +151,14 @@ export const createProjectWorkflowFixture = async (mode = "normal") => {
     schema: "tekvro.project-checker",
     schema_version: 1,
     executable: { path: executable, sha256: executableHash.sha256 },
-    argv: [checkerPath, scenarioPath, expectedPath, readyPath],
+    argv: [
+      checkerPath,
+      scenarioPath,
+      expectedPath,
+      readyPath,
+      helperStopPath,
+      checkerReleasePath,
+    ],
     cwd: verifier,
     inputs: [
       { path: checkerPath, sha256: hash(checkerSource), role: "checker" },
@@ -153,6 +193,8 @@ export const createProjectWorkflowFixture = async (mode = "normal") => {
     scenarioPath,
     expectedPath,
     readyPath,
+    helperStopPath,
+    checkerReleasePath,
     manifest,
     manifestPath,
     project,

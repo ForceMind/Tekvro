@@ -1,6 +1,7 @@
 import { readFile, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { beforeAll, expect, it, vi } from "vitest";
+import { z } from "zod";
 import { ProjectCheckPublicationError } from "../../../src/application/project/ProjectCheckService.js";
 import { projectRevisionToken } from "../../../src/domain/projectManifest.js";
 import {
@@ -8,7 +9,16 @@ import {
   transitionProjectRun,
 } from "../../../src/domain/projectRun.js";
 import { randomUUID } from "node:crypto";
-import { prepareProcessOwnershipInspection } from "../../../src/process/ProcessOwnershipObservation.js";
+import {
+  prepareProcessOwnershipInspection,
+  systemProcessOwnershipHost,
+} from "../../../src/process/ProcessOwnershipObservation.js";
+import { liveProcesses } from "../../../src/process/ProcessOwnershipProcessTree.js";
+import {
+  spawnProviderProcessFixture,
+  stopProviderProcessFixture,
+  waitForProviderProcessReady,
+} from "../../fixtures/providerProcess.js";
 import {
   ProjectFixtureBuilder,
   projectFixtureInstruction,
@@ -118,6 +128,103 @@ it("runs an external oracle, detects a deliberate defect, and verifies a repaire
   await writeFile(f.candidatePath, "ready\n");
   expect(take(await f.service.run(f.request())).outcome).toBe("pass");
 });
+
+it.skipIf(process.platform === "win32")(
+  "cleans a detached checker-token helper after leader exit without stopping an unrelated process",
+  async () => {
+    const f = await fixture("detached-helper");
+    const neighbor = spawnProviderProcessFixture("graceful");
+    let running: ReturnType<typeof f.service.run> | undefined;
+    let helperPid: number | undefined;
+    try {
+      await waitForProviderProcessReady(neighbor);
+      if (neighbor.pid === undefined)
+        throw new Error("Unrelated fixture process has no identity");
+      running = f.service.run(f.request());
+      const marker = await vi.waitFor(
+        async () => {
+          const bytes: unknown = JSON.parse(
+            await readFile(f.readyPath, "utf8"),
+          );
+          return z
+            .strictObject({
+              pid: z.number().int().positive(),
+              parent_pid: z.number().int().positive(),
+              run_id: z.string().uuid(),
+            })
+            .parse(bytes);
+        },
+        { timeout: 4000 },
+      );
+      helperPid = marker.pid;
+      const started = liveProcesses(
+        await systemProcessOwnershipHost.listProcesses(),
+      );
+      const helper = started.find(({ pid }) => pid === marker.pid);
+      const checker = started.find(({ pid }) => pid === marker.parent_pid);
+      expect(helper).toMatchObject({
+        processGroupId: marker.pid,
+        parentPid: marker.parent_pid,
+      });
+      expect(checker).toBeDefined();
+      expect(checker?.processGroupId).not.toBe(helper?.processGroupId);
+      expect(
+        (await systemProcessOwnershipHost.environment(marker.pid))
+          .REA_PROCESS_RUN_ID,
+      ).toBe(marker.run_id);
+      expect(
+        (await systemProcessOwnershipHost.environment(neighbor.pid))
+          .REA_PROCESS_RUN_ID,
+      ).not.toBe(marker.run_id);
+      await writeFile(f.checkerReleasePath, "allow checker leader to exit");
+      const result = take(await running);
+      expect(result).toMatchObject({
+        check_id: marker.run_id,
+        outcome: "pass",
+        report: {
+          cleanup_status: "complete",
+          process: { exit_code: 0 },
+        },
+      });
+      await vi.waitFor(
+        async () => {
+          expect(
+            liveProcesses(
+              await systemProcessOwnershipHost.listProcesses(),
+            ).some(({ pid }) => pid === marker.pid),
+          ).toBe(false);
+        },
+        { timeout: 2000 },
+      );
+      expect(
+        liveProcesses(await systemProcessOwnershipHost.listProcesses()).some(
+          ({ pid }) => pid === neighbor.pid,
+        ),
+      ).toBe(true);
+      expect(neighbor.exitCode).toBeNull();
+      expect(neighbor.signalCode).toBeNull();
+    } finally {
+      // Explicit fixture barriers clean the helper even when the regression
+      // fails; no PID or process-name guess authorizes test teardown signaling.
+      await writeFile(f.helperStopPath, "stop fixture helper");
+      await writeFile(f.checkerReleasePath, "release fixture checker");
+      await running;
+      await stopProviderProcessFixture(neighbor);
+      if (helperPid !== undefined)
+        await vi.waitFor(
+          async () => {
+            expect(
+              liveProcesses(
+                await systemProcessOwnershipHost.listProcesses(),
+              ).some(({ pid }) => pid === helperPid),
+            ).toBe(false);
+          },
+          { timeout: 2000 },
+        );
+    }
+  },
+  15000,
+);
 
 it("refuses a changed pending binding before starting its command", async () => {
   const f = await fixture("hang");

@@ -9,11 +9,12 @@ import {
   AnalysisTimeoutError,
 } from "../../domain/analysisErrorCore.js";
 import { projectAnalysisError } from "../../domain/analysisErrorProjection.js";
+import { projectBuilderResultSchema } from "../../domain/projectBuilder.js";
 import { EvidenceIntegrityError } from "../../domain/evidenceErrors.js";
 import type { ProjectCheckBinding } from "../../domain/projectCheckBinding.js";
 import type { ProjectRunRecord } from "../../domain/projectRun.js";
 import { projectRunCleanupIsSettled } from "../../domain/projectRunTransitions.js";
-import { err, ok } from "../../domain/result.js";
+import { err, ok, type Result } from "../../domain/result.js";
 import { writeTextParts } from "../JsonFiles.js";
 import type { ProjectCheckService } from "./ProjectCheckService.js";
 import {
@@ -129,6 +130,24 @@ export class ProjectBuildStage {
     if (receipt.ok) delete context.builder_observation;
     if (!built.ok) {
       if (!receipt.ok) built.error.retainSecondaryFailure(receipt.error);
+      const cleanup = built.error.cleanupIncomplete
+        ? "incomplete"
+        : failureCleanup(built.error);
+      if (
+        built.error instanceof AnalysisTimeoutError &&
+        projectRunCleanupIsSettled(cleanup)
+      )
+        return this.#pauseTimedOut(
+          context,
+          {
+            error: built.error,
+            checkerPath: request.checkerPath,
+            selected,
+            started,
+            cleanup: cleanup === "not_required" ? "not_required" : "complete",
+          },
+          signal,
+        );
       return this.#failure(context, built.error, elapsedSince(started));
     }
     if (!receipt.ok) {
@@ -182,22 +201,7 @@ export class ProjectBuildStage {
         "complete",
         elapsedSince(completion.started),
       );
-    const currentWorkspace = await context.workspace.assertCurrent();
-    if (!currentWorkspace.ok)
-      return this.state.fail(
-        context,
-        currentWorkspace.error,
-        "complete",
-        elapsedSince(completion.started),
-      );
-    const prepared = await this.checks.prepare(
-      {
-        project: context.project.revision.project,
-        run_id: context.execution.run.run_id,
-        checker_path: completion.checkerPath,
-      },
-      signal,
-    );
+    const prepared = await this.#observeBoundary(context, completion, signal);
     if (!prepared.ok)
       return this.#failure(
         context,
@@ -208,20 +212,6 @@ export class ProjectBuildStage {
     if (signal.aborted)
       return this.state.cancel(
         context,
-        "complete",
-        elapsedSince(completion.started),
-      );
-    if (
-      prepared.value.checker_sha256 !== completion.selected.checker_sha256 ||
-      prepared.value.scenario_sha256 !== completion.selected.scenario_sha256 ||
-      prepared.value.environment_sha256 !==
-        completion.selected.environment_sha256
-    )
-      return this.state.fail(
-        context,
-        new EvidenceIntegrityError(
-          "Verifier inputs changed during the Builder attempt",
-        ),
         "complete",
         elapsedSince(completion.started),
       );
@@ -252,21 +242,85 @@ export class ProjectBuildStage {
       if (!cancelled.ok) error.retainSecondaryFailure(cancelled.error);
       return err(error);
     }
-    if (
-      error instanceof AnalysisTimeoutError &&
-      projectRunCleanupIsSettled(cleanup)
-    ) {
-      const paused = await this.state.append(context, {
-        kind: "pause",
-        reason: "budget_exhausted",
-        cleanup_status:
-          cleanup === "not_required" ? "not_required" : "complete",
-        ...projectRunTime(context.execution.run, elapsed),
-      });
-      if (!paused.ok) error.retainSecondaryFailure(paused.error);
-      return err(error);
-    }
     return this.state.fail(context, error, cleanup, elapsed);
+  }
+
+  async #observeBoundary(
+    context: ProjectRunContext,
+    reference: { checkerPath: string; selected: ProjectCheckBinding },
+    signal: AbortSignal,
+  ): Promise<Result<ProjectCheckBinding, AnalysisError>> {
+    const workspace = await context.workspace.assertCurrent();
+    if (!workspace.ok) return workspace;
+    const prepared = await this.checks.prepare(
+      {
+        project: context.project.revision.project,
+        run_id: context.execution.run.run_id,
+        checker_path: reference.checkerPath,
+      },
+      signal,
+    );
+    if (!prepared.ok) return prepared;
+    if (
+      prepared.value.checker_sha256 !== reference.selected.checker_sha256 ||
+      prepared.value.scenario_sha256 !== reference.selected.scenario_sha256 ||
+      prepared.value.environment_sha256 !==
+        reference.selected.environment_sha256
+    )
+      return err(
+        new EvidenceIntegrityError(
+          "Verifier inputs changed during the Builder attempt",
+        ),
+      );
+    return prepared;
+  }
+
+  async #pauseTimedOut(
+    context: ProjectRunContext,
+    timeout: {
+      error: AnalysisTimeoutError;
+      checkerPath: string;
+      selected: ProjectCheckBinding;
+      started: number;
+      cleanup: "complete" | "not_required";
+    },
+    signal: AbortSignal,
+  ): Promise<ProjectRunResult> {
+    const prepared = await this.#observeBoundary(context, timeout, signal);
+    if (!prepared.ok) timeout.error.retainSecondaryFailure(prepared.error);
+    if (signal.aborted) {
+      const cancelled = await this.state.cancel(
+        context,
+        !prepared.ok && prepared.error.cleanupIncomplete
+          ? "incomplete"
+          : timeout.cleanup,
+        elapsedSince(timeout.started),
+      );
+      if (!cancelled.ok) timeout.error.retainSecondaryFailure(cancelled.error);
+      return err(timeout.error);
+    }
+    if (!prepared.ok)
+      return this.state.fail(
+        context,
+        timeout.error,
+        prepared.error.cleanupIncomplete ? "incomplete" : timeout.cleanup,
+        elapsedSince(timeout.started),
+      );
+    const observation = projectBuilderResultSchema.safeParse(
+      timeout.error.diagnostics?.builder_result,
+    );
+    const paused = await this.state.append(context, {
+      kind: "build_paused",
+      reason: "budget_exhausted",
+      binding: prepared.value,
+      observed_tokens: observation.success
+        ? observation.data.observed_tokens
+        : null,
+      cleanup_status: timeout.cleanup,
+      ...projectRunTime(context.execution.run, elapsedSince(timeout.started)),
+    });
+    if (!paused.ok) timeout.error.retainSecondaryFailure(paused.error);
+    return err(timeout.error);
   }
 
   async #stopped(

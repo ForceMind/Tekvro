@@ -11,6 +11,7 @@ import type {
   ProjectBuilderResult,
 } from "../../src/application/project/ProjectWorkflowPorts.js";
 import type { AnalysisError } from "../../src/domain/analysisErrorBase.js";
+import { AnalysisTimeoutError } from "../../src/domain/analysisErrorCore.js";
 import { ProviderAdapterError } from "../../src/domain/providerAdapterError.js";
 import { err, ok, type Result } from "../../src/domain/result.js";
 import {
@@ -27,7 +28,11 @@ const instruction = JSON.parse(input.instruction);
 await appendFile(input.counter, input.run_id + "\\n");
 process.stdout.write("fixture-builder-started\\n");
 await writeFile(input.ready, "ready");
-if (instruction.mode === "hang") {
+if (instruction.mode === "hang" || instruction.mode === "write-then-hang") {
+  if (instruction.mode === "write-then-hang") {
+    await writeFile(join(input.workspace, "answer.txt"), instruction.text);
+    process.stdout.write("fixture-builder-candidate-written\\n");
+  }
   setInterval(() => {}, 1000);
 } else {
   if (instruction.mode === "wait") {
@@ -46,9 +51,54 @@ if (instruction.mode === "hang") {
 /** Explicit fixture instructions, not a real Agent protocol or inference result. */
 export const projectFixtureInstruction = (
   text: string,
-  mode: "write" | "wait" | "hang" = "write",
+  mode: "write" | "wait" | "hang" | "write-then-hang" = "write",
   delayMs = 0,
 ): string => JSON.stringify({ text, mode, delay_ms: delayMs });
+
+const failureObservation = (
+  cause: OwnedCommandFailure,
+): ProjectBuilderResult => ({
+  status:
+    cause.reason === "cancelled"
+      ? "cancelled"
+      : cause.reason === "timeout"
+        ? "interrupted"
+        : "failed",
+  exit_code: cause.snapshot?.exitCode ?? null,
+  session_id: null,
+  stdout: cause.snapshot?.stdout.text ?? "",
+  stderr: cause.snapshot?.stderr.text ?? "",
+  observed_tokens: null,
+  cleanup_status: cause.cleanupFailure === null ? "complete" : "incomplete",
+  limitations: [cause.message],
+});
+
+const timeoutFailure = (
+  cause: OwnedCommandFailure,
+  timeoutMs: number,
+  observation: ProjectBuilderResult,
+): AnalysisTimeoutError =>
+  new AnalysisTimeoutError("run_fixture_builder", timeoutMs, {
+    cause,
+    diagnostics: {
+      builder_result: {
+        ...observation,
+        limitations: [...observation.limitations],
+      },
+    },
+    capturedOutput: {
+      stdout: observation.stdout,
+      stderr: observation.stderr,
+      truncated: cause.snapshot?.diagnosticTruncated === true,
+      exit_code: observation.exit_code,
+      signal: cause.snapshot?.signal ?? null,
+    },
+    ...(cause.cleanupFailure === null
+      ? {}
+      : {
+          cleanup: { reason: cause.cleanupFailure, resources: cause.resources },
+        }),
+  });
 
 /** Real Node subprocess writer used only to test coordinator/process boundaries. */
 export class ProjectFixtureBuilder implements ProjectBuilderPort {
@@ -138,17 +188,10 @@ export class ProjectFixtureBuilder implements ProjectBuilderPort {
             },
           },
         });
-      return ok({
-        status: cause.reason === "cancelled" ? "cancelled" : "failed",
-        exit_code: cause.snapshot?.exitCode ?? null,
-        session_id: null,
-        stdout: cause.snapshot?.stdout.text ?? "",
-        stderr: cause.snapshot?.stderr.text ?? "",
-        observed_tokens: null,
-        cleanup_status:
-          cause.cleanupFailure === null ? "complete" : "incomplete",
-        limitations: [cause.message],
-      });
+      const observation = failureObservation(cause);
+      if (cause.reason === "timeout")
+        return err(timeoutFailure(cause, request.timeout_ms, observation));
+      return ok(observation);
     }
   }
 

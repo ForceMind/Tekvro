@@ -56,6 +56,8 @@ export const applyProjectRunEvent = (
       return startBuilder(run, event);
     case "build_completed":
       return finishBuilder(run, event);
+    case "build_paused":
+      return pauseBuilder(run, event);
     case "check_started":
       return startCheck(run, event);
     case "check_completed":
@@ -130,11 +132,7 @@ const finishBuilder = (
       binding.candidate_sha256 === run.candidate_sha256
         ? run.no_progress_attempts + 1
         : 0,
-    observed_tokens:
-      event.observed_tokens === null ||
-      (run.attempt > 1 && run.observed_tokens === null)
-        ? null
-        : (run.observed_tokens ?? 0) + event.observed_tokens,
+    observed_tokens: accumulateObservedTokens(run, event.observed_tokens),
     stop_reason: "pending_check",
     cleanup_status: event.cleanup_status,
   };
@@ -144,6 +142,41 @@ const finishBuilder = (
     next.stop_reason = "no_progress";
   return ok(next);
 };
+
+const pauseBuilder = (
+  run: ProjectRunRecord,
+  event: Event<"build_paused">,
+): RunResult => {
+  if (
+    run.execution_status !== "running" ||
+    !isBuilderPhase(run.phase) ||
+    run.pending_check !== null
+  )
+    return projectRunTransitionFailure(
+      "A partial build observation requires a running builder without a pending check",
+    );
+  if (!projectCheckBindsRun(event.binding, run))
+    return projectRunTransitionFailure(
+      "Partial build binding belongs to a different run or requirement revision",
+    );
+  return ok({
+    ...run,
+    execution_status: "paused",
+    acceptance_status: "not_evaluated",
+    candidate_sha256: event.binding.candidate_sha256,
+    observed_tokens: accumulateObservedTokens(run, event.observed_tokens),
+    stop_reason: event.reason,
+    cleanup_status: event.cleanup_status,
+  });
+};
+
+const accumulateObservedTokens = (
+  run: ProjectRunRecord,
+  observed: number | null,
+): number | null =>
+  observed === null || (run.attempt > 1 && run.observed_tokens === null)
+    ? null
+    : (run.observed_tokens ?? 0) + observed;
 
 const startCheck = (
   run: ProjectRunRecord,
