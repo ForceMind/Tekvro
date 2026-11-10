@@ -1,5 +1,13 @@
 import { AnalysisSettings } from "../application/AnalysisSettings.js";
 import { registerAnalysisSettingsTools } from "./registerAnalysisSettingsTools.js";
+import type { ProjectService } from "../application/project/ProjectService.js";
+import type { ProjectRunService } from "../application/project/ProjectRunService.js";
+import {
+  createProjectService,
+  createProjectRunService,
+} from "../composition/project.js";
+import { registerProjectRunTools } from "./registerProjectRunTools.js";
+import { registerProjectTools } from "./registerProjectTools.js";
 import type { DevicetreeService } from "../application/binaryDiagnostics/DevicetreeService.js";
 import { registerDevicetreeTool } from "./registerDevicetreeTool.js";
 import { pcapCaptureHostSupported } from "../domain/pcap/pcapAnalysis.js";
@@ -214,6 +222,8 @@ const ACTIVE_TARGET_INSTRUCTIONS =
 
 export interface CreateServerOptions {
   readonly analysisSettings?: AnalysisSettings;
+  readonly project?: ProjectService;
+  readonly projectRuns?: ProjectRunService;
   /** Preserve the connection's creation time when materializing its runtime. */
   readonly startedAt?: string;
   /** Existing SDK server whose deferred registrations are being materialized. */
@@ -459,6 +469,9 @@ export const createServer = (
     options.evmInterface ?? evmInterfaceModule.create(environment);
   const sqliteDatabase =
     options.sqliteDatabase ?? createSqliteDatabaseService(environment);
+  const project = options.project ?? createProjectService();
+  const projectRuns =
+    options.projectRuns ?? createProjectRunService(environment);
   const binaryLayout =
     options.binaryLayout ?? createBinaryLayoutService(environment);
   const recordedCrash =
@@ -521,6 +534,8 @@ export const createServer = (
     );
   server.analysisSettings = analysisSettings;
   registerAnalysisSettingsTools(server, analysisSettings);
+  registerProjectTools(server, project, logger);
+  registerProjectRunTools(server, projectRuns, logger);
   if (options.mcpServer !== undefined) {
     server.attachRuntime(
       session === undefined
@@ -589,6 +604,8 @@ export const createServer = (
       pcap.close(),
       evmInterface.close(),
       sqliteDatabase.close(),
+      project.close(),
+      projectRuns.close(),
       binaryLayout.close(),
       recordedCrash.close(),
       webSourceLocation.close(),

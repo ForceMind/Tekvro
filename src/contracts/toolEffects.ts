@@ -50,11 +50,41 @@ const browserEvidence = effects({
   accessesNetwork: true,
 });
 const sessionEvidence = effects({ mutatesSession: true });
+const projectBuilderEffects = effects({
+  mutatesTarget: true,
+  writesFilesystem: true,
+  launchesProcess: true,
+  accessesNetwork: true,
+  mayDiscardData: true,
+  executesForeignCode: true,
+  idempotent: false,
+});
 
 /** Explicit effect audit for every public tool. */
 export const TOOL_EFFECTS: Readonly<Record<string, ToolEffects>> = {
   inspect_analysis_settings: effects(),
   update_analysis_settings: effects({ mutatesSession: true }),
+  create_project: effects({ writesFilesystem: true, idempotent: false }),
+  inspect_project: effects(),
+  edit_project: effects({ writesFilesystem: true, idempotent: false }),
+  build_project: projectBuilderEffects,
+  check_project: effects({
+    mutatesTarget: true,
+    writesFilesystem: true,
+    launchesProcess: true,
+    accessesNetwork: true,
+    changesUiState: true,
+    mayDiscardData: true,
+    executesForeignCode: true,
+    idempotent: false,
+  }),
+  refine_project: projectBuilderEffects,
+  resume_project_build: projectBuilderEffects,
+  inspect_project_run: effects(),
+  adjust_project_run_budget: effects({
+    writesFilesystem: true,
+    idempotent: false,
+  }),
   list_cutter_sessions: effects({ accessesNetwork: true }),
   cutter_command: effects({
     mutatesTarget: true,
