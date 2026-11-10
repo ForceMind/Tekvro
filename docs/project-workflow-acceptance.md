@@ -1,6 +1,6 @@
 # 项目工作流验收与真实验证矩阵
 
-> 状态：PW-01 元数据存储已合并；PW-02/03/04/06 的首个运行切片已实现并完成部分本地验证。真实项目租约执行、Codex 写入及网页闭环仍受阻或未验证，M0/M1 未关闭。各项实际范围见文末记录及[运行指南](project-workflow-runtime.md)。
+> 状态：M0 / PW-01 的项目契约、持久化及接口边界已按文末精确来源记录验收；所列 Linux 项目租约与进程 fixture 已实际通过。M1 继续进行，真实 Codex 写入受原宿主 EROFS 阻塞，网页闭环与完整 ledger 未验收。M0 只关闭 PWA-01、PWA-11、PWA-16 的 PW-01 子范围，不关闭这些验收项的后续阶段要求。实际范围见文末记录及[运行指南](project-workflow-runtime.md)。
 >
 > 研究基线：Tekvro `ee5ebf85b35c800c92d2e308ea601c158c529596`。实现时必须重新核对当前主线、契约与验证记录；本文件不冻结旧主线，也不改变已有发行的支持范围。
 
@@ -272,7 +272,7 @@ PR #55 首次 CI 的源码测试、静态检查、文档、编译和 Windows 原
 
 ## 2026-11-10 运行切片的本地验证记录
 
-本轮从主线 `8c69ebeaabd27cd89b8250626a94711660c057bd` 开始实施，以下记录对应当前新增源码与测试，不表示该基线提交已包含这些改动。最终来源提交、精确 CI 和发行包资格须随实现 PR 补充；本节的本地记录不能替代它们。
+本轮从主线 `8c69ebeaabd27cd89b8250626a94711660c057bd` 开始实施。以下保留 2026-11-10 的本地验证与环境阻塞记录，不表示该基线提交已包含这些改动，也不将后续 CI 结果回写为当时本地通过。最终来源、精确 CI 和 M0 结论见本节后续资格记录；发行包资格仍独立。
 
 ### 已实现的范围
 
@@ -297,7 +297,7 @@ PR #55 首次 CI 的源码测试、静态检查、文档、编译和 Windows 原
 | Builder 启动前取消窗口                          |        1 |        0 | 真实RunState/Store与CodexAdapter；workspace seam只注入取消时机，不声明锁或Agent资格                                                                         |
 | **合计**                                        |   **90** |   **25** | 跳过项保持未验证，必须在具备实际 socket 能力的宿主复跑                                                                                                      |
 
-25 个跳过用例实际观察到 Unix socket `listen` 返回 `EPERM`。前置规则只识别真实错误因果链中的 `listen` 与 `EPERM/EACCES`，其他失败仍失败；没有替换生产锁、模拟 lease 或绕开 owner。共享判断位于 `tests/fixtures/projectLeaseCapability.ts`。后续 Linux CI 应实际运行这 25 项，并保留真实输出；当前不能声称恢复、并发和跨入口执行已通过。
+25 个跳过用例在该本地宿主实际观察到 Unix socket `listen` 返回 `EPERM`。前置规则只识别真实错误因果链中的 `listen` 与 `EPERM/EACCES`，其他失败仍失败；没有替换生产锁、模拟 lease 或绕开 owner。共享判断位于 `tests/fixtures/projectLeaseCapability.ts`。该次本地运行未验证这些恢复、并发和跨入口执行场景；其后在具备真实 socket 能力的 Linux CI 中分别执行，结果见最终资格记录。
 
 独立 checker 的 18 项通过包含真正的 Node fixture 写入与取消，因此验证了该 fixture 的进程和 oracle 边界；它不代表 ProjectRunService 租约闭环，更不代表一次真实 Agent 生成。真实 Codex 的最小写入仍是上述 `EROFS` 阻塞记录；安装探测、帮助输出和协议 fixture 不能改变其未获资格的状态。
 
@@ -307,29 +307,147 @@ PR #55 首次 CI 的源码测试、静态检查、文档、编译和 Windows 原
 node scripts/run-exact-tests.mjs run tests/boundary/process/projectCheckService.test.ts tests/boundary/process/projectRunService.test.ts
 ```
 
-上述文件本地分项结果为 checker 18 通过；run service 1 通过、19 环境跳过；读取明细而非只读退出码。完整主线 CI、实际安装包及真实网页场景资格仍待后续记录。
+上述文件本地分项结果为 checker 18 通过；run service 1 通过、19 环境跳过；读取明细而非只读退出码。这些是本地分项结果；后续精确来源 CI 单列如下，实际安装包及真实网页场景资格仍待验证。
 
 ### PR #62 评审修复
 
 - Builder 超时且清理已确认后，仍持有同一工作区租约重新观察候选、来源和固定验证输入。新增 `build_paused` 事件保存部分产物身份，保持原阶段、run、尝试次数和累计预算；显式增量预算后可以继续同一 run。完整观察失败或验证输入变化时不制造可恢复边界。新增三项纯域回归和真实写后超时 fixture 已通过；完整服务恢复仍由真实 lease 的 CI 验证。
 - 独立 checker 使用共享的 token-owned process sweep。新增回归先实际观察 detached helper 的独立进程组和本次 token，确认 leader 退出后 helper 已清理、旁系进程仍存活。旧实现下该回归准确失败，补丁后独立 checker 文件 18/18 实跑通过。
 
+### PR #62 最终精确来源与 Linux 资格
+
+本记录于 2026-11-10 06:51:43 UTC 按实际运行产物核定，来源如下：
+
+| 身份                                                                                                      | 实际记录                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| --------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PR 最终代码来源                                                                                           | `ba49ea0fb7f6c0e2050b4a83a26bc6e98eb571cf`                                                                                                                                                                                                                                                                                                                                                                                   |
+| PR #62 合并提交                                                                                           | `7631020d85d665466e6584378dcc3689f389dd18`                                                                                                                                                                                                                                                                                                                                                                                   |
+| [该来源 CI 工作流 42767419422](https://github.com/ForceMind/Tekvro/actions/runs/42767419422) 实际检出提交 | `2a31775269fe974c14f5e34b6abf19412dabb04a`                                                                                                                                                                                                                                                                                                                                                                                   |
+| [核心实测 42767419307](https://github.com/ForceMind/Tekvro/actions/runs/42767419307) 实际执行提交         | `2a31775269fe974c14f5e34b6abf19412dabb04a`                                                                                                                                                                                                                                                                                                                                                                                   |
+| 运行宿主及 Node.js                                                                                        | Ubuntu 24.04.5 LTS / Linux x64；runner 2.338.2，映像 20261101.360.1；Node.js 24.22.1                                                                                                                                                                                                                                                                                                                                         |
+| 来源对应核对                                                                                              | PR head ba49ea0fb7f6c0e2050b4a83a26bc6e98eb571cf，实际 CI/engine checkout 为 2a31775269fe974c14f5e34b6abf19412dabb04a（父提交为基线 8c69ebeaabd27cd89b8250626a94711660c057bd 与该 PR head）。经 Git 对象核对，PR head、测试检出和 squash 合并提交 7631020d85d665466e6584378dcc3689f389dd18 的完整文件树均为 bd86a9c422abd46fd7e0b9a08def77930a2db91c。这里记录的是 PR 来源资格及相同合并文件树，不宣称合并后主线已重新实跑。 |
+
+首次 CI 在 `src/contracts/toolEffects.test.ts` 的两条清单审计断言失败，保留[原始失败运行](https://github.com/ForceMind/Tekvro/actions/runs/42757866280)。失败项为 `keeps execution and device wording aligned with declared effects` 与 `marks foreign execution and device mutation as destructive`：审计缺少两个不启动 Builder/checker 的入口说明例外，以及四个项目执行入口的预期清单。
+
+`c7be57f79ba06a6794ab7f3cd0e47a2bd543be34` 只更新 `src/contracts/toolEffects.test.ts`：补入 `inspect_project_run`、`adjust_project_run_budget` 的说明例外，以及 `build_project`、`check_project`、`refine_project`、`resume_project_build` 的执行权限审计预期。生产 effects 声明未修改，原失败不删除。这项审计修正没有覆盖随后发现的 v-mode 生产 schema 问题；最终资格以下述后续修复来源为准。
+
+随后，`c7be57f79ba06a6794ab7f3cd0e47a2bd543be34` 的 [CI 42759854810](https://github.com/ForceMind/Tekvro/actions/runs/42759854810) 仍失败，保留以下两类实际记录：
+
+- Built shard 7 的真实 MCP `advertisedPatternsVMode` 检查发现，`src/domain/projectManifest.ts` 中保存绝对历史路径的正则在 JavaScript `v` 模式下无法编译，影响九个项目工具的 `outputSchema`。这是生产 schema 的兼容性失败，[失败明细](https://github.com/ForceMind/Tekvro/actions/runs/42759854810/job/129644199785)不得作为平台跳过忽略。正则修复来源为 `45a7e3df5c839f8f5149eec4e656b584adf47ff4`，其定向复测与新 head 完整资格分别记录。
+- Ubuntu `recorded_crash` 的作业 `129644199982` 在 checkout 前执行 `apt-get update` 时，因 Ubuntu 镜像 `Packages.gz` 大小/哈希与元数据不一致而以 `100` 退出，见[原始作业记录](https://github.com/ForceMind/Tekvro/actions/runs/42759854810/job/129644199982)。这是仓库检出前的环境准备失败，不是 `recorded_crash` 产品用例已执行失败，也不能计为该用例已通过。
+
+核对这次失败来源时，仅 46 个项目相关用例已有实际执行证据；原本地 25 个跳过用例中，只确认 Workspace 的 5 项取得真实租约资格，RunService 19 项及跨入口执行 1 项尚未取得资格。这个局部记录不构成 M0 完成，也不用于填充后续来源的总通过数。旧来源的[核心实测记录](https://github.com/ForceMind/Tekvro/actions/runs/42759854669)继续保留，不能代替修复后来源的重新验证。
+
+正则修复后，来源 `45a7e3` 的 [CI 42763422831](https://github.com/ForceMind/Tekvro/actions/runs/42763422831) 已取得本轮 119 个项目用例中 103 项实际通过记录。原本地 25 个 socket 跳过场景全部实跑通过：RunService 19 项、Workspace 5 项和跨 CLI/MCP 1 项；真实 MCP `advertisedPatternsVMode` 检查也通过。这些是该来源取得的新证据，不回写旧 head 或原本地的失败/跳过记录。其余 Codex adapter 协议 16 项因所在分片取消而未取得本轮结果，不能算作通过，也不是一次真实 Codex 生成资格。
+
+该轮唯一产品测试阻断来自 built shard 1 的 [作业 129655501148](https://github.com/ForceMind/Tekvro/actions/runs/42763422831/job/129655501148)：`outputSchemaProfile.test.ts:117` 测得关闭 output schemas 后的完整工具目录为 1,053,720 bytes，超过既有 1,048,576 bytes（1 MiB）门槛 5,144 bytes。原失败及实际字节数保留，不能通过提高阈值或删除公开验证字段绕过。
+
+当时确定的修复方向是对 canonical 自动 fallback 字段说明去冗余，保留显式领域 `description`、schemas、examples、profile 及全部验证字段，既有 1 MiB 阈值不变。实际修复提交为 `ba49ea0fb7f6c0e2050b4a83a26bc6e98eb571cf`；修复后来源的 CI 结果见后续资格记录。103/119 的局部通过以及 25 个 socket 场景通过，不构成这一失败来源的完整资格；后续来源的最终结果另列。
+
+同一轮后续核对的 Ubuntu `recorded_crash` [作业 129655925118](https://github.com/ForceMind/Tekvro/actions/runs/42763422831/job/129655925118) 已越过先前的 apt 镜像准备问题，进入真实记录验证 step 11 后被取消。该记录必须保留为 `cancelled`，不能记为 `pass`，也不能继续描述成在 apt 阶段失败。先前 job `129644199982` 的镜像大小/哈希失败仍是独立历史，不被这次取消覆盖。
+
+目录修复随后在 [`ba49ea0fb7f6c0e2050b4a83a26bc6e98eb571cf`](https://github.com/ForceMind/Tekvro/commit/ba49ea0fb7f6c0e2050b4a83a26bc6e98eb571cf) 提交，parent 为 `45a7e3`，树身份为 `bd86a9c422abd46fd7e0b9a08def77930a2db91c`。改动限于 `toolSchemaMetadata` 和 `outputSchemaProfile` 两个文件。实测完整目录仍包含 238 个工具，关闭 output schemas 时由 1,053,720 降至 1,038,306 bytes，减少 15,414 bytes，距原 1,048,576 bytes 上限保留 10,270 bytes。构建前后 969 处结构差异全部属于 `inputSchema.description`；其余验证约束、examples、工具正文、annotations 和 profile 保持一致，显式领域 description 得以保留。
+
+该候选的 source 定向用例 69 项、真实 MCP 定向用例 47 项，共 116 项实际通过、无跳过；另有 build、check:fast 和 docs:check 通过记录，docs:check 中 README 用例为 5 项。这里的 116 项是目录修复定向验证，不与前述项目 103/119、该来源 CI 工作流的便携测试总量或原生引擎资格相加。提交候选时，新 [CI 42767419422](https://github.com/ForceMind/Tekvro/actions/runs/42767419422) 与[核心实测 42767419307](https://github.com/ForceMind/Tekvro/actions/runs/42767419307) 仍在运行，本地通过尚未构成最终合并资格；后续结果与实际执行提交在最终资格中分别记录。
+
+目录修复来源 `ba49ea0fb7f6c0e2050b4a83a26bc6e98eb571cf` 的[核心实测 42767419307](https://github.com/ForceMind/Tekvro/actions/runs/42767419307) 首轮 attempt 1 最终为 failure，分平台记录如下：
+
+| 首轮作业                                                                                            | 实际执行与结果                                                                                                                                                                                                     | 结论边界                                                                                                           |
+| --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| Linux [129667057100](https://github.com/ForceMind/Tekvro/actions/runs/42767419307/job/129667057100) | 32 项通过、1 项 Windows-only 跳过；WASM artifact、interface 和 package 验证实际完成。checkout 为 `2a31775269fe974c14f5e34b6abf19412dabb04a`，其 tree 与 ba49ea0 相同                                               | 是本次 Linux 实跑结果，后续 carryover 不重复计数                                                                   |
+| macOS [129667056356](https://github.com/ForceMind/Tekvro/actions/runs/42767419307/job/129667056356) | Source Electron 10 项通过；MCP/paths 13 项通过、1 项失败。`electronMcp.test.ts:465` 的 `runs active Electron scenarios with selected paths and inferred working directory` 实际 20,542 ms，超过既有 20,000 ms 限制 | 失败发生在注入 provider 的 MCP 边界 fixture；后续真实 `verify:electron` 未执行，不能写成真实 Electron 应用执行失败 |
+
+前一来源 `45a7e3` 的同一 MCP 边界场景实际 17,635 ms 通过，这只能作为历史比较，不能使新来源的失败变成通过，也不证明失败原因。首轮失败及既有 20 秒阈值继续保留，不提前归类为基础设施问题或偶发失败。
+
+首轮终态后，06:21 UTC 已原样请求只重跑同来源失败的 macOS 作业。Attempt 2 的新 macOS 作业为 [129668714121](https://github.com/ForceMind/Tekvro/actions/runs/42767419307/job/129668714121)，请求后的观察状态为 queued。Attempt 2 中显示的 Linux 作业 [129668716753](https://github.com/ForceMind/Tekvro/actions/runs/42767419307/job/129668716753) 是首轮成功结果的 carryover，不是新一次 Linux 执行。
+
+Attempt 2 最终为 success。macOS [作业 129668714121](https://github.com/ForceMind/Tekvro/actions/runs/42767419307/job/129668714121) 实际 checkout 为 `2a31775269fe974c14f5e34b6abf19412dabb04a`，环境为 macOS 15.8.2 arm64、image `20261104.0514.1`、Node.js 24.22.1。Source Electron 10 项和 MCP/paths 14 项全部通过，首轮超时的场景本次为 14,023 ms。
+
+随后真实 `verify:electron` 实际执行：Electron 44.9.0，`verified=true`，清理结果 `terminated-owned-process`；ipc、open-url、second-instance、reload、crash、restart 均为 completed，记录 `ipc=5`、`timeline=145`。Linux 的 32 项通过、1 项 Windows-only 跳过及 WASM/H5 验证来自 attempt 1 原作业 `129667057100`；attempt 2 的 carryover 没有增加一次 Linux 实跑。
+
+首轮失败、重试来源与结果分别记录，不以最终工作流颜色覆盖失败历史。
+
+同一来源 `ba49ea0fb7f6c0e2050b4a83a26bc6e98eb571cf` 的 [CI 42767419422](https://github.com/ForceMind/Tekvro/actions/runs/42767419422) attempt 1 随后终态为 failure。唯一测试失败来自 built shard 1 的 [作业 129667416296](https://github.com/ForceMind/Tekvro/actions/runs/42767419422/job/129667416296)：既有 `tests/boundary/cli/workflowInputIdentities.test.ts:306` 用例 `preserves workflow identity validation through CLI and inline, retained and mixed MCP inputs` 实际 30,364 ms，超过原 30,000 ms 限制 364 ms；没有其他断言失败。该分片实际为 1,798 项通过、9 项跳过、1 项失败。
+
+目录修复的 `outputSchemaProfile` 两项、`ProjectBuildStage` 一项在这轮实际通过；shard 7 的真实 MCP `advertisedPatternsVMode` 一项也通过。前一来源 `45a7e3` 的同一 workflow identity 用例实际 24,119 ms 通过。ba49ea0 没有修改这个测试或工作流执行逻辑，提交改动限定于输入描述精炼及相应验证；这个差异记录不证明超时原因，也不将本次失败归类为偶发或基础设施问题。30 秒时限保持不变。
+
+Fail-fast 取消了首轮 shard 2、4、5；Source、shard 3、6、7、8 及已成功的平台作业保留原结果。06:33 UTC，同一 head 针对 failed/cancelled 子集的原样重跑请求已成功受理。主 CI 的后续实际 retry attempt 记录：Attempt 2 成功，CI required 作业 129678578041 于 06:49:04 UTC 完成。实际重跑 shard 1/2/4/5，作业分别为 129673160918、129673160658、129673160785、129673160754；既有 workflowInputIdentities 用例在原 30 秒时限下以 23,507 ms 通过，目录 profile 两项也实际通过。其余成功作业沿用同一来源的首轮执行结果，没有重复计数。Portable 作业 129678323607 汇总成功，最终 test-results artifact 为 13740974920，ZIP SHA-256 为 f2be68c20f74aa6b73a68882ef0cdeff195e89c389def8f3bd189be1bc34d9c5；产物记录 prHeadSha=ba49ea0fb7f6c0e2050b4a83a26bc6e98eb571cf、executionSha=2a31775269fe974c14f5e34b6abf19412dabb04a、runAttempt=2。原成功作业不作为新一次执行累加，取消分片没有取得的测试结果不从其他分片推导；最终便携测试计数及测试文件库存依实际产物核对；库存检查 missing、unexpected 与 duplicateFiles。
+
+本轮平台正向记录独立保留：Ubuntu `recorded_crash` [作业 129667581202](https://github.com/ForceMind/Tekvro/actions/runs/42767419422/job/129667581202) 已成功，实际 installed CLI/MCP 状态为 passed，记录的 checkout 前缀为 `2a31775`；Debian [作业 129667581234](https://github.com/ForceMind/Tekvro/actions/runs/42767419422/job/129667581234) 成功，Windows native 与 Reverse quality 也成功。这些结果不覆盖先前镜像准备失败或真实记录验证期间取消的历史；主 CI 重试结果与测试文件库存按各自实际产物核对。
+
+c7be 与 45a7e3 的失败 CI 记录保留；后续源码修复由最终来源 `ba49ea0fb7f6c0e2050b4a83a26bc6e98eb571cf` 的 CI 工作流与核心实测验证。同源 macOS 作业重试属于上述引擎 attempt 记录。最终通过结果、项目分项和实际源码对应如下，历史失败和取消不计入通过。
+
+该来源 CI 工作流中的便携测试汇总为 33,997 项实际通过、234 项按环境条件跳过，测试文件库存核对（无缺失、额外或重复）为 true。核心实测工作流第 2 次尝试成功：Linux x64 在第 1 次尝试实际完成 32 项通过、1 项 Windows 专用跳过及真实 H5/WABT/包验证；macOS arm64 第 1 次尝试的 Electron MCP fixture 在 20 秒上限超时，第 2 次同源单作业原样重跑实际完成 24 项测试及真实 Electron CLI/MCP 采集、IPC、重载和清理验证。没有修改测试或时限，也没有重跑已经成功的 Linux 作业。PR head、workflow head、实际 checkout 和合并提交不是同一个概念；本表分别记录观察到的身份，不把 PR 的通过记录称作合并后主线重跑，也不将这些结果当作发行包资格。
+
+此处便携测试的 `mode=full` 仅标识便携测试集合；PR `fast-tier` 中按规则跳过的 deep static 仍保留跳过状态。测试文件库存核对（无缺失、额外或重复）不扩张为 release full-tier、覆盖率或发行包资格。
+
+最终 observational report 单独记录：selected=2514、omitted=0、unobserved=33、complete=false。33 个整文件跳过共 104 项：30 个文件的 101 项受 macOS/Xcode 原生前置限制，3 个 Windows 专用文件各 1 项；另有 130 项跳过分布于 49 个含实际通过用例的文件，总跳过 234 项。这些项不计为通过；项目相关 119 项及原 25 项 socket 场景自身均零跳过。观测报告不能独立授予资格或授权省略测试。其中 `selected`、`omitted`、`unobserved` 与 `complete` 描述所选测试文件的观测情况。平台整文件 skip 可能列入 `unobserved`，使 `complete=false`；这与测试文件库存核对为 true 可以同时成立。该观测报告不独立授予验收资格，也不授权省略测试，整文件 skip 不算实际执行通过。
+
+本轮项目资格仍按实际用例核定：119 个项目用例和原本地 25 个 socket 场景要求零跳过实跑通过；不能用库存匹配或 observational report 的任一字段替代这些记录。库存门槛要求无 missing、unexpected 或 duplicateFiles；不另外要求 observational report 的 `complete` 必须为 true。
+
+项目相关结果从[实际测试产物或作业记录](https://github.com/ForceMind/Tekvro/actions/runs/42767419422/job/129678323607)逐项核对；同一用例多次复跑只计一次，不用本地 90 加 25 推算通过数量。
+
+| 项目子范围                                                       | 实际通过 | 环境跳过 | 实际覆盖与边界                                                                                                     |
+| ---------------------------------------------------------------- | -------: | -------: | ------------------------------------------------------------------------------------------------------------------ |
+| 项目/运行/绑定及路径领域，ProjectStore、RunStore、ProjectService |       44 |        0 | 保存重读、原始修订认证、事件重放、版本边界、并发提交及状态/绑定失效                                                |
+| 独立 checker                                                     |       18 |        0 | 真实 Node oracle、负向对照、原始输出、取消/超时及本次 token 的进程清理                                             |
+| Codex adapter 协议                                               |       16 |        0 | 真实子进程承载的协议 fixture；不代表真实 Codex 模型生成                                                            |
+| ProjectWorkspace                                                 |        6 |        0 | 包含原本地跳过的 5 项真实租约用例；路径/inode、归属标记、释放与恢复                                                |
+| ProjectRunService                                                |       20 |        0 | 包含原本地跳过的 19 项编排用例；Node Builder fixture 的 pending 恢复、预算、取消、并发、投影失败及超时部分候选续跑 |
+| 项目 CLI/MCP 定向用例                                            |       14 |        0 | 包含原本地跳过的 1 项跨入口执行；真实 transport 与共享项目服务，Builder 仍是明确标注的 fixture                     |
+| Builder 启动前取消窗口                                           |        1 |        0 | 真实 RunState/Store 与 CodexAdapter；workspace seam 仅控制取消时机，不独立证明锁或 Agent 资格                      |
+| **合计**                                                         |  **119** |    **0** | 每行使用实际明细计数，不把跳过项计入通过                                                                           |
+
+实际执行命令／作业步骤为：
+
+```text
+Source（首轮成功执行）:
+npm run test:fast -- --reporter=default --reporter=blob
+
+Built（最终采用 shard 3/6/7/8 首轮成功结果；1/2/4/5 为同源第二轮重跑）:
+npm run test:built -- --reporter=default --reporter=blob --shard=1/8
+npm run test:built -- --reporter=default --reporter=blob --shard=2/8
+npm run test:built -- --reporter=default --reporter=blob --shard=3/8
+npm run test:built -- --reporter=default --reporter=blob --shard=4/8
+npm run test:built -- --reporter=default --reporter=blob --shard=5/8
+npm run test:built -- --reporter=default --reporter=blob --shard=6/8
+npm run test:built -- --reporter=default --reporter=blob --shard=7/8
+npm run test:built -- --reporter=default --reporter=blob --shard=8/8
+
+Portable（第二轮实际合并）:
+npm exec -- vitest --merge-reports --reporter=default --reporter=junit --reporter=json --reporter=./scripts/ci/test-timing-reporter.mjs --outputFile.junit=test-results.xml --outputFile.json=test-results.json
+node scripts/ci/test-report.mjs
+
+库存报告实际环境:
+CI_VERIFY_TEST_INVENTORY=true
+CI_TEST_SELECTION_PATH=.cache/ci-test-selection/plan.json
+SHARD_RESULT=success
+SOURCE_RESULT=success
+MERGE_RESULT=success
+```
+
+原本地跳过的 RunService 19 项、Workspace 5 项、跨入口执行 1 项已逐项确认在真实 Linux socket 条件下执行并通过；没有替换生产 lease，也没有把前置 skip 算作通过。本地 90 项通过、25 项跳过及此前 #55 的内部错误/超时记录继续保留。
+
+本次据此验收 M0：PWA-01 的 PW-01 持久化、原子发布、重读、损坏保留及版本边界；PWA-11 的项目/运行/范围/候选和检查引用身份、适用性与失效；PWA-16 的 PW-01 本地元数据及路径边界。首个持久化格式为 v1，无已发布旧格式需迁移，因此历史迁移记为 N/A，未知版本拒绝和原字节保留已验证。PW-01 的 project schema 未提供凭据或整套宿主环境字段，项目元数据服务没有隐式上传路径。Builder/Checker 原始输出仍按运行契约保留；完整敏感值处理、真实 Builder 的访问限制和集中诊断继续由所属 M1/M2 工作包验证。
+
+PW-02/03/04/06 的接口边界已经落实，M0 完成。真实 Codex 构建/工具调用/会话恢复、网页多视口与行为、完整义务账本、候选树内日志的语义无进展、完整 PWA-16、工作台、其他平台及发行包继续按所属阶段验收；M1 保持进行中。
+
 ### 对验收项的影响与剩余门槛
 
-| 验收项                      | 当前取得的子范围                                                              | 尚未关闭的要求                                                                        |
-| --------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| PWA-01、PWA-11 的元数据部分 | 保留前述已合并存储验证，新增运行事件和检查身份契约                            | 完整阶段接口与运行证明，不由历史存储 CI 自动覆盖                                      |
-| PWA-02、PWA-03、PWA-05      | 状态/持久化与实际受管进程的部分边界通过；编排用例已编写                       | 19 项 RunService 与 5 项 Workspace 租约场景尚未实际运行；真实 Agent 断线/取消另需验证 |
-| PWA-04                      | Codex 能力、协议和明确不支持的会话恢复已编码；协议 fixture 通过               | 真实 Codex 生成受 `EROFS` 阻塞，工具调用/原会话恢复等能力需分别取得真实资格           |
-| PWA-06                      | 完整 tree digest、执行位、计数和累计预算已实现；领域记录验证通过              | RunService 实测受阻；摘要只证明内容变化，任意 Builder 树内日志尚未作语义分类          |
-| PWA-10、PWA-11 的检查部分   | 固定文件 oracle 真实检出已知缺陷；过期/错误绑定、报告认证和输出完整性边界通过 | 网页/多视口、owner/义务账本闭合和跨环境适用性仍需对应真实场景                         |
-| PWA-14                      | 九入口共享契约/服务；实际元数据与只读运行 inspect 的 CLI/MCP 通过             | 跨入口 build/check/refine 的真实租约执行测试受阻，不能关闭整项                        |
-| PWA-16                      | 显式 verifier 输入/环境、执行范围、失败原因和未知资格已落实部分边界           | 完整授权、敏感数据、真实 Builder 访问范围及集中诊断仍需相应验证                       |
-| PWA-07/08/09/12/13/15/17/18 | 本切片未取得这些范围的通过记录                                                | 多视口、mask、浏览器场景、完整 ledger、真实闭环、UI、桌面/游戏和发行包继续保持未验收  |
+| 验收项                       | 当前取得的子范围                                                                                              | 尚未关闭的要求                                                                                        |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| PWA-01、PWA-11 的 PW-01 部分 | M0 已验收：版本一清单、持久化/重读/并发、原始修订认证、运行与检查引用绑定及失效；无已发布旧格式，历史迁移 N/A | 不预先证明未来版本迁移，也不替代 PW-04 的完整 Evidence/owner/义务验证                                 |
+| PWA-02、PWA-03、PWA-05       | 所列 Linux fixture 的真实租约、编排、预算、取消、恢复和清理边界已实际验证                                     | 真实 Agent 断线/取消/恢复与完整 study/build/check/refine 闭环仍需对应证据                             |
+| PWA-04                       | Codex 能力、协议和明确不支持的会话恢复已编码；协议 fixture 通过                                               | 真实 Codex 生成仍有 EROFS 阻塞记录；工具调用/原会话恢复等能力需分别取得真实资格                       |
+| PWA-06                       | 完整 tree digest、执行位、计数和累计预算已实现；所列 Linux 运行与重开边界通过                                 | 摘要只证明内容变化，任意 Builder 树内日志尚未作语义分类，不能关闭“只改日志不算进展”的完整要求         |
+| PWA-10、PWA-11 的检查部分    | 固定文件 oracle 真实检出已知缺陷；过期/错误绑定、报告认证和输出完整性边界通过                                 | 网页/多视口、owner/义务账本闭合和跨环境适用性仍需对应真实场景                                         |
+| PWA-14                       | 九入口共享契约/服务；现有元数据、只读 inspect 与跨入口运行 fixture 已通过真实 transport 验证                  | 真实 Agent 网页闭环的 CLI/MCP 对等结果仍需验证，不能关闭整项                                          |
+| PWA-16                       | PW-01 schema 未提供凭据/全环境字段，元数据服务无隐式上传；显式 verifier 输入/环境及诊断已有局部证据           | Builder/Checker 原始输出仍保留；完整授权、敏感值处理、真实 Builder 访问范围及集中诊断仍需对应阶段验证 |
+| PWA-07/08/09/12/13/15/17/18  | 本切片未取得这些范围的通过记录                                                                                | 多视口、mask、浏览器场景、完整 ledger、真实闭环、UI、桌面/游戏和发行包继续保持未验收                  |
 
 候选摘要覆盖完整物化输出树，包括空目录和文件执行位；不忽略 `.git`、`node_modules`。服务自身事件与检查日志在树外，因此不会增加候选进展。候选树内任意 Builder 日志变化仍可能改变摘要，当前不能识别其全部语义，也不能将内容变化等同功能改进。有限预算和独立检查继续约束执行，PWA-06 的“仅修改日志不算进展”完整要求没有因摘要实现而被关闭。
 
-M0 继续等待所需范围的完整资格与接口记录，M1 未关闭。下一个必要证据是具备真实 lease 条件的 Linux 运行、可实际写入的 Codex Builder、固定网页/H5 样例与独立浏览器验证；再以完整义务和当前有效证明判断受限范围验收。本轮不新增 UI、任意网页、桌面/游戏或全平台支持声明。
+M0 已按上述精确来源完成 PW-01 及相关接口边界的验收，M1 保持进行中。下一个必要证据是可实际写入的 Codex Builder、固定网页/H5 样例与独立浏览器验证；再以完整义务和当前有效证明判断受限范围验收。已有 Linux 项目核心结果无需被真实 Agent 的环境阻塞撤销，也不能代替后者。本轮不新增 UI、任意网页、桌面/游戏、其他平台或发行包支持声明。
 
 ## 9. 本文件所依据的既有契约
 
