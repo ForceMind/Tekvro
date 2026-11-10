@@ -1,5 +1,14 @@
 /** Canonical names used by every one-shot CLI command registration. */
 export const CLI_COMMANDS = Object.freeze({
+  createProject: "create-project",
+  inspectProject: "inspect-project",
+  editProject: "edit-project",
+  buildProject: "build-project",
+  checkProject: "check-project",
+  refineProject: "refine-project",
+  resumeProjectBuild: "resume-project-build",
+  inspectProjectRun: "inspect-project-run",
+  adjustProjectRunBudget: "adjust-project-run-budget",
   inspectPacketFields: "inspect-packet-fields",
   inspectPacketCapture: "inspect-packet-capture",
   inspectSignalDecoders: "inspect-signal-decoders",

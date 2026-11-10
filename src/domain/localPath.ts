@@ -19,9 +19,16 @@ export const nulFreeStringSchema = z
 /** A selected local filesystem path: nonempty and free of NUL bytes. */
 export const localPathStringSchema = nulFreeStringSchema.min(1);
 
+/**
+ * Absolute POSIX or Windows spellings retained in cross-host metadata.
+ * Hex-escape the forward slash so published classes also compile in `v` mode.
+ */
+export const CROSS_PLATFORM_ABSOLUTE_PATH_PATTERN =
+  /^(?:[\\\x2f]|[A-Za-z]:[\\\x2f])/u;
+
 /** A caller-selected path that is absolute on the host running REA. */
 export const absoluteLocalPathStringSchema = localPathStringSchema.regex(
-  process.platform === "win32" ? /^(?:[\\/]|[A-Za-z]:[\\/])/u : /^\//u,
+  process.platform === "win32" ? CROSS_PLATFORM_ABSOLUTE_PATH_PATTERN : /^\//u,
   "must be an absolute local filesystem path",
 );
 

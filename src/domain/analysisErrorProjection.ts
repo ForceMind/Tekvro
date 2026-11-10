@@ -41,6 +41,7 @@ import {
 import { ProviderAdapterError } from "./providerAdapterError.js";
 import { ProviderSelectionError } from "./providerSelectionError.js";
 import { UnknownRegistryError } from "./unknownRegistryError.js";
+import { ProjectRevisionConflict } from "./projectErrors.js";
 import { providerRetryAction } from "./providerOperationHealth.js";
 import {
   primaryAnalysisError,
@@ -378,6 +379,12 @@ const requestErrorDetails = (
       reason: error.reason,
       expected: error.expected,
       actual: error.actual,
+    };
+  if (error instanceof ProjectRevisionConflict)
+    return {
+      reason: "revision_conflict",
+      expected: { ...error.expected },
+      current: { ...error.current },
     };
   if (error instanceof EvidenceIntegrityError) return { reason: error.message };
   return undefined;

@@ -132,6 +132,14 @@ export const toolFamilyCatalog = (sources) => {
       ],
     },
     {
+      id: "project",
+      surface: "project-workflow",
+      contracts: [
+        ...sources.projectContracts.PROJECT_TOOL_CONTRACTS,
+        ...sources.projectRunContracts.PROJECT_RUN_TOOL_CONTRACTS,
+      ],
+    },
+    {
       id: "session",
       surface: "session",
       contracts: sources.sessionContracts.SESSION_TOOL_CONTRACTS,

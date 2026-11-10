@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
+import type { AnalysisError } from "../../domain/analysisErrorBase.js";
 import { mkdir, readdir, realpath } from "node:fs/promises";
 import { join } from "node:path";
+import { z } from "zod";
 import { ArtifactResourceScope } from "../../artifacts/ArtifactResourceScope.js";
 import { digestCanonicalValue } from "../../domain/canonicalDigest.js";
 import {
@@ -19,24 +21,21 @@ import {
   projectRevisionToken,
   projectTokenSchema,
   sealProjectRevision,
+  projectCheckRefSchema,
+  type ProjectCheckRef,
+  type ProjectManifest,
   type ProjectRevision,
-  type ProjectToken,
 } from "../../domain/projectManifest.js";
+import {
+  projectRunRecordSchema,
+  type ProjectRunRecord,
+} from "../../domain/projectRun.js";
 import { err, ok, type Result } from "../../domain/result.js";
 import { absoluteCallerPath } from "../../filesystem/callerPath.js";
 import { readJsonFile, writeTextParts } from "../JsonFiles.js";
-
-/** A stale writer must reopen the project and reapply its intended edit. */
-export class ProjectRevisionConflict extends EvidenceIntegrityError {
-  constructor(
-    readonly expected: ProjectToken,
-    readonly current: ProjectToken,
-  ) {
-    super(
-      `Project revision conflict: expected ${expected.revision}, current ${current.revision}. Reopen the project before editing.`,
-    );
-  }
-}
+import { ProjectRevisionConflict } from "../../domain/projectErrors.js";
+import { ProjectRunStore } from "./ProjectRunStore.js";
+export { ProjectRevisionConflict } from "../../domain/projectErrors.js";
 
 type Failure =
   | EvidenceFileError
@@ -52,6 +51,49 @@ const filename = (revision: number): string =>
   `${String(revision).padStart(16, "0")}.json`;
 const invalid = (message: string, cause?: unknown): EvidenceIntegrityError =>
   new EvidenceIntegrityError(message, { cause });
+const runMatchesScope = (
+  run: ProjectRunRecord,
+  project: ProjectManifest,
+): boolean =>
+  run.project_token.project_id === project.project_id &&
+  run.scope_revision === project.scope_revision &&
+  run.scope_sha256 === project.scope_sha256 &&
+  run.source_sha256 === project.scope.target.sha256 &&
+  run.requirements_sha256 === digestCanonicalValue(project.scope.requirements);
+const runProjectionSchema = z.strictObject({
+  expected: projectTokenSchema,
+  run: projectRunRecordSchema,
+  check: projectCheckRefSchema.optional(),
+});
+const checkMatchesRun = (
+  check: ProjectCheckRef | undefined,
+  run: ProjectRunRecord,
+): boolean =>
+  check === undefined ||
+  (check.run_id === run.run_id &&
+    run.check_ids.includes(check.check_id) &&
+    check.scope_sha256 === run.scope_sha256 &&
+    check.candidate_sha256 === run.candidate_sha256);
+const withCheckReference = (
+  references: ProjectCheckRef[],
+  check: ProjectCheckRef | undefined,
+): ProjectCheckRef[] =>
+  check === undefined
+    ? references
+    : [...references.filter((item) => item.check_id !== check.check_id), check];
+const canProjectRun = (
+  run: ProjectRunRecord,
+  project: ProjectManifest,
+): boolean => {
+  const lastRunId = project.run_ids.at(-1);
+  return (
+    lastRunId === undefined ||
+    lastRunId === run.run_id ||
+    (!["running", "cancelling"].includes(project.execution_status) &&
+      (!project.run_ids.includes(run.run_id) ||
+        run.execution_status === "running"))
+  );
+};
 
 /**
  * Immutable revision slots provide cross-process compare-and-swap. The shared
@@ -245,6 +287,15 @@ export class ProjectStore {
         ? current.project.candidate_sha256
         : edit.data.candidate_sha256;
     const scopeChanged = scopeDigest !== current.project.scope_sha256;
+    if (
+      ["running", "cancelling"].includes(current.project.execution_status) &&
+      (scopeChanged || candidate !== current.project.candidate_sha256)
+    )
+      return err(
+        invalid(
+          "Project scope and candidate cannot change while its execution is active; cancel or finish that run first",
+        ),
+      );
     if (scopeChanged && edit.data.change_reason === undefined)
       return err(
         invalid("Changing project scope requires a recorded change_reason"),
@@ -291,6 +342,128 @@ export class ProjectStore {
       );
     }
     return written;
+  }
+
+  /**
+   * Project a committed, authenticated run boundary into metadata. Callers cannot
+   * patch lifecycle fields through edit, and a check never grants global pass.
+   */
+  async recordRun(
+    directory: string,
+    expectedInput: unknown,
+    runInput: unknown,
+    options: { readonly check?: unknown; readonly signal?: AbortSignal } = {},
+  ): Promise<Result<StoredProject, AnalysisError>> {
+    const { check: checkInput, signal } = options;
+    const request = runProjectionSchema.safeParse({
+      expected: expectedInput,
+      run: runInput,
+      check: checkInput,
+    });
+    if (!request.success)
+      return err(invalid("Invalid committed project run projection"));
+    const { expected, run: observed, check } = request.data;
+    const savedRun = await new ProjectRunStore(this.resources).read(
+      directory,
+      observed.run_id,
+      signal,
+    );
+    if (!savedRun.ok) return savedRun;
+    if (
+      digestCanonicalValue(savedRun.value.run) !==
+      digestCanonicalValue(observed)
+    )
+      return err(
+        invalid("Run projection is not the latest committed run boundary"),
+      );
+    const loaded = await this.read(directory, signal);
+    if (!loaded.ok) return loaded;
+    const current = loaded.value.revision;
+    const token = projectRevisionToken(current);
+    if (digestCanonicalValue(expected) !== digestCanonicalValue(token))
+      return err(new ProjectRevisionConflict(expected, token));
+    if (!canProjectRun(observed, current.project))
+      return err(
+        invalid(
+          "A different run is the current project execution; inspect it before selecting an older run",
+        ),
+      );
+    if (!runMatchesScope(observed, current.project))
+      return err(invalid("Run belongs to another project scope revision"));
+    const origin = await this.#validateRunOrigin(
+      loaded.value.directory,
+      observed,
+      signal,
+    );
+    if (!origin.ok) return origin;
+    if (!checkMatchesRun(check, observed))
+      return err(
+        invalid("Check reference does not belong to the committed run"),
+      );
+    const next = projectManifestSchema.safeParse({
+      ...current.project,
+      revision: current.project.revision + 1,
+      updated_at: new Date(
+        Math.max(Date.now(), Date.parse(current.project.updated_at)),
+      ).toISOString(),
+      phase: observed.phase,
+      execution_status: observed.execution_status,
+      acceptance_status: observed.acceptance_status,
+      candidate_sha256: observed.candidate_sha256,
+      run_ids: [
+        ...current.project.run_ids.filter((id) => id !== observed.run_id),
+        observed.run_id,
+      ],
+      check_refs: withCheckReference(current.project.check_refs, check),
+    });
+    if (!next.success)
+      return err(invalid("Invalid project run projection", next.error));
+    const written = await this.#publish(
+      loaded.value.directory,
+      sealProjectRevision(next.data, current.digest),
+      signal,
+    );
+    if (
+      !written.ok &&
+      written.error instanceof EvidenceFileError &&
+      written.error.reason === "exists"
+    ) {
+      const latest = await this.read(loaded.value.directory, signal);
+      return latest.ok
+        ? err(
+            new ProjectRevisionConflict(
+              expected,
+              projectRevisionToken(latest.value.revision),
+            ),
+          )
+        : latest;
+    }
+    return written;
+  }
+
+  async #validateRunOrigin(
+    directory: string,
+    run: ProjectRunRecord,
+    signal?: AbortSignal,
+  ): Promise<Result<void, Failure>> {
+    const origin = await readJsonFile(
+      join(directory, filename(run.project_token.revision)),
+      signal,
+      this.resources,
+      "project_run_origin",
+    );
+    if (!origin.ok) return origin;
+    const original = projectRevisionSchema.safeParse(origin.value);
+    if (
+      !original.success ||
+      digestCanonicalValue(projectRevisionToken(original.data)) !==
+        digestCanonicalValue(run.project_token) ||
+      !runMatchesScope(run, original.data.project)
+    )
+      return err(
+        invalid("Run's original project revision cannot be authenticated"),
+      );
+    return ok(undefined);
   }
 
   async #publish(

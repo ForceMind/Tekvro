@@ -16,47 +16,45 @@ import {
 import { digestCanonicalValue } from "../domain/canonicalDigest.js";
 
 const PROPERTY_DESCRIPTIONS: Readonly<Record<string, string>> = {
-  addresses: "Ordered provider-normalized procedure addresses to analyze.",
+  addresses: "Ordered provider-normalized procedure addresses.",
   after: "The later or right-hand observation to compare.",
   before: "The earlier or left-hand observation to compare.",
-  boundary_id: "Exact reconstruction boundary identifier to evaluate.",
-  case_sensitive:
-    "Whether text matching distinguishes uppercase and lowercase.",
+  boundary_id: "Exact reconstruction boundary identifier.",
+  case_sensitive: "Whether text matching is case-sensitive.",
   cdp_endpoint: "Literal loopback Chrome DevTools Protocol endpoint.",
-  comment: "Exact analyst comment text to write.",
+  comment: "Exact analyst comment text.",
   comparisons: "Validated comparison Evidence records to aggregate.",
   coverage: "Exact reconstruction-coverage commitment to verify.",
-  direction: "Direction in which to traverse or compare relationships.",
+  direction: "Relationship traversal or comparison direction.",
   document: "Exact provider document or program identity.",
-  error: "Structured, caller-actionable error when the operation fails.",
-  evidence: "Evidence record produced by this operation.",
-  evidence_id: "Stable identifier of the recorded Evidence observation.",
-  executable: "Command name or executable path to run.",
-  format: "Declared input artifact format.",
-  name: "Exact name used by this operation.",
+  error: "Structured actionable operation error.",
+  evidence: "Produced Evidence record.",
+  evidence_id: "Stable recorded Evidence identifier.",
+  executable: "Command name or executable path.",
+  format: "Declared artifact format.",
+  name: "Exact name.",
   pattern:
     "Literal text or regular expression used to filter matching results.",
-  phase: "Current plan or execution phase of the operation.",
+  phase: "Current plan or execution phase.",
   plan: "Content-bound execution plan and its digest commitment.",
-  query: "Non-empty feature or text query to investigate.",
+  query: "Non-empty feature or text query.",
   question: "Concrete unresolved question to retain for later investigation.",
-  result: "Primary structured result returned by this operation.",
+  result: "Primary structured result.",
   left: "Left-hand input used for comparison or differential execution.",
-  limits:
-    "Resource budgets that bound execution and retained output for this operation.",
-  mode: "Operation mode that selects the requested behavior.",
+  limits: "Execution and retained output budgets.",
+  local_path: "Local filesystem path.",
+  mode: "Requested operation mode.",
   overwrite: "Whether an existing destination may be replaced.",
-  path: "Local filesystem path used by this operation.",
+  path: "Local filesystem path.",
   provider_id:
     "Exact deep-analysis provider ID, or automatic selection when omitted.",
   right: "Right-hand input used for comparison or differential execution.",
   source_evidence:
     "Evidence records supporting the prepared source transformation.",
-  status: "Current lifecycle or verification status.",
-  summary: "Concise evidence-backed summary of the result.",
+  status: "Lifecycle or verification status.",
+  summary: "Evidence-backed result summary.",
   symbols: "Ordered Swift symbols to demangle.",
-  target_id:
-    "Exact CDP target identifier selected from the endpoint's target listing.",
+  target_id: "Exact CDP target identifier from the endpoint's target listing.",
   unknown_id: "Exact residual-unknown identifier.",
 };
 
@@ -291,8 +289,7 @@ const fallbackPropertyDescription = (property: string): string | undefined => {
     : undefined;
   if (explicit !== undefined) return explicit;
   const words = property.replaceAll("_", " ");
-  if (property.startsWith("max_"))
-    return `Maximum permitted ${words.slice(4)} for this operation.`;
+  if (property.startsWith("max_")) return `Maximum ${words.slice(4)}.`;
   if (property.startsWith("include_"))
     return `Whether to include ${words.slice(8)} in the result.`;
   if (property.startsWith("expected_"))

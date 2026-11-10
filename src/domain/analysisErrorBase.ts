@@ -293,9 +293,17 @@ import type { WebModuleResolutionObservation } from "./webModuleTrace.js";
 import type { WebNetworkCapture } from "./webNetworkCapture.js";
 import type { FridaDeviceList, FridaProcessList } from "./fridaDiscovery.js";
 import type { CutterBridgeDiscovery } from "./cutterDiscovery.js";
+import type { ProjectSnapshot } from "./projectSnapshot.js";
+import type {
+  ProjectExecutionSnapshot,
+  ProjectExecutionPartialObservation,
+} from "./projectExecution.js";
 
 /** Provider-neutral evidence collected before a typed analysis failure. */
 export type AnalysisPartialObservation =
+  | ProjectSnapshot
+  | ProjectExecutionSnapshot
+  | ProjectExecutionPartialObservation
   | CutterBridgeDiscovery
   | FridaDeviceList
   | FridaProcessList

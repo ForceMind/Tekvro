@@ -21,6 +21,10 @@ const EXECUTION_WORDING_EXCEPTIONS: Readonly<Record<string, string>> = {
     "reports launch configuration without launching any process",
   update_analysis_settings:
     "resets defaults to launch configuration without launching any process",
+  inspect_project_run:
+    "reads persisted run events and execution states without launching a Builder or checker",
+  adjust_project_run_budget:
+    "appends a finite budget decision to run metadata without executing a Builder or checker",
   inspect_with_objdump:
     "runs a caller-selected inspection tool, not target code",
   start_gdb_session:
@@ -169,10 +173,12 @@ describe("tool effects", () => {
       ({ effects }) => effects.executesForeignCode || effects.mutatesDevice,
     );
     expect(destructive.map(({ name }) => name).sort()).toEqual([
+      "build_project",
       "capture_browser_scenario",
       "capture_electron_scenario",
       "capture_native_ui_scenario",
       "capture_process_scenario",
+      "check_project",
       "close_frida_session",
       "close_gdb_session",
       "close_rizin_debug_session",
@@ -184,7 +190,9 @@ describe("tool effects", () => {
       "load_frida_script",
       "observe_native_calls",
       "push_adb_file",
+      "refine_project",
       "resume_frida_session",
+      "resume_project_build",
       "rizin_debug_command",
       "start_adb_activity",
       "start_adb_app",
