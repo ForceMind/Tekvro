@@ -72,7 +72,18 @@ if (mode === "hang") {
     }
   }
   if (mode === "duplicate") report.checks.push(check);
-  if (mode === "unknown") check.status = "unknown";
+  if (mode === "unknown" || mode === "required-unknown-optional-fail")
+    check.status = "unknown";
+  if (mode === "optional-unknown" || mode === "required-fail-optional-unknown")
+    report.checks.push({
+      requirement_id: "optional", status: "unknown",
+      detail: "Optional observation is unavailable"
+    });
+  if (mode === "optional-fail" || mode === "required-unknown-optional-fail")
+    report.checks.push({
+      requirement_id: "optional", status: "fail",
+      detail: "Optional observation did not match"
+    });
   if (mode === "missing") report.checks = [{ ...check, requirement_id: "optional" }];
   if (mode === "wrong-binding") report.binding.scope_revision += 1;
   if (mode === "wrong-invocation") report.check_id = "00000000-0000-4000-8000-000000000000";
@@ -82,7 +93,8 @@ if (mode === "hang") {
   if (mode === "invalid-json") process.stdout.write("not-json");
   else if (mode === "oversized") process.stdout.write("x".repeat(32768));
   else process.stdout.write(JSON.stringify(report));
-  process.exitCode = mode === "wrong-exit" ? 7 : status === "fail" ? 1 : 0;
+  process.exitCode = mode === "wrong-exit" ? 7 :
+    report.checks.some(({ status }) => status === "fail") ? 1 : 0;
 }
 `;
 

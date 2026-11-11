@@ -226,6 +226,61 @@ it.skipIf(process.platform === "win32")(
   15000,
 );
 
+it.each([
+  ["optional-unknown", "pass", 0, ["pass", "unknown"]],
+  ["optional-fail", "pass", 1, ["pass", "fail"]],
+  ["required-unknown-optional-fail", "unknown", 1, ["unknown", "fail"]],
+  ["required-fail-optional-unknown", "fail", 1, ["fail", "unknown"]],
+] as const)(
+  "evaluates %s against required obligations without hiding optional observations",
+  async (mode, outcome, exitCode, statuses) => {
+    const f = await fixture(mode);
+    if (mode === "required-fail-optional-unknown")
+      await writeFile(f.candidatePath, "a required defect\\n");
+    const checked = take(await f.service.run(f.request()));
+    expect(checked.outcome).toBe(outcome);
+    expect(checked.report.process?.exit_code).toBe(exitCode);
+    expect(checked.report.checks.map((item) => item.status)).toEqual(statuses);
+    expect(checked.limitations).toEqual(
+      outcome === "unknown"
+        ? ["Checker could not evaluate every required obligation"]
+        : [],
+    );
+  },
+);
+
+it("does not grant a pass for a project with no required obligations", async () => {
+  const f = await fixture();
+  const changed = take(
+    await f.store.edit(
+      f.initial.directory,
+      projectRevisionToken(f.initial.revision),
+      {
+        scope: {
+          ...f.project.scope,
+          requirements: f.project.scope.requirements.map((item) => ({
+            ...item,
+            required: false,
+          })),
+        },
+        change_reason: "Check the empty required obligation boundary",
+      },
+    ),
+  );
+  const checked = take(
+    await f.service.run({
+      ...f.request(),
+      project: changed.revision.project,
+    }),
+  );
+  expect(checked.report.process?.exit_code).toBe(0);
+  expect(checked.report.checks).toMatchObject([{ status: "pass" }]);
+  expect(checked.outcome).toBe("unknown");
+  expect(checked.limitations).toContain(
+    "Project scope has no required obligations",
+  );
+});
+
 it("refuses a changed pending binding before starting its command", async () => {
   const f = await fixture("hang");
   const request = f.request();

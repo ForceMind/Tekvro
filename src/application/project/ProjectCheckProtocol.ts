@@ -230,9 +230,11 @@ export const evaluateProjectCheckerResult = (input: {
     limitations.push(
       "Checker report has a different invocation or input binding",
     );
-  const required = input.project.scope.requirements
-    .filter((item) => item.required)
-    .map((item) => item.requirement_id);
+  const required = new Set(
+    input.project.scope.requirements
+      .filter((item) => item.required)
+      .map((item) => item.requirement_id),
+  );
   const allowed = new Set(
     input.project.scope.requirements.map((item) => item.requirement_id),
   );
@@ -240,15 +242,26 @@ export const evaluateProjectCheckerResult = (input: {
   if (
     claimed.size !== checks.length ||
     checks.some((item) => !allowed.has(item.requirement_id)) ||
-    required.some((id) => !claimed.has(id))
+    [...required].some((id) => !claimed.has(id))
   )
     limitations.push(
       "Checker report omits required obligations or contains duplicate/unknown obligations",
     );
-  if (checks.some((item) => item.status === "unknown"))
-    limitations.push("Checker could not evaluate every reported obligation");
-  const detectedFailure = checks.some((item) => item.status === "fail");
-  const expectedExit = detectedFailure
+  if (required.size === 0)
+    limitations.push("Project scope has no required obligations");
+  const requiredChecks = checks.filter((item) =>
+    required.has(item.requirement_id),
+  );
+  const requiredFailure = requiredChecks.some((item) => item.status === "fail");
+  if (
+    !requiredFailure &&
+    requiredChecks.some((item) => item.status === "unknown")
+  )
+    limitations.push("Checker could not evaluate every required obligation");
+  // Process exit reflects any detected failure, including optional checks;
+  // the scoped outcome is determined by required obligations alone.
+  const anyFailure = checks.some((item) => item.status === "fail");
+  const expectedExit = anyFailure
     ? input.manifest.failure_exit_code
     : input.manifest.success_exit_code;
   if (process.exit_code !== expectedExit)
@@ -258,7 +271,7 @@ export const evaluateProjectCheckerResult = (input: {
   return {
     checks,
     outcome:
-      limitations.length > 0 ? "unknown" : detectedFailure ? "fail" : "pass",
+      limitations.length > 0 ? "unknown" : requiredFailure ? "fail" : "pass",
     limitations,
   };
 };
