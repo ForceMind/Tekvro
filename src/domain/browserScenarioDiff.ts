@@ -90,6 +90,7 @@ export const compareBrowserScenarios = (
   const alignment = alignScenarioSteps(
     input.before_scenario,
     input.after_scenario,
+    normalization.rules,
   );
   const compared = compareAlignedSteps({
     beforeCapture: input.before_scenario,
@@ -146,6 +147,7 @@ export const compareBrowserScenarios = (
 const alignScenarioSteps = (
   beforeCapture: RetainedBrowserScenarioCapture,
   afterCapture: RetainedBrowserScenarioCapture,
+  rules: readonly BrowserScenarioNormalizationRule[],
 ): ScenarioAlignment => {
   const beforeDuplicates = duplicateStepIds(beforeCapture.steps);
   const afterDuplicates = duplicateStepIds(afterCapture.steps);
@@ -163,7 +165,7 @@ const alignScenarioSteps = (
     ...missingFailures("before", afterOnly),
     ...missingFailures("after", beforeOnly),
   ];
-  if (!captureContextsMatch(beforeCapture, afterCapture))
+  if (!captureContextsMatch(beforeCapture, afterCapture, rules))
     failures.push({
       code: "capture_context_mismatch",
       step_id: null,
@@ -292,13 +294,37 @@ const missingFailures = (
     reason: `Step ${stepId} is missing from the ${side} capture.`,
   }));
 
+/**
+ * Original and rebuilt sites may have different origins. Only an explicitly
+ * committed full-origin URL rule can make them comparable; arbitrary substring
+ * masking does not establish a shared capture context.
+ */
 const captureContextsMatch = (
   before: RetainedBrowserScenarioCapture,
   after: RetainedBrowserScenarioCapture,
-): boolean =>
-  before.browser.product === after.browser.product &&
-  before.browser.version === after.browser.version &&
-  before.scenario.start_origin === after.scenario.start_origin;
+  rules: readonly BrowserScenarioNormalizationRule[],
+): boolean => {
+  if (
+    before.browser.product !== after.browser.product ||
+    before.browser.version !== after.browser.version
+  )
+    return false;
+  const beforeOrigin = before.scenario.start_origin;
+  const afterOrigin = after.scenario.start_origin;
+  if (beforeOrigin === afterOrigin) return true;
+  if (
+    !rules.some(
+      ({ artifacts, match }) =>
+        artifacts.includes("url") &&
+        (match === beforeOrigin || match === afterOrigin),
+    )
+  )
+    return false;
+  return (
+    normalizeScenarioValue(beforeOrigin, "url", rules) ===
+    normalizeScenarioValue(afterOrigin, "url", rules)
+  );
+};
 
 interface CompareStepArtifactsInput {
   readonly beforeCapture: RetainedBrowserScenarioCapture;

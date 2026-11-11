@@ -753,6 +753,117 @@ describe("scenario comparison recovery guidance", () => {
   });
 });
 
+describe("browser scenario cross-origin alignment", () => {
+  it("requires a committed full-origin URL mapping before aligning original and rebuilt sites", () => {
+    const before = scenarioCapture({});
+    const after = browserScenarioCaptureSchema.parse(
+      JSON.parse(
+        JSON.stringify(before).replaceAll(
+          "https://app.example.test",
+          "http://127.0.0.1:4173",
+        ),
+      ),
+    );
+    const compare = (
+      rules: {
+        readonly rule_id: string;
+        readonly artifacts: readonly ("url" | "action_state")[];
+        readonly match: string;
+        readonly replacement: string;
+      }[] = [],
+    ) =>
+      compareBrowserScenarios(
+        compareBrowserScenariosInputSchema.parse({
+          before_scenario: before,
+          after_scenario: after,
+          normalization: { rules },
+        }),
+      );
+    const notMapped = compare();
+    expect(notMapped.alignment.failures).toContainEqual(
+      expect.objectContaining({ code: "capture_context_mismatch" }),
+    );
+    expect(notMapped.overall_status).not.toBe("unchanged");
+
+    const partialRule = compare([
+      {
+        rule_id: "action-only",
+        artifacts: ["action_state"],
+        match: "http://127.0.0.1:4173",
+        replacement: "https://app.example.test",
+      },
+    ]);
+    expect(partialRule.alignment.failures).toContainEqual(
+      expect.objectContaining({ code: "capture_context_mismatch" }),
+    );
+
+    const substringRule = compare([
+      {
+        rule_id: "substring-only",
+        artifacts: ["url", "action_state"],
+        match: "127.0.0.1:4173",
+        replacement: "app.example.test",
+      },
+    ]);
+    expect(substringRule.alignment.failures).toContainEqual(
+      expect.objectContaining({ code: "capture_context_mismatch" }),
+    );
+
+    const mapped = compare([
+      {
+        rule_id: "local-origin-to-target",
+        artifacts: ["url", "action_state"],
+        match: "http://127.0.0.1:4173",
+        replacement: "https://app.example.test",
+      },
+    ]);
+    expect(mapped.alignment).toMatchObject({
+      status: "aligned",
+      failures: [],
+    });
+    expect(mapped.overall_status).toBe("unchanged");
+    expect(mapped.artifact_diffs.total).toBe(0);
+    expect(mapped.normalization.rules[0]).toMatchObject({
+      rule_id: "local-origin-to-target",
+      match: "http://127.0.0.1:4173",
+    });
+    expect(after.scenario.start_origin).toBe("http://127.0.0.1:4173");
+    expect(before.scenario.start_origin).toBe("https://app.example.test");
+  });
+
+  it("still rejects a changed browser product with a committed full-origin mapping", () => {
+    const before = scenarioCapture({});
+    const after = browserScenarioCaptureSchema.parse({
+      ...before,
+      browser: { ...before.browser, product: "OtherBrowser" },
+      scenario: {
+        ...before.scenario,
+        start_origin: "http://127.0.0.1:4173",
+      },
+    });
+    const result = compareBrowserScenarios(
+      compareBrowserScenariosInputSchema.parse({
+        before_scenario: before,
+        after_scenario: after,
+        normalization: {
+          rules: [
+            {
+              rule_id: "origin",
+              artifacts: ["url", "action_state"],
+              match: "http://127.0.0.1:4173",
+              replacement: "https://app.example.test",
+            },
+          ],
+        },
+      }),
+    );
+    expect(result.alignment.failures).toContainEqual(
+      expect.objectContaining({ code: "capture_context_mismatch" }),
+    );
+    expect(result.overall_status).not.toBe("unchanged");
+  });
+});
+
 describe("browser scenario comparison", () => {
   it("records canonical literal normalization and ignores declared volatile fields", () => {
     const before = scenarioCapture({
