@@ -753,7 +753,7 @@ describe("scenario comparison recovery guidance", () => {
   });
 });
 
-describe("browser scenario comparison", () => {
+describe("browser scenario cross-origin alignment", () => {
   it("requires a committed full-origin URL mapping before aligning original and rebuilt sites", () => {
     const before = scenarioCapture({});
     const after = browserScenarioCaptureSchema.parse(
@@ -863,6 +863,9 @@ describe("browser scenario comparison", () => {
     expect(result.overall_status).not.toBe("unchanged");
   });
 
+});
+
+describe("browser scenario comparison", () => {
   it("records canonical literal normalization and ignores declared volatile fields", () => {
     const before = scenarioCapture({
       domText: "<main data-build='build-123'>Settings</main>",
