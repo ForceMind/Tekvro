@@ -764,12 +764,14 @@ describe("browser scenario comparison", () => {
         ),
       ),
     );
-    const compare = (rules: {
-      readonly rule_id: string;
-      readonly artifacts: readonly ("url" | "action_state")[];
-      readonly match: string;
-      readonly replacement: string;
-    }[] = []) =>
+    const compare = (
+      rules: {
+        readonly rule_id: string;
+        readonly artifacts: readonly ("url" | "action_state")[];
+        readonly match: string;
+        readonly replacement: string;
+      }[] = [],
+    ) =>
       compareBrowserScenarios(
         compareBrowserScenariosInputSchema.parse({
           before_scenario: before,
@@ -834,19 +836,24 @@ describe("browser scenario comparison", () => {
     const after = browserScenarioCaptureSchema.parse({
       ...before,
       browser: { ...before.browser, product: "OtherBrowser" },
-      scenario: { ...before.scenario, start_origin: "http://127.0.0.1:4173" },
+      scenario: {
+        ...before.scenario,
+        start_origin: "http://127.0.0.1:4173",
+      },
     });
     const result = compareBrowserScenarios(
       compareBrowserScenariosInputSchema.parse({
         before_scenario: before,
         after_scenario: after,
         normalization: {
-          rules: [{
-            rule_id: "origin",
-            artifacts: ["url", "action_state"],
-            match: "http://127.0.0.1:4173",
-            replacement: "https://app.example.test",
-          }],
+          rules: [
+            {
+              rule_id: "origin",
+              artifacts: ["url", "action_state"],
+              match: "http://127.0.0.1:4173",
+              replacement: "https://app.example.test",
+            },
+          ],
         },
       }),
     );
