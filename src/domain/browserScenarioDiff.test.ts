@@ -862,7 +862,6 @@ describe("browser scenario cross-origin alignment", () => {
     );
     expect(result.overall_status).not.toBe("unchanged");
   });
-
 });
 
 describe("browser scenario comparison", () => {
