@@ -7,6 +7,7 @@ import { createBrowserScenarioProvider } from "../../dist/composition/browserSce
 import { browserScenarioSchema } from "../../dist/domain/browserScenario.js";
 import { compareBrowserScenarios } from "../../dist/domain/browserScenarioDiff.js";
 import { compareBrowserScenariosInputSchema } from "../../dist/domain/browserScenarioDiffValues.js";
+import { readPngHeaderDimensions } from "../../dist/domain/pngHeader.js";
 import { withVerifierCleanup } from "./verifier-cleanup.mjs";
 
 function fixturePage(increment) {
@@ -88,8 +89,8 @@ async function capture(executable, origin, width) {
   assert.ok(reopened, "Reopening must produce a retained step");
   const { screenshot, storage } = reopened.artifacts;
   assert.equal(screenshot.state, "captured");
-  assert.equal(screenshot.value.width, width);
-  assert.equal(screenshot.value.height, 640);
+  const png = Buffer.from(screenshot.value.data_base64, "base64");
+  assert.deepEqual(readPngHeaderDimensions(png), { width, height: 640 });
   assert.equal(storage.state, "captured");
   const counter = storage.value.local_storage.find(
     ({ name }) => name === "fixture-counter",
