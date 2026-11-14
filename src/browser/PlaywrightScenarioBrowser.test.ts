@@ -216,17 +216,21 @@ it("does not treat ambient opt-out as a selected browser setting", async () => {
   vi.stubEnv("REA_BROWSER_NO_SANDBOX", "true");
   let observed: boolean | undefined;
   await expect(
-    openPlaywrightScenarioBrowser(sandboxLaunchScenario, {}, {
-      launcher: {
-        connectOverCDP: async () => {
-          throw new Error("Unexpected connection");
-        },
-        launchPersistentContext: async (_profile, options) => {
-          observed = options?.chromiumSandbox;
-          throw new Error("launch boundary reached");
+    openPlaywrightScenarioBrowser(
+      sandboxLaunchScenario,
+      {},
+      {
+        launcher: {
+          connectOverCDP: async () => {
+            throw new Error("Unexpected connection");
+          },
+          launchPersistentContext: async (_profile, options) => {
+            observed = options?.chromiumSandbox;
+            throw new Error("launch boundary reached");
+          },
         },
       },
-    }),
+    ),
   ).rejects.toThrow("launch boundary reached");
   expect(observed).toBe(true);
 });

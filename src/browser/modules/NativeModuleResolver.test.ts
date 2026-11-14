@@ -251,7 +251,8 @@ describe("native resolver Chromium sandbox selection", () => {
       () =>
         Promise.resolve({
           version: () => "fixture",
-          newContext: () => Promise.reject(new Error("fixture context failure")),
+          newContext: () =>
+            Promise.reject(new Error("fixture context failure")),
           close: () => Promise.resolve(),
         }),
     );
