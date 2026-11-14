@@ -201,7 +201,6 @@ describe("optional native resolution acquisition", () => {
   });
 });
 
-
 describe("native resolver Chromium sandbox selection", () => {
   const hostPlatform = process.platform;
   afterEach(() => {
@@ -210,8 +209,16 @@ describe("native resolver Chromium sandbox selection", () => {
 
   it.each([
     { platform: "linux", environment: {}, enabled: true },
-    { platform: "linux", environment: { REA_BROWSER_NO_SANDBOX: "false" }, enabled: true },
-    { platform: "linux", environment: { REA_BROWSER_NO_SANDBOX: "true" }, enabled: false },
+    {
+      platform: "linux",
+      environment: { REA_BROWSER_NO_SANDBOX: "false" },
+      enabled: true,
+    },
+    {
+      platform: "linux",
+      environment: { REA_BROWSER_NO_SANDBOX: "true" },
+      enabled: false,
+    },
     { platform: "android", environment: {}, enabled: false },
   ])(
     "uses Chromium sandbox=$enabled on $platform for $environment",

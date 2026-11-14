@@ -174,7 +174,6 @@ it("keeps Termux execution support when launching Chromium on Android", async ()
   });
 });
 
-
 const sandboxLaunchScenario = browserScenarioSchema.parse({
   browser: { mode: "launch", executable_path: process.execPath },
   start_url: { url: "https://example.test" },
