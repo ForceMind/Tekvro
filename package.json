@@ -141,7 +141,7 @@
     "build:termux": "node scripts/run-exclusive.mjs artifacts npm run build:termux:run",
     "build:termux:run": "npm run compile:termux && npm run artifacts:skills",
     "format": "oxfmt .",
-    "format:check": "oxfmt --check .",
+    "format:check": "oxfmt --check . || (oxfmt src/browser/PlaywrightScenarioBrowser.test.ts src/browser/modules/NativeModuleResolver.test.ts && git diff -- src/browser/PlaywrightScenarioBrowser.test.ts src/browser/modules/NativeModuleResolver.test.ts && exit 1)",
     "lint": "node scripts/ci/static-check-report.mjs lint && npm run verify:module-boundaries",
     "lint:details": "oxlint && npm run verify:module-boundaries",
     "lint:built": "npm run lint",
