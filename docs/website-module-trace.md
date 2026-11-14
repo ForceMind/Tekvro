@@ -11,6 +11,10 @@ matching capture candidate inline. It does not refetch website assets.
 Provide a caller-supplied Chromium executable supporting `import.meta.resolve`.
 Tekvro does not install or upgrade a browser. Real verification covers Linux x64;
 other hosts have not received this feature's real workflow verification.
+For Tekvro-launched Chromium the sandbox is explicitly requested by default.
+Only the selected environment's `REA_BROWSER_NO_SANDBOX=true` opts out where
+host support is unavailable (Android/Termux does not support this sandbox).
+Do not disable it merely to hide a different launch or target failure.
 
 ```bash
 REA_BROWSER_EXECUTABLE=/absolute/path/to/chrome \

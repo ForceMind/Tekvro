@@ -51,6 +51,19 @@ covers endpoint discovery only. The following WebSocket handshake and
 `Target.attachToTarget` each use `command_timeout_ms`. `capture.limits` controls retained event and network-content
 budgets; it does not change those liveness deadlines.
 
+## Chromium sandbox policy
+
+For a Tekvro-owned Chromium launch, the browser sandbox is enabled by default
+where supported. Playwright otherwise disables it unless the launcher explicitly
+requests `chromiumSandbox: true`. Set `REA_BROWSER_NO_SANDBOX=true` in the
+**selected launch environment** only when the host cannot provide the sandbox.
+The Android/Termux launch retains its single-process compatibility mode and
+cannot use that sandbox. An externally attached browser keeps its own security
+configuration; Tekvro does not change it. Disabling the sandbox reduces
+isolation and must not be used as a general workaround for unrelated failures.
+A successful process or protocol fixture does not itself establish OS-level
+sandbox enforcement; check the browser host when making that claim.
+
 ## Minimal launch example
 
 Save this as `browser-scenario.json`, replacing the executable path with an
