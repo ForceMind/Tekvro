@@ -165,12 +165,71 @@ it("keeps Termux execution support when launching Chromium on Android", async ()
     }),
   ).rejects.toThrow("launch boundary reached");
 
-  expect(launchOptions?.args).toEqual(["--no-sandbox", "--single-process"]);
+  expect(launchOptions?.chromiumSandbox).toBe(false);
+  expect(launchOptions?.args).toEqual(["--single-process"]);
   expect(launchOptions?.env).toEqual({
     LANG: "selected-language",
     LD_PRELOAD: "/data/data/com.termux/files/usr/lib/libtermux-exec.so",
     TERMUX_EXEC__PROC_SELF_EXE: process.execPath,
   });
+});
+
+
+const sandboxLaunchScenario = browserScenarioSchema.parse({
+  browser: { mode: "launch", executable_path: process.execPath },
+  start_url: { url: "https://example.test" },
+  actions: [{ step_id: "settle", action: "wait_for_timeout", duration_ms: 1 }],
+});
+
+it.each([
+  { environment: {}, enabled: true },
+  { environment: { REA_BROWSER_NO_SANDBOX: "false" }, enabled: true },
+  { environment: { REA_BROWSER_NO_SANDBOX: "1" }, enabled: true },
+  { environment: { REA_BROWSER_NO_SANDBOX: "true" }, enabled: false },
+])(
+  "passes Chromium sandbox=$enabled to the actual scenario launcher for $environment",
+  async ({ environment, enabled }) => {
+    Object.defineProperty(process, "platform", { value: "linux" });
+    let launchOptions: Parameters<
+      typeof import("playwright-core").chromium.launchPersistentContext
+    >[1];
+    await expect(
+      openPlaywrightScenarioBrowser(sandboxLaunchScenario, environment, {
+        launcher: {
+          connectOverCDP: async () => {
+            throw new Error("Unexpected connection");
+          },
+          launchPersistentContext: async (_profile, options) => {
+            launchOptions = options;
+            throw new Error("launch boundary reached");
+          },
+        },
+      }),
+    ).rejects.toThrow("launch boundary reached");
+    expect(launchOptions?.chromiumSandbox).toBe(enabled);
+    expect(launchOptions?.args).toEqual([]);
+    expect(launchOptions?.env).toEqual({});
+  },
+);
+
+it("does not treat ambient opt-out as a selected browser setting", async () => {
+  Object.defineProperty(process, "platform", { value: "linux" });
+  vi.stubEnv("REA_BROWSER_NO_SANDBOX", "true");
+  let observed: boolean | undefined;
+  await expect(
+    openPlaywrightScenarioBrowser(sandboxLaunchScenario, {}, {
+      launcher: {
+        connectOverCDP: async () => {
+          throw new Error("Unexpected connection");
+        },
+        launchPersistentContext: async (_profile, options) => {
+          observed = options?.chromiumSandbox;
+          throw new Error("launch boundary reached");
+        },
+      },
+    }),
+  ).rejects.toThrow("launch boundary reached");
+  expect(observed).toBe(true);
 });
 
 it("keeps attached-target ownership after the cleanup response timeout", async () => {
