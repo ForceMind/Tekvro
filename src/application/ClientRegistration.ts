@@ -30,7 +30,14 @@ const launcherSchema = z
 const opencodeLauncherSchema = z
   .object({
     type: z.literal("local"),
-    command: z.array(z.string()).min(1),
+    // The executable is mandatory; later argv entries may be empty strings.
+    command: z
+      .array(z.string())
+      .min(1)
+      .refine(([executable]) => executable !== "", {
+        path: [0],
+        message: "Launcher executable must not be empty",
+      }),
   })
   .passthrough();
 const normalizeOpencodeLauncher = (
