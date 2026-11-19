@@ -10,7 +10,7 @@ import { compareBrowserScenariosInputSchema } from "../../dist/domain/browserSce
 import { readPngHeaderDimensions } from "../../dist/domain/pngHeader.js";
 import { withVerifierCleanup } from "./verifier-cleanup.mjs";
 
-function fixturePage(increment) {
+export function fixturePage(increment) {
   return `<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Counter reconstruction fixture</title>
@@ -47,7 +47,7 @@ function close(server) {
   );
 }
 
-async function capture(executable, origin, width) {
+export async function captureReconstructionPage(executable, origin, width) {
   const url = `${origin}/`;
   const result = await createBrowserScenarioProvider(
     process.env,
@@ -105,7 +105,7 @@ async function capture(executable, origin, width) {
 
 const fingerprint = (value) => createHash("sha256").update(value).digest("hex");
 
-function compare(reference, candidate, rules = []) {
+export function compareReconstructionPages(reference, candidate, rules = []) {
   return compareBrowserScenarios(
     compareBrowserScenariosInputSchema.parse({
       before_scenario: reference.evidence,
@@ -115,7 +115,7 @@ function compare(reference, candidate, rules = []) {
   );
 }
 
-function fixtureServer(increment) {
+function fixtureServer(page) {
   return createServer((request, response) => {
     if (request.url !== "/") {
       response.writeHead(404).end();
@@ -126,41 +126,68 @@ function fixtureServer(increment) {
         "content-type": "text/html; charset=utf-8",
         "cache-control": "no-store",
       })
-      .end(fixturePage(increment()));
+      .end(page());
   });
+}
+
+/** Serve only the two selected fixture pages, each on its own loopback origin. */
+export async function withReconstructionPages(
+  referencePage,
+  candidatePage,
+  run,
+) {
+  const reference = fixtureServer(() => referencePage);
+  const candidate = fixtureServer(() => candidatePage);
+  return withVerifierCleanup(
+    async () => run(await listen(reference), await listen(candidate)),
+    [() => close(reference), () => close(candidate)],
+  );
+}
+
+/** Map only the two known fixture origins across comparable artifacts. */
+export function reconstructionOriginRules(referenceOrigin, candidateOrigin) {
+  return [
+    {
+      rule_id: "candidate-origin",
+      artifacts: ["url", "action_state", "storage"],
+      match: candidateOrigin,
+      replacement: referenceOrigin,
+    },
+  ];
 }
 
 /** Compare observed page behavior against a verifier-owned reference and expected state. */
 export async function verifyBrowserReconstruction(executable) {
   let increment = 1;
-  const reference = fixtureServer(() => 1);
-  const candidate = fixtureServer(() => increment);
+  const reference = fixtureServer(() => fixturePage(1));
+  const candidate = fixtureServer(() => fixturePage(increment));
   return withVerifierCleanup(async () => {
     const referenceOrigin = await listen(reference);
     const candidateOrigin = await listen(candidate);
-    const rules = [
-      {
-        rule_id: "candidate-origin",
-        artifacts: ["url", "action_state", "storage"],
-        match: candidateOrigin,
-        replacement: referenceOrigin,
-      },
-    ];
+    const rules = reconstructionOriginRules(referenceOrigin, candidateOrigin);
     const viewports = [];
     const expectedCounter = fingerprint("1");
 
     for (const width of [390, 768, 1440]) {
-      const original = await capture(executable, referenceOrigin, width);
-      const rebuilt = await capture(executable, candidateOrigin, width);
+      const original = await captureReconstructionPage(
+        executable,
+        referenceOrigin,
+        width,
+      );
+      const rebuilt = await captureReconstructionPage(
+        executable,
+        candidateOrigin,
+        width,
+      );
       assert.equal(original.counter, expectedCounter);
       assert.equal(rebuilt.counter, expectedCounter);
-      const unmapped = compare(original, rebuilt);
+      const unmapped = compareReconstructionPages(original, rebuilt);
       assert.ok(
         unmapped.alignment.failures.some(
           ({ code }) => code === "capture_context_mismatch",
         ),
       );
-      const matched = compare(original, rebuilt, rules);
+      const matched = compareReconstructionPages(original, rebuilt, rules);
       assert.equal(
         matched.overall_status,
         "unchanged",
@@ -177,10 +204,14 @@ export async function verifyBrowserReconstruction(executable) {
 
       if (width === 390) {
         increment = 2;
-        const broken = await capture(executable, candidateOrigin, width);
+        const broken = await captureReconstructionPage(
+          executable,
+          candidateOrigin,
+          width,
+        );
         assert.equal(broken.counter, fingerprint("2"));
         assert.notEqual(broken.counter, expectedCounter);
-        const changed = compare(original, broken, rules);
+        const changed = compareReconstructionPages(original, broken, rules);
         assert.equal(changed.overall_status, "changed");
         const reopen = changed.steps.find(
           ({ step_id }) => step_id === "reopen",
@@ -195,10 +226,14 @@ export async function verifyBrowserReconstruction(executable) {
           );
         }
         increment = 1;
-        const repaired = await capture(executable, candidateOrigin, width);
+        const repaired = await captureReconstructionPage(
+          executable,
+          candidateOrigin,
+          width,
+        );
         assert.equal(repaired.counter, expectedCounter);
         assert.equal(
-          compare(original, repaired, rules).overall_status,
+          compareReconstructionPages(original, repaired, rules).overall_status,
           "unchanged",
         );
       }

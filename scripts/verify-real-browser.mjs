@@ -42,6 +42,7 @@ import { completeVerifierRun, createVerifierRun } from "./lib/verifier-run.mjs";
 import { withVerifierCleanup } from "./lib/verifier-cleanup.mjs";
 import { requireOrdinaryWindowsVerifierCaller } from "./lib/windows-ordinary-user-verifier.mjs";
 import { verifyLargeScreenshotE2e } from "./lib/browser-screenshot-e2e.mjs";
+import { verifyBrowserProjectCheck } from "./lib/browser-project-check-e2e.mjs";
 import { verifyBrowserReconstruction } from "./lib/browser-reconstruction-e2e.mjs";
 import { verifyViewportScreenshotE2e } from "./lib/browser-viewport-screenshot-e2e.mjs";
 import { verifyPopupEventCoverage } from "./lib/browser-popup-e2e.mjs";
@@ -406,6 +407,8 @@ await withVerifierCleanup(async () => {
   const urlUserInfo = await verifyBrowserUrlUserInfo(endpoint, site.origin);
   process.stderr.write("Browser verifier: reconstruction comparison\n");
   const reconstruction = await verifyBrowserReconstruction(executable);
+  process.stderr.write("Browser verifier: project report binding\n");
+  const projectBrowserCheck = await verifyBrowserProjectCheck(executable);
   report = {
     browser: observed.value.browser.product,
     endpoint,
@@ -445,6 +448,7 @@ await withVerifierCleanup(async () => {
     scenarioServiceWorkers,
     viewportScreenshot,
     reconstruction,
+    projectBrowserCheck,
     verified: true,
   };
 }, [
