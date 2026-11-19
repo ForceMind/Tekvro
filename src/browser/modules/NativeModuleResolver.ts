@@ -1,3 +1,7 @@
+import {
+  chromiumLaunchRemediation,
+  chromiumSandboxEnabled,
+} from "../ChromiumSandbox.js";
 import { isAbsolute } from "node:path";
 import { z } from "zod";
 import type {
@@ -71,6 +75,20 @@ export type ModuleResolverLauncher = (
 const launch: ModuleResolverLauncher = async (options) =>
   (await import("playwright-core")).chromium.launch(options);
 
+const moduleResolverFailure = (
+  cause: unknown,
+  executable: string,
+  remediationAction: string | undefined,
+): ProviderAdapterError =>
+  new ProviderAdapterError("native-module-resolver", OPERATION, {
+    cause,
+    ...(remediationAction === undefined ? {} : { remediationAction }),
+    diagnostics: {
+      executable,
+      error_message: cause instanceof Error ? cause.message : String(cause),
+    },
+  });
+
 /** Use native import.meta.resolve in an owned context with locally fulfilled requests. */
 export class NativeModuleResolver implements WebModuleResolutionPort {
   #tail: Promise<void> = Promise.resolve();
@@ -121,6 +139,7 @@ export class NativeModuleResolver implements WebModuleResolutionPort {
           },
         ),
       );
+    const chromiumSandbox = chromiumSandboxEnabled(this.environment);
     const deadline = new ProviderStartupDeadline(TIMEOUT_MS, options?.signal);
     let activeCall:
       | { settled: boolean; interruption?: AnalysisError }
@@ -155,6 +174,7 @@ export class NativeModuleResolver implements WebModuleResolutionPort {
       );
     };
     let lease: AnalysisCleanupLease | undefined;
+    let launched = false;
     let cleanup: Promise<void> | undefined;
     const close = (): Promise<void> => {
       if (cleanup === undefined && lease !== undefined) {
@@ -185,17 +205,16 @@ export class NativeModuleResolver implements WebModuleResolutionPort {
           handleSIGINT: false,
           handleSIGTERM: false,
           handleSIGHUP: false,
+          chromiumSandbox,
           args: [
             "--disable-dev-shm-usage",
             "--disable-background-networking",
             "--renderer-process-limit=1",
             "--js-flags=--max-old-space-size=128",
-            ...(this.environment.REA_BROWSER_NO_SANDBOX === "true"
-              ? ["--no-sandbox"]
-              : []),
           ],
         }),
       );
+      launched = true;
       lease = new AnalysisCleanupLease(async () => {
         if (
           deadline.signal.aborted &&
@@ -227,14 +246,15 @@ export class NativeModuleResolver implements WebModuleResolutionPort {
               cause instanceof AnalysisCapabilityUnavailableError ||
               cause instanceof BrowserObservationError
             ? cause
-            : new ProviderAdapterError("native-module-resolver", OPERATION, {
+            : moduleResolverFailure(
                 cause,
-                diagnostics: {
-                  executable,
-                  error_message:
-                    cause instanceof Error ? cause.message : String(cause),
-                },
-              }),
+                executable,
+                // Only startup failures could be sandbox failures. Later
+                // engine/observation failures retain their existing guidance.
+                launched || !chromiumSandbox
+                  ? undefined
+                  : chromiumLaunchRemediation(true),
+              ),
       );
     } finally {
       deadline.signal.removeEventListener("abort", onAbort);
